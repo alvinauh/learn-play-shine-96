@@ -135,10 +135,12 @@ function StudentFeed() {
 
   const handleSubjectChange = (subject: SubjectKey) => {
     if (subject === activeSubject) return;
-    const firstTopic = SUBJECT_TOPICS[subject][0];
+    const firstTopic = SUBJECT_TOPICS[subject][0].value;
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
-    void loadSession(subject, firstTopic);
+    const nextLang: "en" | "ms" = BM_SUBJECTS.includes(subject) ? "ms" : "en";
+    setLang(nextLang);
+    void loadSession(subject, firstTopic, nextLang);
   };
 
   const handleTopicChange = (topic: string) => {
