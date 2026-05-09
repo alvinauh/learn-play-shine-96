@@ -49,6 +49,15 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 const STUDENT_ID = "00000000-0000-0000-0000-000000000001";
 type Letter = (typeof LETTERS)[number];
 
+const TOPICS = [
+  { topic: "Kinematics", subject: "Physics" },
+  { topic: "Electromagnetism", subject: "Physics" },
+  { topic: "Cell Division", subject: "Biology" },
+  { topic: "Asas Perniagaan", subject: "Perniagaan" },
+  { topic: "Sejarah Bab 1", subject: "Sejarah" },
+] as const;
+type TopicKey = (typeof TOPICS)[number]["topic"];
+
 function StudentFeed() {
   const { t, lang } = useI18n();
   const [session, setSession] = useState<SessionResponse | null>(null);
