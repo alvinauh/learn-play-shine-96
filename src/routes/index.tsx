@@ -34,6 +34,7 @@ function StudentFeed() {
   const [feedback, setFeedback] = useState<AnswerResponse | null>(null);
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
+  const [error, setError] = useState<string | null>(null);
 
   const mock: MockBundle = {
     question: t.mockQuestion,
@@ -52,10 +53,14 @@ function StudentFeed() {
     let mounted = true;
     setLoading(true);
     (async () => {
-      const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
-      if (mounted) {
-        setSession(data);
-        setLoading(false);
+      try {
+        const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
+        if (mounted) setSession(data);
+      } catch (err) {
+        console.error("[Skor] startSession error:", err);
+        if (mounted) setError("Couldn't load the next question. Please try again.");
+      } finally {
+        if (mounted) setLoading(false);
       }
     })();
     return () => {
@@ -68,29 +73,44 @@ function StudentFeed() {
     if (checking || feedback) return;
     setChecking(letter);
     setSelected(letter);
-    const res = await submitAnswer(
-      "student_001",
-      session?.topic ?? "Kinematics",
-      "KSSM",
-      letter,
-      session?.options?.[letter] ?? "",
-      mock,
-    );
-    setChecking(null);
-    setFeedback(res);
-    if (res.correct) {
-      setStreak((s) => s + 1);
-      setXp((x) => x + 25);
+    setError(null);
+    try {
+      const res = await submitAnswer(
+        "student_001",
+        session?.topic ?? "Kinematics",
+        "KSSM",
+        letter,
+        {},
+        mock,
+      );
+      setFeedback(res);
+      if (res.correct) {
+        setStreak((s) => s + 1);
+        setXp((x) => x + 25);
+      }
+    } catch (err) {
+      console.error("[Skor] submitAnswer error:", err);
+      setError("Couldn't submit your answer. Please try again.");
+      setSelected(null);
+    } finally {
+      setChecking(null);
     }
   };
 
   const handleNext = async () => {
     setFeedback(null);
     setSelected(null);
+    setError(null);
     setLoading(true);
-    const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
-    setSession(data);
-    setLoading(false);
+    try {
+      const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
+      setSession(data);
+    } catch (err) {
+      console.error("[Skor] startSession error:", err);
+      setError("Couldn't load the next question. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -156,6 +176,21 @@ function StudentFeed() {
           </button>
           <span className="ml-auto text-xs">@cikgu_aisyah</span>
         </div>
+
+        {error && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
+            <span>{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-xs font-semibold uppercase tracking-wider hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Question */}
         <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
