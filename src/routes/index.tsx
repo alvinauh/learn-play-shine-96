@@ -57,14 +57,14 @@ export const Route = createFileRoute("/")({
 const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
 
-const TOPICS = [
-  { topic: "Kinematics", subject: "Physics" },
-  { topic: "Electromagnetism", subject: "Physics" },
-  { topic: "Cell Division", subject: "Biology" },
-  { topic: "Asas Perniagaan", subject: "Perniagaan" },
-  { topic: "Sejarah Bab 1", subject: "Sejarah" },
-] as const;
-type TopicKey = (typeof TOPICS)[number]["topic"];
+const SUBJECT_TOPICS = {
+  Physics: ["Kinematics", "Electromagnetism"],
+  Sejarah: ["Bab 1 Warisan Negara Bangsa", "Bab 2 Kebangkitan Nasionalisme"],
+  Perniagaan: ["Asas Perniagaan", "Pengurusan Sumber Manusia"],
+  Biologi: ["Cell Division", "Respiration"],
+} as const;
+type SubjectKey = keyof typeof SUBJECT_TOPICS;
+const SUBJECTS = Object.keys(SUBJECT_TOPICS) as SubjectKey[];
 
 function StudentFeed() {
   const { t, lang } = useI18n();
