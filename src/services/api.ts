@@ -181,6 +181,7 @@ export async function submitAnswer(
   studentAnswer: string,
   draft: Record<string, unknown> = {},
   mock?: MockBundle,
+  language: string = "English",
 ): Promise<AnswerResponse> {
   try {
     return await postJSON<AnswerResponse>("/submit_answer", {
@@ -189,6 +190,7 @@ export async function submitAnswer(
       curriculum,
       student_answer: studentAnswer,
       draft,
+      language,
     });
   } catch (err) {
     console.warn("[Skor API] submitAnswer failed, using mock:", err);
