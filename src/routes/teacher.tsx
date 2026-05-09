@@ -1,6 +1,17 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, Target, AlertTriangle, ArrowLeft, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import {
+  Users,
+  Target,
+  AlertTriangle,
+  ArrowLeft,
+  TrendingUp,
+  TrendingDown,
+  Loader2,
+  LogOut,
+  LayoutDashboard,
+  School,
+} from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -17,6 +28,9 @@ import {
   type ClassMasteryItem,
   type RecentAlert,
 } from "@/services/api";
+import { ClassroomsPanel } from "@/components/teacher/ClassroomsPanel";
+import { useAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/teacher")({
   head: () => ({
