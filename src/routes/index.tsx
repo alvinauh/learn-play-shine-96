@@ -53,10 +53,14 @@ function StudentFeed() {
     let mounted = true;
     setLoading(true);
     (async () => {
-      const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
-      if (mounted) {
-        setSession(data);
-        setLoading(false);
+      try {
+        const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
+        if (mounted) setSession(data);
+      } catch (err) {
+        console.error("[Skor] startSession error:", err);
+        if (mounted) setError("Couldn't load the next question. Please try again.");
+      } finally {
+        if (mounted) setLoading(false);
       }
     })();
     return () => {
@@ -69,6 +73,7 @@ function StudentFeed() {
     if (checking || feedback) return;
     setChecking(letter);
     setSelected(letter);
+    setError(null);
     try {
       const res = await submitAnswer(
         "student_001",
@@ -85,7 +90,8 @@ function StudentFeed() {
       }
     } catch (err) {
       console.error("[Skor] submitAnswer error:", err);
-      setError(t.errorSubmit ?? "Something went wrong. Please try again.");
+      setError("Couldn't submit your answer. Please try again.");
+      setSelected(null);
     } finally {
       setChecking(null);
     }
@@ -94,10 +100,17 @@ function StudentFeed() {
   const handleNext = async () => {
     setFeedback(null);
     setSelected(null);
+    setError(null);
     setLoading(true);
-    const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
-    setSession(data);
-    setLoading(false);
+    try {
+      const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
+      setSession(data);
+    } catch (err) {
+      console.error("[Skor] startSession error:", err);
+      setError("Couldn't load the next question. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
