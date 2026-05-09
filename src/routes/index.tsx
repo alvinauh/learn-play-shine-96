@@ -279,6 +279,20 @@ function StudentFeed() {
           </Select>
         </div>
 
+        {/* Language toggle */}
+        <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/60 px-4 py-2.5 backdrop-blur">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
+            <span className={cn(lang !== "ms" && "text-foreground font-semibold")}>English</span>
+            <span className="opacity-40">/</span>
+            <span className={cn(lang === "ms" && "text-foreground font-semibold")}>Bahasa Melayu</span>
+          </div>
+          <Switch
+            checked={lang === "ms"}
+            onCheckedChange={(checked) => setLang(checked ? "ms" : "en")}
+            aria-label="Toggle language"
+          />
+        </div>
+
         {/* Media player card */}
         <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
