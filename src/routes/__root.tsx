@@ -126,8 +126,58 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <Outlet />
+        <AuthProvider>
+          <RouteGuard>
+            <Outlet />
+          </RouteGuard>
+        </AuthProvider>
       </I18nProvider>
     </QueryClientProvider>
   );
+}
+
+const PUBLIC_PATHS = new Set(["/login"]);
+
+function RouteGuard({ children }: { children: React.ReactNode }) {
+  const { user, profile, loading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const path = location.pathname;
+  const isPublic = PUBLIC_PATHS.has(path);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      if (!isPublic) void navigate({ to: "/login" });
+      return;
+    }
+    // Signed in: enforce role-based home
+    if (!profile) return;
+    if (path === "/login") {
+      void navigate({ to: profile.role === "teacher" ? "/teacher" : "/" });
+      return;
+    }
+    if (profile.role === "student" && path.startsWith("/teacher")) {
+      void navigate({ to: "/" });
+    }
+    if (profile.role === "teacher" && path === "/") {
+      void navigate({ to: "/teacher" });
+    }
+  }, [user, profile, loading, path, isPublic, navigate]);
+
+  if (loading) {
+    return (
+      <div className="grid min-h-[100dvh] place-items-center bg-background text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+  if (!user && !isPublic) {
+    return (
+      <div className="grid min-h-[100dvh] place-items-center bg-background text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+  return <>{children}</>;
 }
