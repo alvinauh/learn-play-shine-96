@@ -106,7 +106,8 @@ function StudentFeed() {
           </div>
           <span className="font-display text-xl font-bold tracking-tight">Skor</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-2 text-sm">
+          <LanguageSwitcher compact />
           <span className="rounded-full border border-border/60 bg-card/60 px-3 py-1 backdrop-blur">
             🔥 <span className="font-semibold">{streak}</span>
           </span>
