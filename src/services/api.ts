@@ -55,6 +55,13 @@ interface StartSessionApiResponse {
     options?: string[];
     correct_answer?: string;
   };
+  draft?: {
+    question?: string;
+    options?: string[];
+    correct_answer?: string;
+    topic?: string;
+    subject?: string;
+  };
 }
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
@@ -90,7 +97,7 @@ function normalizeSessionResponse(
   topic: string,
   subject: string,
 ): SessionResponse {
-  const question = data.question ?? data.question_data?.question;
+  const question = data.question ?? data.question_data?.question ?? data.draft?.question;
 
   if (!question) {
     throw new Error("Invalid start_session payload");
@@ -99,10 +106,13 @@ function normalizeSessionResponse(
   return {
     session_id: data.session_id,
     question,
-    options: normalizeOptions(data.options ?? data.question_data?.options),
-    correct: data.correct ?? data.question_data?.correct_answer,
-    topic: data.topic ?? topic,
-    subject: data.subject ?? subject,
+    options: normalizeOptions(
+      data.options ?? data.question_data?.options ?? data.draft?.options,
+    ),
+    correct:
+      data.correct ?? data.question_data?.correct_answer ?? data.draft?.correct_answer,
+    topic: data.topic ?? data.draft?.topic ?? topic,
+    subject: data.subject ?? data.draft?.subject ?? subject,
     media_url: data.media_url,
   };
 }
