@@ -48,7 +48,6 @@ export const Route = createFileRoute("/")({
 });
 
 const LETTERS = ["A", "B", "C", "D"] as const;
-const STUDENT_ID = "00000000-0000-0000-0000-000000000001";
 type Letter = (typeof LETTERS)[number];
 
 const TOPICS = [
