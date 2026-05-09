@@ -114,7 +114,7 @@ function StudentFeed() {
         STUDENT_ID,
         session.topic ?? "Kinematics",
         "KSSM",
-        letter,
+        session.options[letter],
         {},
         mock,
       );
