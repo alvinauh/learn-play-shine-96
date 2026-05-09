@@ -177,6 +177,21 @@ function StudentFeed() {
           <span className="ml-auto text-xs">@cikgu_aisyah</span>
         </div>
 
+        {error && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
+            <span>{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-xs font-semibold uppercase tracking-wider hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Question */}
         <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
           {loading || !session ? (
