@@ -271,9 +271,17 @@ function StudentFeed() {
             </section>
 
             <div className="grid gap-3">
-              {loading
+              {loading || !session || !LETTERS.every((l) => session.options?.[l])
                 ? LETTERS.map((l) => <Skeleton key={l} className="h-16 w-full rounded-2xl" />)
                 : LETTERS.map((letter) => {
+                    const optionText = session.options[letter];
+                    const isChecking = checking === letter;
+                    const isSelected = selected === letter;
+                    const showResult = feedback && isSelected;
+                    const isCorrectChoice =
+                      feedback &&
+                      (letter === feedback.correct_answer ||
+                        optionText === feedback.correct_answer);
                     const isChecking = checking === letter;
                     const isSelected = selected === letter;
                     const showResult = feedback && isSelected;
