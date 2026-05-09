@@ -74,7 +74,7 @@ export async function submitAnswer(
   topic: string,
   curriculum: string,
   studentAnswer: string,
-  draft: string,
+  draft: Record<string, unknown> = {},
   mock?: MockBundle,
 ): Promise<AnswerResponse> {
   try {
