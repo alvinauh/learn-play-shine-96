@@ -124,6 +124,17 @@ function TeacherDashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-6 px-6 py-8">
+        {loading && (
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading live class insights…
+          </div>
+        )}
+        {error && !loading && (
+          <div className="rounded-xl border border-warning/40 bg-warning/5 px-4 py-3 text-sm text-warning">
+            {error}
+          </div>
+        )}
         <section className="grid gap-4 md:grid-cols-3">
           <KpiCard
             icon={<Users className="h-5 w-5" />}
