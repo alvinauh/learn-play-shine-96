@@ -46,6 +46,8 @@ export const Route = createFileRoute("/teacher")({
 
 function TeacherDashboard() {
   const { t } = useI18n();
+  const { signOut } = useAuth();
+  const [tab, setTab] = useState<"insights" | "classrooms">("insights");
 
   const fallbackMastery: ClassMasteryItem[] = [
     { subject: t.subjKinematics, mastery: 72 },
