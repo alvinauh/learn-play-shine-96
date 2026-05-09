@@ -1,10 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Play, Pause, Volume2, Heart, MessageCircle, BarChart3, Loader2, Sparkles, X } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Volume2,
+  Heart,
+  MessageCircle,
+  BarChart3,
+  Loader2,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiResponseError, startSession, submitAnswer, type SessionResponse, type AnswerResponse, type MockBundle } from "@/services/api";
+import {
+  ApiResponseError,
+  startSession,
+  submitAnswer,
+  type SessionResponse,
+  type AnswerResponse,
+  type MockBundle,
+} from "@/services/api";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -13,9 +30,16 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Skor — Learn KSSM the TikTok way" },
-      { name: "description", content: "Gamified AI learning for Malaysian high school students. Swipe, answer, master the KSSM syllabus." },
+      {
+        name: "description",
+        content:
+          "Gamified AI learning for Malaysian high school students. Swipe, answer, master the KSSM syllabus.",
+      },
       { property: "og:title", content: "Skor — Learn KSSM the TikTok way" },
-      { property: "og:description", content: "Gamified AI learning for Malaysian high school students." },
+      {
+        property: "og:description",
+        content: "Gamified AI learning for Malaysian high school students.",
+      },
     ],
   }),
   component: StudentFeed,
@@ -141,7 +165,10 @@ function StudentFeed() {
           <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-primary-glow">
             ⚡ <span className="font-semibold">{xp}</span>
           </span>
-          <Link to="/teacher" className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground transition">
+          <Link
+            to="/teacher"
+            className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground transition"
+          >
             <BarChart3 className="h-4 w-4" />
           </Link>
         </div>
@@ -157,7 +184,11 @@ function StudentFeed() {
               className="grid h-20 w-20 place-items-center rounded-full bg-background/40 backdrop-blur-md ring-1 ring-white/10 transition hover:scale-105"
               aria-label={playing ? "Pause" : "Play"}
             >
-              {playing ? <Pause className="h-9 w-9 fill-foreground" /> : <Play className="h-9 w-9 fill-foreground translate-x-0.5" />}
+              {playing ? (
+                <Pause className="h-9 w-9 fill-foreground" />
+              ) : (
+                <Play className="h-9 w-9 fill-foreground translate-x-0.5" />
+              )}
             </button>
           </div>
           <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-background/50 px-3 py-1 text-xs font-medium backdrop-blur">
@@ -201,7 +232,9 @@ function StudentFeed() {
 
         {showMaintenanceState ? (
           <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
-            <div className="text-xs uppercase tracking-widest text-primary-glow">System Maintenance</div>
+            <div className="text-xs uppercase tracking-widest text-primary-glow">
+              System Maintenance
+            </div>
             <h1 className="mt-2 font-display text-2xl font-semibold leading-snug">
               We’re having trouble loading your next question right now.
             </h1>
@@ -227,7 +260,9 @@ function StudentFeed() {
                 </div>
               ) : (
                 <>
-                  <div className="text-xs uppercase tracking-widest text-primary-glow">{t.question}</div>
+                  <div className="text-xs uppercase tracking-widest text-primary-glow">
+                    {t.question}
+                  </div>
                   <h1 className="mt-2 font-display text-2xl font-semibold leading-snug">
                     {session.question}
                   </h1>
@@ -253,18 +288,31 @@ function StudentFeed() {
                           "hover:border-primary/60 hover:bg-card hover:-translate-y-0.5 hover:shadow-glow",
                           "disabled:cursor-not-allowed",
                           isSelected && !feedback && "border-primary",
-                          showResult && feedback?.correct && "border-neon-green bg-[oklch(0.78_0.24_145/0.12)] shadow-glow-success",
-                          showResult && !feedback?.correct && "border-destructive bg-destructive/10",
-                          feedback && !isSelected && isCorrectChoice && "border-neon-green bg-[oklch(0.78_0.24_145/0.08)]",
+                          showResult &&
+                            feedback?.correct &&
+                            "border-neon-green bg-[oklch(0.78_0.24_145/0.12)] shadow-glow-success",
+                          showResult &&
+                            !feedback?.correct &&
+                            "border-destructive bg-destructive/10",
+                          feedback &&
+                            !isSelected &&
+                            isCorrectChoice &&
+                            "border-neon-green bg-[oklch(0.78_0.24_145/0.08)]",
                         )}
                       >
                         <span
                           className={cn(
                             "grid h-12 w-12 shrink-0 place-items-center rounded-xl border-2 border-border bg-background font-display text-xl font-bold transition",
                             "group-hover:border-primary group-hover:text-primary-glow",
-                            isSelected && !feedback && "border-primary bg-primary/20 text-primary-glow",
-                            showResult && feedback?.correct && "border-neon-green bg-[oklch(0.78_0.24_145/0.2)] text-neon-green",
-                            showResult && !feedback?.correct && "border-destructive bg-destructive/20 text-destructive",
+                            isSelected &&
+                              !feedback &&
+                              "border-primary bg-primary/20 text-primary-glow",
+                            showResult &&
+                              feedback?.correct &&
+                              "border-neon-green bg-[oklch(0.78_0.24_145/0.2)] text-neon-green",
+                            showResult &&
+                              !feedback?.correct &&
+                              "border-destructive bg-destructive/20 text-destructive",
                           )}
                         >
                           {isChecking ? <Loader2 className="h-5 w-5 animate-spin" /> : letter}
@@ -304,19 +352,26 @@ function StudentFeed() {
                   </>
                 )}
               </SheetTitle>
-              <button onClick={() => setFeedback(null)} className="text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setFeedback(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
           </SheetHeader>
           <div className="mx-auto max-w-md space-y-4 pb-2 pt-3">
             <div className="rounded-2xl border border-border bg-background/50 p-4">
-              <div className="text-xs uppercase tracking-widest text-muted-foreground">{t.diagnosticFeedback}</div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground">
+                {t.diagnosticFeedback}
+              </div>
               <p className="mt-2 text-base leading-relaxed">{feedback?.feedback}</p>
             </div>
             {feedback?.misconception && !feedback.correct && (
               <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4">
-                <div className="text-xs uppercase tracking-widest text-warning">{t.commonMisconception}</div>
+                <div className="text-xs uppercase tracking-widest text-warning">
+                  {t.commonMisconception}
+                </div>
                 <p className="mt-1 text-sm text-foreground/90">{feedback.misconception}</p>
               </div>
             )}

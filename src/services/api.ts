@@ -67,9 +67,7 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-function normalizeOptions(
-  options?: StartSessionApiResponse["options"] | string[],
-) {
+function normalizeOptions(options?: StartSessionApiResponse["options"] | string[]) {
   if (Array.isArray(options)) {
     return {
       A: options[0] ?? "A",
