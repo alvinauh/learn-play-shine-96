@@ -57,14 +57,28 @@ export const Route = createFileRoute("/")({
 const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
 
-const SUBJECT_TOPICS = {
-  Physics: ["Kinematics", "Electromagnetism"],
-  Sejarah: ["Bab 1 Warisan Negara Bangsa", "Bab 2 Kebangkitan Nasionalisme"],
-  Perniagaan: ["Asas Perniagaan", "Pengurusan Sumber Manusia"],
-  Biologi: ["Cell Division", "Respiration"],
-} as const;
+type TopicOption = { label: string; value: string };
+const SUBJECT_TOPICS: Record<string, TopicOption[]> = {
+  Physics: [
+    { label: "Kinematics", value: "Kinematics" },
+    { label: "Electromagnetism", value: "Electromagnetism" },
+  ],
+  Sejarah: [
+    { label: "Bab 1 Warisan Negara Bangsa", value: "Warisan Negara Bangsa" },
+    { label: "Bab 2 Kebangkitan Nasionalisme", value: "Kebangkitan Nasionalisme" },
+  ],
+  Perniagaan: [
+    { label: "Asas Perniagaan", value: "Asas Perniagaan" },
+    { label: "Pengurusan Sumber Manusia", value: "Pengurusan Sumber Manusia" },
+  ],
+  Biologi: [
+    { label: "Bab 1 Cell Division", value: "Cell Division" },
+    { label: "Bab 2 Respiration", value: "Respiration" },
+  ],
+};
 type SubjectKey = keyof typeof SUBJECT_TOPICS;
 const SUBJECTS = Object.keys(SUBJECT_TOPICS) as SubjectKey[];
+const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
 
 function StudentFeed() {
   const { t, lang } = useI18n();
