@@ -25,6 +25,7 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
 
 function StudentFeed() {
+  const { t, lang } = useI18n();
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
@@ -34,10 +35,24 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
 
+  const mock: MockBundle = {
+    question: t.mockQuestion,
+    optionA: t.mockOptionA,
+    optionB: t.mockOptionB,
+    optionC: t.mockOptionC,
+    optionD: t.mockOptionD,
+    topic: t.mockTopic,
+    subject: t.mockSubject,
+    feedbackCorrect: t.feedbackCorrect,
+    feedbackWrong: t.feedbackWrong,
+    misconception: t.feedbackMisconception,
+  };
+
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
     (async () => {
-      const data = await startSession("student_001", "Kinematics", "KSSM", "Physics");
+      const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
       if (mounted) {
         setSession(data);
         setLoading(false);
@@ -46,7 +61,8 @@ function StudentFeed() {
     return () => {
       mounted = false;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   const handleAnswer = async (letter: Letter) => {
     if (checking || feedback) return;
@@ -58,6 +74,7 @@ function StudentFeed() {
       "KSSM",
       letter,
       session?.options?.[letter] ?? "",
+      mock,
     );
     setChecking(null);
     setFeedback(res);
@@ -71,7 +88,7 @@ function StudentFeed() {
     setFeedback(null);
     setSelected(null);
     setLoading(true);
-    const data = await startSession("student_001", "Kinematics", "KSSM", "Physics");
+    const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
     setSession(data);
     setLoading(false);
   };
