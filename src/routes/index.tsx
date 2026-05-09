@@ -94,7 +94,7 @@ function StudentFeed() {
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
   const [activeSubject, setActiveSubject] = useState<SubjectKey>(SUBJECTS[0]);
-  const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0]);
+  const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0].value);
   const initialLoadAttempted = useRef(false);
 
   const mock: MockBundle = {
