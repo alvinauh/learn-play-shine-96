@@ -148,6 +148,7 @@ export async function startSession(
   curriculum: string,
   subject: string,
   mock?: MockBundle,
+  language: string = "English",
 ): Promise<SessionResponse> {
   try {
     const data = await postJSON<StartSessionApiResponse>("/start_session", {
@@ -155,6 +156,7 @@ export async function startSession(
       topic,
       curriculum,
       subject,
+      language,
     });
 
     return normalizeSessionResponse(data, topic, subject);
