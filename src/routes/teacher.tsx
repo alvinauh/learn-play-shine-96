@@ -123,9 +123,6 @@ function TeacherDashboard() {
       <header className="border-b border-border/60 bg-card/40 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <Link to="/" className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground transition">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
             <div>
               <h1 className="font-display text-xl font-bold tracking-tight">{t.teacherDashboard}</h1>
               <p className="text-xs text-muted-foreground">{t.schoolMeta}</p>
@@ -135,11 +132,43 @@ function TeacherDashboard() {
             <LanguageSwitcher />
             <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">● {t.live}</span>
             <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-primary text-sm font-semibold text-primary-foreground">CA</div>
+            <button
+              onClick={() => void signOut()}
+              className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition"
+              aria-label="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl space-y-6 px-6 py-8">
+        <nav className="inline-flex rounded-full border border-border bg-card/60 p-1 text-sm">
+          {([
+            { key: "insights", label: "Insights", icon: LayoutDashboard },
+            { key: "classrooms", label: "My Classrooms", icon: School },
+          ] as const).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={cn(
+                "flex items-center gap-2 rounded-full px-4 py-1.5 font-medium transition",
+                tab === key
+                  ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        {tab === "classrooms" ? (
+          <ClassroomsPanel />
+        ) : (
+        <>
         {loading && (
           <div className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
