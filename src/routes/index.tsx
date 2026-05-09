@@ -34,6 +34,7 @@ function StudentFeed() {
   const [feedback, setFeedback] = useState<AnswerResponse | null>(null);
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
+  const [error, setError] = useState<string | null>(null);
 
   const mock: MockBundle = {
     question: t.mockQuestion,
