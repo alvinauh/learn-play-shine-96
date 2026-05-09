@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, Target, AlertTriangle, ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
+import { Users, Target, AlertTriangle, ArrowLeft, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -11,6 +12,11 @@ import {
 } from "recharts";
 import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import {
+  fetchTeacherInsights,
+  type ClassMasteryItem,
+  type RecentAlert,
+} from "@/services/api";
 
 export const Route = createFileRoute("/teacher")({
   head: () => ({
@@ -27,20 +33,74 @@ export const Route = createFileRoute("/teacher")({
 function TeacherDashboard() {
   const { t } = useI18n();
 
-  const masteryData = [
-    { subject: t.subjKinematics, mastery: 72, fullMark: 100 },
-    { subject: t.subjAlgebra, mastery: 84, fullMark: 100 },
-    { subject: t.subjEM, mastery: 48, fullMark: 100 },
-    { subject: t.subjBio, mastery: 76, fullMark: 100 },
-    { subject: t.subjSejarah, mastery: 65, fullMark: 100 },
+  const fallbackMastery: ClassMasteryItem[] = [
+    { subject: t.subjKinematics, mastery: 72 },
+    { subject: t.subjAlgebra, mastery: 84 },
+    { subject: t.subjEM, mastery: 48 },
+    { subject: t.subjBio, mastery: 76 },
+    { subject: t.subjSejarah, mastery: 65 },
   ];
 
-  const insights = [
-    { color: "destructive", emoji: "🔴", text: t.insight1, topic: t.insight1Topic },
-    { color: "warning", emoji: "🟡", text: t.insight2, topic: t.insight2Topic },
-    { color: "warning", emoji: "🟡", text: t.insight3, topic: t.insight3Topic },
-    { color: "success", emoji: "🟢", text: t.insight4, topic: t.insight4Topic },
+  const fallbackAlerts: RecentAlert[] = [
+    { diagnostic_tag: t.insight1, topic: t.insight1Topic, severity: "destructive" },
+    { diagnostic_tag: t.insight2, topic: t.insight2Topic, severity: "warning" },
+    { diagnostic_tag: t.insight3, topic: t.insight3Topic, severity: "warning" },
+    { diagnostic_tag: t.insight4, topic: t.insight4Topic, severity: "success" },
   ];
+
+  const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
+  const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchTeacherInsights()
+      .then((data) => {
+        if (cancelled) return;
+        setClassMastery(data.class_mastery?.length ? data.class_mastery : fallbackMastery);
+        setRecentAlerts(data.recent_alerts?.length ? data.recent_alerts : fallbackAlerts);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[Skor] fetchTeacherInsights failed", err);
+        setError("Couldn't load live insights. Showing the latest cached snapshot.");
+        setClassMastery(fallbackMastery);
+        setRecentAlerts(fallbackAlerts);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const masteryData = (classMastery.length ? classMastery : fallbackMastery).map((m) => ({
+    subject: m.subject,
+    mastery: m.mastery,
+    fullMark: 100,
+  }));
+
+  const severityToColor = (sev?: string) => {
+    if (sev === "destructive" || sev === "high") return "destructive";
+    if (sev === "success" || sev === "low") return "success";
+    return "warning";
+  };
+  const severityToEmoji = (sev?: string) => {
+    const c = severityToColor(sev);
+    return c === "destructive" ? "🔴" : c === "success" ? "🟢" : "🟡";
+  };
+
+  const insights = (recentAlerts.length ? recentAlerts : fallbackAlerts).map((a) => ({
+    color: severityToColor(a.severity),
+    emoji: severityToEmoji(a.severity),
+    text: a.diagnostic_tag,
+    topic: a.topic ?? "",
+  }));
 
   return (
     <div className="min-h-screen bg-background text-foreground">
