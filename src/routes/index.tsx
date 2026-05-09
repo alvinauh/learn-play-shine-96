@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Play, Pause, Volume2, Heart, MessageCircle, BarChart3, Loader2, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { startSession, submitAnswer, type SessionResponse, type AnswerResponse, type MockBundle } from "@/services/api";
+import { ApiResponseError, startSession, submitAnswer, type SessionResponse, type AnswerResponse, type MockBundle } from "@/services/api";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -22,6 +22,7 @@ export const Route = createFileRoute("/")({
 });
 
 const LETTERS = ["A", "B", "C", "D"] as const;
+const STUDENT_ID = "00000000-0000-0000-0000-000000000001";
 type Letter = (typeof LETTERS)[number];
 
 function StudentFeed() {
@@ -35,6 +36,7 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
+  const initialLoadAttempted = useRef(false);
 
   const mock: MockBundle = {
     question: t.mockQuestion,
@@ -49,35 +51,44 @@ function StudentFeed() {
     misconception: t.feedbackMisconception,
   };
 
-  useEffect(() => {
-    let mounted = true;
+  const loadSession = async () => {
     setLoading(true);
-    (async () => {
-      try {
-        const data = await startSession("00000000-0000-0000-0000-000000000001", "Kinematics", "KSSM", "Physics", mock);
-        if (mounted) setSession(data);
-      } catch (err) {
-        console.error("[Skor] startSession error:", err);
-        if (mounted) setError("Couldn't load the next question. Please try again.");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
+    setError(null);
+    try {
+      const data = await startSession(STUDENT_ID, "Kinematics", "KSSM", "Physics", mock);
+      setSession(data);
+    } catch (err) {
+      console.error("[Skor] startSession error:", err);
+      setError(
+        err instanceof ApiResponseError
+          ? "System maintenance — questions are temporarily unavailable."
+          : "Couldn't load the next question. Please try again.",
+      );
+      setSession((current) => current);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initialLoadAttempted.current) return;
+    initialLoadAttempted.current = true;
+    void loadSession();
     return () => {
-      mounted = false;
+      initialLoadAttempted.current = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAnswer = async (letter: Letter) => {
-    if (checking || feedback) return;
+    if (checking || feedback || !session) return;
     setChecking(letter);
     setSelected(letter);
     setError(null);
     try {
       const res = await submitAnswer(
-        "00000000-0000-0000-0000-000000000001",
-        session?.topic ?? "Kinematics",
+        STUDENT_ID,
+        session.topic ?? "Kinematics",
         "KSSM",
         letter,
         {},
@@ -90,7 +101,11 @@ function StudentFeed() {
       }
     } catch (err) {
       console.error("[Skor] submitAnswer error:", err);
-      setError("Couldn't submit your answer. Please try again.");
+      setError(
+        err instanceof ApiResponseError
+          ? "System maintenance — answer checking is temporarily unavailable."
+          : "Couldn't submit your answer. Please try again.",
+      );
       setSelected(null);
     } finally {
       setChecking(null);
@@ -100,18 +115,10 @@ function StudentFeed() {
   const handleNext = async () => {
     setFeedback(null);
     setSelected(null);
-    setError(null);
-    setLoading(true);
-    try {
-      const data = await startSession("00000000-0000-0000-0000-000000000001", "Kinematics", "KSSM", "Physics", mock);
-      setSession(data);
-    } catch (err) {
-      console.error("[Skor] startSession error:", err);
-      setError("Couldn't load the next question. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    await loadSession();
   };
+
+  const showMaintenanceState = !loading && !session && !!error;
 
   return (
     <div className="relative min-h-[100dvh] bg-gradient-feed text-foreground overflow-hidden">
@@ -177,7 +184,7 @@ function StudentFeed() {
           <span className="ml-auto text-xs">@cikgu_aisyah</span>
         </div>
 
-        {error && (
+        {error && session && (
           <div
             role="alert"
             className="flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
@@ -192,66 +199,85 @@ function StudentFeed() {
           </div>
         )}
 
-        {/* Question */}
-        <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
-          {loading || !session ? (
-            <div className="space-y-3">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-6 w-full" />
-              <Skeleton className="h-6 w-4/5" />
-            </div>
-          ) : (
-            <>
-              <div className="text-xs uppercase tracking-widest text-primary-glow">{t.question}</div>
-              <h1 className="mt-2 font-display text-2xl font-semibold leading-snug">
-                {session.question}
-              </h1>
-            </>
-          )}
-        </section>
+        {showMaintenanceState ? (
+          <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
+            <div className="text-xs uppercase tracking-widest text-primary-glow">System Maintenance</div>
+            <h1 className="mt-2 font-display text-2xl font-semibold leading-snug">
+              We’re having trouble loading your next question right now.
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Please try again in a moment. Your streak and progress are safe.
+            </p>
+            <Button
+              onClick={() => void loadSession()}
+              size="lg"
+              className="mt-5 h-12 rounded-2xl bg-gradient-primary px-6 font-bold shadow-glow hover:opacity-95"
+            >
+              Retry
+            </Button>
+          </section>
+        ) : (
+          <>
+            <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
+              {loading || !session ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-6 w-full" />
+                  <Skeleton className="h-6 w-4/5" />
+                </div>
+              ) : (
+                <>
+                  <div className="text-xs uppercase tracking-widest text-primary-glow">{t.question}</div>
+                  <h1 className="mt-2 font-display text-2xl font-semibold leading-snug">
+                    {session.question}
+                  </h1>
+                </>
+              )}
+            </section>
 
-        {/* Answer buttons */}
-        <div className="grid gap-3">
-          {loading
-            ? LETTERS.map((l) => <Skeleton key={l} className="h-16 w-full rounded-2xl" />)
-            : LETTERS.map((letter) => {
-                const isChecking = checking === letter;
-                const isSelected = selected === letter;
-                const showResult = feedback && isSelected;
-                const isCorrectChoice = feedback && letter === feedback.correct_answer;
-                return (
-                  <button
-                    key={letter}
-                    onClick={() => handleAnswer(letter)}
-                    disabled={!!checking || !!feedback}
-                    className={cn(
-                      "group flex items-center gap-4 rounded-2xl border-2 border-border bg-card/60 p-4 text-left transition-all",
-                      "hover:border-primary/60 hover:bg-card hover:-translate-y-0.5 hover:shadow-glow",
-                      "disabled:cursor-not-allowed",
-                      isSelected && !feedback && "border-primary",
-                      showResult && feedback?.correct && "border-neon-green bg-[oklch(0.78_0.24_145/0.12)] shadow-glow-success",
-                      showResult && !feedback?.correct && "border-destructive bg-destructive/10",
-                      feedback && !isSelected && isCorrectChoice && "border-neon-green bg-[oklch(0.78_0.24_145/0.08)]",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "grid h-12 w-12 shrink-0 place-items-center rounded-xl border-2 border-border bg-background font-display text-xl font-bold transition",
-                        "group-hover:border-primary group-hover:text-primary-glow",
-                        isSelected && !feedback && "border-primary bg-primary/20 text-primary-glow",
-                        showResult && feedback?.correct && "border-neon-green bg-[oklch(0.78_0.24_145/0.2)] text-neon-green",
-                        showResult && !feedback?.correct && "border-destructive bg-destructive/20 text-destructive",
-                      )}
-                    >
-                      {isChecking ? <Loader2 className="h-5 w-5 animate-spin" /> : letter}
-                    </span>
-                    <span className="flex-1 text-base font-medium leading-snug">
-                      {session?.options[letter]}
-                    </span>
-                  </button>
-                );
-              })}
-        </div>
+            <div className="grid gap-3">
+              {loading
+                ? LETTERS.map((l) => <Skeleton key={l} className="h-16 w-full rounded-2xl" />)
+                : LETTERS.map((letter) => {
+                    const isChecking = checking === letter;
+                    const isSelected = selected === letter;
+                    const showResult = feedback && isSelected;
+                    const isCorrectChoice = feedback && letter === feedback.correct_answer;
+                    return (
+                      <button
+                        key={letter}
+                        onClick={() => handleAnswer(letter)}
+                        disabled={!!checking || !!feedback || !session}
+                        className={cn(
+                          "group flex items-center gap-4 rounded-2xl border-2 border-border bg-card/60 p-4 text-left transition-all",
+                          "hover:border-primary/60 hover:bg-card hover:-translate-y-0.5 hover:shadow-glow",
+                          "disabled:cursor-not-allowed",
+                          isSelected && !feedback && "border-primary",
+                          showResult && feedback?.correct && "border-neon-green bg-[oklch(0.78_0.24_145/0.12)] shadow-glow-success",
+                          showResult && !feedback?.correct && "border-destructive bg-destructive/10",
+                          feedback && !isSelected && isCorrectChoice && "border-neon-green bg-[oklch(0.78_0.24_145/0.08)]",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "grid h-12 w-12 shrink-0 place-items-center rounded-xl border-2 border-border bg-background font-display text-xl font-bold transition",
+                            "group-hover:border-primary group-hover:text-primary-glow",
+                            isSelected && !feedback && "border-primary bg-primary/20 text-primary-glow",
+                            showResult && feedback?.correct && "border-neon-green bg-[oklch(0.78_0.24_145/0.2)] text-neon-green",
+                            showResult && !feedback?.correct && "border-destructive bg-destructive/20 text-destructive",
+                          )}
+                        >
+                          {isChecking ? <Loader2 className="h-5 w-5 animate-spin" /> : letter}
+                        </span>
+                        <span className="flex-1 text-base font-medium leading-snug">
+                          {session?.options[letter]}
+                        </span>
+                      </button>
+                    );
+                  })}
+            </div>
+          </>
+        )}
       </main>
 
       {/* Feedback bottom sheet */}
