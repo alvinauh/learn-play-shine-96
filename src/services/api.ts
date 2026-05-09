@@ -55,6 +55,13 @@ interface StartSessionApiResponse {
     options?: string[];
     correct_answer?: string;
   };
+  draft?: {
+    question?: string;
+    options?: string[];
+    correct_answer?: string;
+    topic?: string;
+    subject?: string;
+  };
 }
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
