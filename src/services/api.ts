@@ -32,6 +32,16 @@ export interface MockBundle {
   misconception: string;
 }
 
+export class ApiResponseError extends Error {
+  status: number;
+
+  constructor(status: number, message?: string) {
+    super(message ?? `HTTP ${status}`);
+    this.name = "ApiResponseError";
+    this.status = status;
+  }
+}
+
 interface StartSessionApiResponse {
   session_id?: string;
   question?: string;
@@ -53,12 +63,12 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new ApiResponseError(res.status);
   return res.json() as Promise<T>;
 }
 
 function normalizeOptions(
-  options: StartSessionApiResponse["options"] | StartSessionApiResponse["question_data"]["options"],
+  options?: StartSessionApiResponse["options"] | string[],
 ) {
   if (Array.isArray(options)) {
     return {
@@ -117,7 +127,7 @@ export async function startSession(
     return normalizeSessionResponse(data, topic, subject);
   } catch (err) {
     console.warn("[Skor API] startSession failed, using mock:", err);
-    if (!mock) throw err;
+    if (!mock || err instanceof ApiResponseError) throw err;
     return {
       session_id: "mock-1",
       question: mock.question,
@@ -147,7 +157,7 @@ export async function submitAnswer(
     });
   } catch (err) {
     console.warn("[Skor API] submitAnswer failed, using mock:", err);
-    if (!mock) throw err;
+    if (!mock || err instanceof ApiResponseError) throw err;
     const correct = studentAnswer === "C";
     return {
       correct,
