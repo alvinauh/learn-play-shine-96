@@ -152,6 +152,29 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
       if (!isPublic) void navigate({ to: "/login" });
       return;
     }
+    // Signed in: consume invite code if present in URL
+    if (typeof window !== "undefined" && profile?.role === "student") {
+      const params = new URLSearchParams(window.location.search);
+      const invite = params.get("invite");
+      if (invite) {
+        void (async () => {
+          const { data: cls } = await supabase
+            .from("classrooms")
+            .select("id")
+            .eq("invite_code", invite)
+            .maybeSingle();
+          if (cls?.id) {
+            await supabase
+              .from("classroom_members")
+              .insert({ classroom_id: cls.id, student_id: user.id });
+          }
+          // Clean URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete("invite");
+          window.history.replaceState({}, "", url.toString());
+        })();
+      }
+    }
     // Signed in: enforce role-based home
     if (!profile) return;
     if (path === "/login") {
