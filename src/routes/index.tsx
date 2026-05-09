@@ -15,6 +15,13 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ApiResponseError,
   startSession,
   submitAnswer,
@@ -50,14 +57,14 @@ export const Route = createFileRoute("/")({
 const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
 
-const TOPICS = [
-  { topic: "Kinematics", subject: "Physics" },
-  { topic: "Electromagnetism", subject: "Physics" },
-  { topic: "Cell Division", subject: "Biology" },
-  { topic: "Asas Perniagaan", subject: "Perniagaan" },
-  { topic: "Sejarah Bab 1", subject: "Sejarah" },
-] as const;
-type TopicKey = (typeof TOPICS)[number]["topic"];
+const SUBJECT_TOPICS = {
+  Physics: ["Kinematics", "Electromagnetism"],
+  Sejarah: ["Bab 1 Warisan Negara Bangsa", "Bab 2 Kebangkitan Nasionalisme"],
+  Perniagaan: ["Asas Perniagaan", "Pengurusan Sumber Manusia"],
+  Biologi: ["Cell Division", "Respiration"],
+} as const;
+type SubjectKey = keyof typeof SUBJECT_TOPICS;
+const SUBJECTS = Object.keys(SUBJECT_TOPICS) as SubjectKey[];
 
 function StudentFeed() {
   const { t, lang } = useI18n();
@@ -72,7 +79,8 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
-  const [activeTopic, setActiveTopic] = useState<TopicKey>(TOPICS[0].topic);
+  const [activeSubject, setActiveSubject] = useState<SubjectKey>(SUBJECTS[0]);
+  const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0]);
   const initialLoadAttempted = useRef(false);
 
   const mock: MockBundle = {
@@ -88,9 +96,9 @@ function StudentFeed() {
     misconception: t.feedbackMisconception,
   };
 
-  const loadSession = async (topicOverride?: TopicKey) => {
+  const loadSession = async (subjectOverride?: SubjectKey, topicOverride?: string) => {
+    const subject = subjectOverride ?? activeSubject;
     const target = topicOverride ?? activeTopic;
-    const subject = TOPICS.find((t) => t.topic === target)?.subject ?? "Physics";
     setLoading(true);
     setError(null);
     setFeedback(null);
@@ -111,10 +119,18 @@ function StudentFeed() {
     }
   };
 
-  const handleTopicChange = (topic: TopicKey) => {
+  const handleSubjectChange = (subject: SubjectKey) => {
+    if (subject === activeSubject) return;
+    const firstTopic = SUBJECT_TOPICS[subject][0];
+    setActiveSubject(subject);
+    setActiveTopic(firstTopic);
+    void loadSession(subject, firstTopic);
+  };
+
+  const handleTopicChange = (topic: string) => {
     if (topic === activeTopic) return;
     setActiveTopic(topic);
-    void loadSession(topic);
+    void loadSession(activeSubject, topic);
   };
 
   useEffect(() => {
@@ -202,30 +218,41 @@ function StudentFeed() {
       </header>
 
       <main className="relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6">
-        {/* Topic selector pills */}
-        <nav
-          aria-label="Topic selector"
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {TOPICS.map(({ topic }) => {
-            const active = topic === activeTopic;
-            return (
-              <button
-                key={topic}
-                onClick={() => handleTopicChange(topic)}
-                disabled={loading && active}
-                className={cn(
-                  "shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium whitespace-nowrap transition",
-                  active
-                    ? "border-primary bg-gradient-primary text-primary-foreground shadow-glow"
-                    : "border-border/60 bg-card/60 text-muted-foreground hover:text-foreground hover:border-primary/50",
-                )}
-              >
-                {topic}
-              </button>
-            );
-          })}
-        </nav>
+        {/* Subject + Topic selectors */}
+        <div className="grid grid-cols-2 gap-2">
+          <Select
+            value={activeSubject}
+            onValueChange={(v) => handleSubjectChange(v as SubjectKey)}
+            disabled={loading}
+          >
+            <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
+              <SelectValue placeholder="Subject" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUBJECTS.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={activeTopic}
+            onValueChange={handleTopicChange}
+            disabled={loading}
+          >
+            <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
+              <SelectValue placeholder="Topic" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUBJECT_TOPICS[activeSubject].map((topic) => (
+                <SelectItem key={topic} value={topic}>
+                  {topic}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* Media player card */}
         <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
