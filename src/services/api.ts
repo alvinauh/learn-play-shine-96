@@ -8,6 +8,7 @@ export interface SessionResponse {
   correct?: string;
   topic?: string;
   subject?: string;
+  media_url?: string;
 }
 
 export interface AnswerResponse {
@@ -31,14 +32,79 @@ export interface MockBundle {
   misconception: string;
 }
 
+export class ApiResponseError extends Error {
+  status: number;
+
+  constructor(status: number, message?: string) {
+    super(message ?? `HTTP ${status}`);
+    this.name = "ApiResponseError";
+    this.status = status;
+  }
+}
+
+interface StartSessionApiResponse {
+  session_id?: string;
+  question?: string;
+  options?: { A?: string; B?: string; C?: string; D?: string } | string[];
+  correct?: string;
+  topic?: string;
+  subject?: string;
+  media_url?: string;
+  question_data?: {
+    question?: string;
+    options?: string[];
+    correct_answer?: string;
+  };
+}
+
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new ApiResponseError(res.status);
   return res.json() as Promise<T>;
+}
+
+function normalizeOptions(options?: StartSessionApiResponse["options"] | string[]) {
+  if (Array.isArray(options)) {
+    return {
+      A: options[0] ?? "A",
+      B: options[1] ?? "B",
+      C: options[2] ?? "C",
+      D: options[3] ?? "D",
+    };
+  }
+
+  return {
+    A: options?.A ?? "A",
+    B: options?.B ?? "B",
+    C: options?.C ?? "C",
+    D: options?.D ?? "D",
+  };
+}
+
+function normalizeSessionResponse(
+  data: StartSessionApiResponse,
+  topic: string,
+  subject: string,
+): SessionResponse {
+  const question = data.question ?? data.question_data?.question;
+
+  if (!question) {
+    throw new Error("Invalid start_session payload");
+  }
+
+  return {
+    session_id: data.session_id,
+    question,
+    options: normalizeOptions(data.options ?? data.question_data?.options),
+    correct: data.correct ?? data.question_data?.correct_answer,
+    topic: data.topic ?? topic,
+    subject: data.subject ?? subject,
+    media_url: data.media_url,
+  };
 }
 
 export async function startSession(
@@ -49,15 +115,17 @@ export async function startSession(
   mock?: MockBundle,
 ): Promise<SessionResponse> {
   try {
-    return await postJSON<SessionResponse>("/start_session", {
+    const data = await postJSON<StartSessionApiResponse>("/start_session", {
       student_id: studentId,
       topic,
       curriculum,
       subject,
     });
+
+    return normalizeSessionResponse(data, topic, subject);
   } catch (err) {
     console.warn("[Skor API] startSession failed, using mock:", err);
-    if (!mock) throw err;
+    if (!mock || err instanceof ApiResponseError) throw err;
     return {
       session_id: "mock-1",
       question: mock.question,
@@ -87,7 +155,7 @@ export async function submitAnswer(
     });
   } catch (err) {
     console.warn("[Skor API] submitAnswer failed, using mock:", err);
-    if (!mock) throw err;
+    if (!mock || err instanceof ApiResponseError) throw err;
     const correct = studentAnswer === "C";
     return {
       correct,
