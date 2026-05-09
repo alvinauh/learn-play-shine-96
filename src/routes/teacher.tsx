@@ -9,6 +9,8 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export const Route = createFileRoute("/teacher")({
   head: () => ({
@@ -22,22 +24,24 @@ export const Route = createFileRoute("/teacher")({
   component: TeacherDashboard,
 });
 
-const masteryData = [
-  { subject: "Kinematics", mastery: 72, fullMark: 100 },
-  { subject: "Algebra", mastery: 84, fullMark: 100 },
-  { subject: "Electromagnetism", mastery: 48, fullMark: 100 },
-  { subject: "Cell Biology", mastery: 76, fullMark: 100 },
-  { subject: "Sejarah", mastery: 65, fullMark: 100 },
-];
-
-const insights = [
-  { color: "destructive", emoji: "🔴", text: "40% of Form 5 failed unit conversion in Physics today.", topic: "Electromagnetism · Form 5" },
-  { color: "warning", emoji: "🟡", text: "28% confused mitosis vs meiosis phases in Cell Biology.", topic: "Cell Biology · Form 4" },
-  { color: "warning", emoji: "🟡", text: "Trend: Sejarah essay structure scores down 12% this week.", topic: "Sejarah · Form 4" },
-  { color: "success", emoji: "🟢", text: "Algebra mastery up 9% after new diagnostic series.", topic: "Mathematics · Form 4" },
-];
-
 function TeacherDashboard() {
+  const { t } = useI18n();
+
+  const masteryData = [
+    { subject: t.subjKinematics, mastery: 72, fullMark: 100 },
+    { subject: t.subjAlgebra, mastery: 84, fullMark: 100 },
+    { subject: t.subjEM, mastery: 48, fullMark: 100 },
+    { subject: t.subjBio, mastery: 76, fullMark: 100 },
+    { subject: t.subjSejarah, mastery: 65, fullMark: 100 },
+  ];
+
+  const insights = [
+    { color: "destructive", emoji: "🔴", text: t.insight1, topic: t.insight1Topic },
+    { color: "warning", emoji: "🟡", text: t.insight2, topic: t.insight2Topic },
+    { color: "warning", emoji: "🟡", text: t.insight3, topic: t.insight3Topic },
+    { color: "success", emoji: "🟢", text: t.insight4, topic: t.insight4Topic },
+  ];
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border/60 bg-card/40 backdrop-blur">
@@ -47,55 +51,54 @@ function TeacherDashboard() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
-              <h1 className="font-display text-xl font-bold tracking-tight">Teacher Dashboard</h1>
-              <p className="text-xs text-muted-foreground">SMK Bukit Jelutong · Form 4 & 5 · Today</p>
+              <h1 className="font-display text-xl font-bold tracking-tight">{t.teacherDashboard}</h1>
+              <p className="text-xs text-muted-foreground">{t.schoolMeta}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">● Live</span>
+            <LanguageSwitcher />
+            <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">● {t.live}</span>
             <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-primary text-sm font-semibold text-primary-foreground">CA</div>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl space-y-6 px-6 py-8">
-        {/* KPI cards */}
         <section className="grid gap-4 md:grid-cols-3">
           <KpiCard
             icon={<Users className="h-5 w-5" />}
-            label="Active Students"
+            label={t.activeStudents}
             value="248"
-            delta="+12 today"
+            delta={t.todayDelta}
             trend="up"
             accent="primary"
           />
           <KpiCard
             icon={<Target className="h-5 w-5" />}
-            label="Class Average Mastery"
+            label={t.classAverageMastery}
             value="69%"
-            delta="+3.2% this week"
+            delta={t.weekDelta}
             trend="up"
             accent="success"
           />
           <KpiCard
             icon={<AlertTriangle className="h-5 w-5" />}
-            label="Weakest Topic"
-            value="Electromagnetism"
-            delta="48% mastery"
+            label={t.weakestTopic}
+            value={t.subjEM}
+            delta={t.masteryShort}
             trend="down"
             accent="destructive"
           />
         </section>
 
-        {/* Chart + insights */}
         <section className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-card">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="font-display text-lg font-semibold">Class Mastery by Subject</h2>
-                <p className="text-sm text-muted-foreground">Aggregate diagnostic score across the KSSM syllabus.</p>
+                <h2 className="font-display text-lg font-semibold">{t.classMasteryTitle}</h2>
+                <p className="text-sm text-muted-foreground">{t.classMasterySub}</p>
               </div>
-              <span className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">Last 7 days</span>
+              <span className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">{t.last7Days}</span>
             </div>
             <div className="mt-4 h-[360px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -112,7 +115,7 @@ function TeacherDashboard() {
                     stroke="oklch(0.30 0.03 280)"
                   />
                   <Radar
-                    name="Mastery %"
+                    name={t.masteryLabel}
                     dataKey="mastery"
                     stroke="oklch(0.65 0.28 300)"
                     fill="oklch(0.65 0.28 300)"
@@ -134,8 +137,8 @@ function TeacherDashboard() {
 
           <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold">Diagnostic Insights</h2>
-              <span className="text-xs text-muted-foreground">{insights.length} alerts</span>
+              <h2 className="font-display text-lg font-semibold">{t.diagnosticInsights}</h2>
+              <span className="text-xs text-muted-foreground">{insights.length} {t.alerts}</span>
             </div>
             <ul className="mt-4 space-y-3">
               {insights.map((i, idx) => (

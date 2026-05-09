@@ -4,8 +4,10 @@ import { Play, Pause, Volume2, Heart, MessageCircle, BarChart3, Loader2, Sparkle
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { startSession, submitAnswer, type SessionResponse, type AnswerResponse } from "@/services/api";
+import { startSession, submitAnswer, type SessionResponse, type AnswerResponse, type MockBundle } from "@/services/api";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,6 +25,7 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
 
 function StudentFeed() {
+  const { t, lang } = useI18n();
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
@@ -32,10 +35,24 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
 
+  const mock: MockBundle = {
+    question: t.mockQuestion,
+    optionA: t.mockOptionA,
+    optionB: t.mockOptionB,
+    optionC: t.mockOptionC,
+    optionD: t.mockOptionD,
+    topic: t.mockTopic,
+    subject: t.mockSubject,
+    feedbackCorrect: t.feedbackCorrect,
+    feedbackWrong: t.feedbackWrong,
+    misconception: t.feedbackMisconception,
+  };
+
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
     (async () => {
-      const data = await startSession("student_001", "Kinematics", "KSSM", "Physics");
+      const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
       if (mounted) {
         setSession(data);
         setLoading(false);
@@ -44,7 +61,8 @@ function StudentFeed() {
     return () => {
       mounted = false;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   const handleAnswer = async (letter: Letter) => {
     if (checking || feedback) return;
@@ -56,6 +74,7 @@ function StudentFeed() {
       "KSSM",
       letter,
       session?.options?.[letter] ?? "",
+      mock,
     );
     setChecking(null);
     setFeedback(res);
@@ -69,7 +88,7 @@ function StudentFeed() {
     setFeedback(null);
     setSelected(null);
     setLoading(true);
-    const data = await startSession("student_001", "Kinematics", "KSSM", "Physics");
+    const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
     setSession(data);
     setLoading(false);
   };
@@ -87,7 +106,8 @@ function StudentFeed() {
           </div>
           <span className="font-display text-xl font-bold tracking-tight">Skor</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-2 text-sm">
+          <LanguageSwitcher compact />
           <span className="rounded-full border border-border/60 bg-card/60 px-3 py-1 backdrop-blur">
             🔥 <span className="font-semibold">{streak}</span>
           </span>
@@ -122,7 +142,7 @@ function StudentFeed() {
           </div>
           <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-muted-foreground">
             <span>0:00 / 0:42</span>
-            <span>KSSM • Form 4</span>
+            <span>{t.form}</span>
           </div>
         </div>
 
@@ -147,7 +167,7 @@ function StudentFeed() {
             </div>
           ) : (
             <>
-              <div className="text-xs uppercase tracking-widest text-primary-glow">Question</div>
+              <div className="text-xs uppercase tracking-widest text-primary-glow">{t.question}</div>
               <h1 className="mt-2 font-display text-2xl font-semibold leading-snug">
                 {session.question}
               </h1>
@@ -214,12 +234,12 @@ function StudentFeed() {
                 {feedback?.correct ? (
                   <>
                     <span className="text-2xl">🎉</span>
-                    <span className="text-neon-green">Spot on!</span>
+                    <span className="text-neon-green">{t.spotOn}</span>
                   </>
                 ) : (
                   <>
                     <span className="text-2xl">💡</span>
-                    <span className="text-destructive">Not quite</span>
+                    <span className="text-destructive">{t.notQuite}</span>
                   </>
                 )}
               </SheetTitle>
@@ -230,12 +250,12 @@ function StudentFeed() {
           </SheetHeader>
           <div className="mx-auto max-w-md space-y-4 pb-2 pt-3">
             <div className="rounded-2xl border border-border bg-background/50 p-4">
-              <div className="text-xs uppercase tracking-widest text-muted-foreground">Diagnostic Feedback</div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground">{t.diagnosticFeedback}</div>
               <p className="mt-2 text-base leading-relaxed">{feedback?.feedback}</p>
             </div>
             {feedback?.misconception && !feedback.correct && (
               <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4">
-                <div className="text-xs uppercase tracking-widest text-warning">Common misconception</div>
+                <div className="text-xs uppercase tracking-widest text-warning">{t.commonMisconception}</div>
                 <p className="mt-1 text-sm text-foreground/90">{feedback.misconception}</p>
               </div>
             )}
@@ -244,7 +264,7 @@ function StudentFeed() {
               size="lg"
               className="h-14 w-full rounded-2xl bg-gradient-primary text-base font-bold shadow-glow hover:opacity-95"
             >
-              Next Question →
+              {t.nextQuestion}
             </Button>
           </div>
         </SheetContent>

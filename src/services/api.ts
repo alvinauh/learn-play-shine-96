@@ -18,28 +18,18 @@ export interface AnswerResponse {
   next_question?: SessionResponse;
 }
 
-const MOCK_QUESTION: SessionResponse = {
-  session_id: "mock-1",
-  question:
-    "A car accelerates uniformly from rest at 2 m/s². How far does it travel in 5 seconds?",
-  options: {
-    A: "10 m",
-    B: "20 m",
-    C: "25 m",
-    D: "50 m",
-  },
-  correct: "C",
-  topic: "Kinematics",
-  subject: "Physics",
-};
-
-const MOCK_FEEDBACK: AnswerResponse = {
-  correct: false,
-  correct_answer: "C",
-  feedback:
-    "Use s = ut + ½at². With u = 0, a = 2 m/s², t = 5 s → s = ½ × 2 × 25 = 25 m. A common slip is multiplying a × t (giving velocity) instead of using the displacement formula.",
-  misconception: "Confusing velocity (a·t) with displacement (½at²).",
-};
+export interface MockBundle {
+  question: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  topic: string;
+  subject: string;
+  feedbackCorrect: string;
+  feedbackWrong: string;
+  misconception: string;
+}
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -56,6 +46,7 @@ export async function startSession(
   topic: string,
   curriculum: string,
   subject: string,
+  mock?: MockBundle,
 ): Promise<SessionResponse> {
   try {
     return await postJSON<SessionResponse>("/start_session", {
@@ -66,7 +57,15 @@ export async function startSession(
     });
   } catch (err) {
     console.warn("[Skor API] startSession failed, using mock:", err);
-    return MOCK_QUESTION;
+    if (!mock) throw err;
+    return {
+      session_id: "mock-1",
+      question: mock.question,
+      options: { A: mock.optionA, B: mock.optionB, C: mock.optionC, D: mock.optionD },
+      correct: "C",
+      topic: mock.topic,
+      subject: mock.subject,
+    };
   }
 }
 
@@ -76,6 +75,7 @@ export async function submitAnswer(
   curriculum: string,
   studentAnswer: string,
   draft: string,
+  mock?: MockBundle,
 ): Promise<AnswerResponse> {
   try {
     return await postJSON<AnswerResponse>("/submit_answer", {
@@ -87,13 +87,13 @@ export async function submitAnswer(
     });
   } catch (err) {
     console.warn("[Skor API] submitAnswer failed, using mock:", err);
+    if (!mock) throw err;
+    const correct = studentAnswer === "C";
     return {
-      ...MOCK_FEEDBACK,
-      correct: studentAnswer === MOCK_FEEDBACK.correct_answer,
-      feedback:
-        studentAnswer === MOCK_FEEDBACK.correct_answer
-          ? "Spot on! You correctly applied s = ut + ½at² with u = 0 to get 25 m. Strong grasp of uniform acceleration."
-          : MOCK_FEEDBACK.feedback,
+      correct,
+      correct_answer: "C",
+      feedback: correct ? mock.feedbackCorrect : mock.feedbackWrong,
+      misconception: mock.misconception,
     };
   }
 }
