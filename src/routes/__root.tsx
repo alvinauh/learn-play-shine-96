@@ -4,12 +4,18 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
+  useNavigate,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { I18nProvider } from "@/lib/i18n";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 function NotFoundComponent() {
   return (
@@ -121,8 +127,81 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <Outlet />
+        <AuthProvider>
+          <RouteGuard>
+            <Outlet />
+          </RouteGuard>
+        </AuthProvider>
       </I18nProvider>
     </QueryClientProvider>
   );
+}
+
+const PUBLIC_PATHS = new Set(["/login"]);
+
+function RouteGuard({ children }: { children: React.ReactNode }) {
+  const { user, profile, loading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const path = location.pathname;
+  const isPublic = PUBLIC_PATHS.has(path);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      if (!isPublic) void navigate({ to: "/login" });
+      return;
+    }
+    // Signed in: consume invite code if present in URL
+    if (typeof window !== "undefined" && profile?.role === "student") {
+      const params = new URLSearchParams(window.location.search);
+      const invite = params.get("invite");
+      if (invite) {
+        void (async () => {
+          const { data: cls } = await supabase
+            .from("classrooms")
+            .select("id")
+            .eq("invite_code", invite)
+            .maybeSingle();
+          if (cls?.id) {
+            await supabase
+              .from("classroom_members")
+              .insert({ classroom_id: cls.id, student_id: user.id });
+          }
+          // Clean URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete("invite");
+          window.history.replaceState({}, "", url.toString());
+        })();
+      }
+    }
+    // Signed in: enforce role-based home
+    if (!profile) return;
+    if (path === "/login") {
+      void navigate({ to: profile.role === "teacher" ? "/teacher" : "/" });
+      return;
+    }
+    if (profile.role === "student" && path.startsWith("/teacher")) {
+      void navigate({ to: "/" });
+    }
+    if (profile.role === "teacher" && path === "/") {
+      void navigate({ to: "/teacher" });
+    }
+  }, [user, profile, loading, path, isPublic, navigate]);
+
+  if (loading) {
+    return (
+      <div className="grid min-h-[100dvh] place-items-center bg-background text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+  if (!user && !isPublic) {
+    return (
+      <div className="grid min-h-[100dvh] place-items-center bg-background text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+  return <>{children}</>;
 }

@@ -25,6 +25,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useAuth } from "@/lib/auth";
+import { LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -46,7 +48,6 @@ export const Route = createFileRoute("/")({
 });
 
 const LETTERS = ["A", "B", "C", "D"] as const;
-const STUDENT_ID = "00000000-0000-0000-0000-000000000001";
 type Letter = (typeof LETTERS)[number];
 
 const TOPICS = [
@@ -60,6 +61,8 @@ type TopicKey = (typeof TOPICS)[number]["topic"];
 
 function StudentFeed() {
   const { t, lang } = useI18n();
+  const { user, signOut } = useAuth();
+  const STUDENT_ID = user?.id ?? "";
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
@@ -188,6 +191,13 @@ function StudentFeed() {
           >
             <BarChart3 className="h-4 w-4" />
           </Link>
+          <button
+            onClick={() => void signOut()}
+            className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground transition"
+            aria-label="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </header>
 
