@@ -68,19 +68,25 @@ function StudentFeed() {
     if (checking || feedback) return;
     setChecking(letter);
     setSelected(letter);
-    const res = await submitAnswer(
-      "student_001",
-      session?.topic ?? "Kinematics",
-      "KSSM",
-      letter,
-      session?.options?.[letter] ?? "",
-      mock,
-    );
-    setChecking(null);
-    setFeedback(res);
-    if (res.correct) {
-      setStreak((s) => s + 1);
-      setXp((x) => x + 25);
+    try {
+      const res = await submitAnswer(
+        "student_001",
+        session?.topic ?? "Kinematics",
+        "KSSM",
+        letter,
+        {},
+        mock,
+      );
+      setFeedback(res);
+      if (res.correct) {
+        setStreak((s) => s + 1);
+        setXp((x) => x + 25);
+      }
+    } catch (err) {
+      console.error("[Skor] submitAnswer error:", err);
+      setError(t.errorSubmit ?? "Something went wrong. Please try again.");
+    } finally {
+      setChecking(null);
     }
   };
 
