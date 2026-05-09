@@ -79,7 +79,8 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
-  const [activeTopic, setActiveTopic] = useState<TopicKey>(TOPICS[0].topic);
+  const [activeSubject, setActiveSubject] = useState<SubjectKey>(SUBJECTS[0]);
+  const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0]);
   const initialLoadAttempted = useRef(false);
 
   const mock: MockBundle = {
@@ -95,9 +96,9 @@ function StudentFeed() {
     misconception: t.feedbackMisconception,
   };
 
-  const loadSession = async (topicOverride?: TopicKey) => {
+  const loadSession = async (subjectOverride?: SubjectKey, topicOverride?: string) => {
+    const subject = subjectOverride ?? activeSubject;
     const target = topicOverride ?? activeTopic;
-    const subject = TOPICS.find((t) => t.topic === target)?.subject ?? "Physics";
     setLoading(true);
     setError(null);
     setFeedback(null);
@@ -118,10 +119,18 @@ function StudentFeed() {
     }
   };
 
-  const handleTopicChange = (topic: TopicKey) => {
+  const handleSubjectChange = (subject: SubjectKey) => {
+    if (subject === activeSubject) return;
+    const firstTopic = SUBJECT_TOPICS[subject][0];
+    setActiveSubject(subject);
+    setActiveTopic(firstTopic);
+    void loadSession(subject, firstTopic);
+  };
+
+  const handleTopicChange = (topic: string) => {
     if (topic === activeTopic) return;
     setActiveTopic(topic);
-    void loadSession(topic);
+    void loadSession(activeSubject, topic);
   };
 
   useEffect(() => {
