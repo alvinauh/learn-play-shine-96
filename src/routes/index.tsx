@@ -69,6 +69,7 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
+  const [activeTopic, setActiveTopic] = useState<TopicKey>(TOPICS[0].topic);
   const initialLoadAttempted = useRef(false);
 
   const mock: MockBundle = {
@@ -84,11 +85,15 @@ function StudentFeed() {
     misconception: t.feedbackMisconception,
   };
 
-  const loadSession = async () => {
+  const loadSession = async (topicOverride?: TopicKey) => {
+    const target = topicOverride ?? activeTopic;
+    const subject = TOPICS.find((t) => t.topic === target)?.subject ?? "Physics";
     setLoading(true);
     setError(null);
+    setFeedback(null);
+    setSelected(null);
     try {
-      const data = await startSession(STUDENT_ID, "Kinematics", "KSSM", "Physics", mock);
+      const data = await startSession(STUDENT_ID, target, "KSSM", subject, mock);
       setSession(data);
     } catch (err) {
       console.error("[Skor] startSession error:", err);
@@ -103,13 +108,16 @@ function StudentFeed() {
     }
   };
 
+  const handleTopicChange = (topic: TopicKey) => {
+    if (topic === activeTopic) return;
+    setActiveTopic(topic);
+    void loadSession(topic);
+  };
+
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
     void loadSession();
-    return () => {
-      initialLoadAttempted.current = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
