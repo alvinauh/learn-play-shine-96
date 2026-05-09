@@ -110,15 +110,21 @@ function StudentFeed() {
     misconception: t.feedbackMisconception,
   };
 
-  const loadSession = async (subjectOverride?: SubjectKey, topicOverride?: string) => {
+  const loadSession = async (
+    subjectOverride?: SubjectKey,
+    topicOverride?: string,
+    langOverride?: "en" | "ms",
+  ) => {
     const subject = subjectOverride ?? activeSubject;
     const target = topicOverride ?? activeTopic;
+    const useLang = langOverride ?? (lang === "ms" ? "ms" : "en");
+    const apiLanguage = useLang === "ms" ? "Bahasa Melayu" : "English";
     setLoading(true);
     setError(null);
     setFeedback(null);
     setSelected(null);
     try {
-      const data = await startSession(STUDENT_ID, target, "KSSM", subject, mock);
+      const data = await startSession(STUDENT_ID, target, "KSSM", subject, mock, apiLanguage);
       setSession(data);
     } catch (err) {
       console.error("[Skor] startSession error:", err);
