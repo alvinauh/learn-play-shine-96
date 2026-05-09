@@ -268,8 +268,8 @@ function StudentFeed() {
             </SelectTrigger>
             <SelectContent>
               {SUBJECT_TOPICS[activeSubject].map((topic) => (
-                <SelectItem key={topic} value={topic}>
-                  {topic}
+                <SelectItem key={topic.value} value={topic.value}>
+                  {topic.label}
                 </SelectItem>
               ))}
             </SelectContent>
