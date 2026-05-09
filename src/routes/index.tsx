@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   ApiResponseError,
   startSession,
@@ -57,17 +58,31 @@ export const Route = createFileRoute("/")({
 const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
 
-const SUBJECT_TOPICS = {
-  Physics: ["Kinematics", "Electromagnetism"],
-  Sejarah: ["Bab 1 Warisan Negara Bangsa", "Bab 2 Kebangkitan Nasionalisme"],
-  Perniagaan: ["Asas Perniagaan", "Pengurusan Sumber Manusia"],
-  Biologi: ["Cell Division", "Respiration"],
-} as const;
+type TopicOption = { label: string; value: string };
+const SUBJECT_TOPICS: Record<string, TopicOption[]> = {
+  Physics: [
+    { label: "Kinematics", value: "Kinematics" },
+    { label: "Electromagnetism", value: "Electromagnetism" },
+  ],
+  Sejarah: [
+    { label: "Bab 1 Warisan Negara Bangsa", value: "Warisan Negara Bangsa" },
+    { label: "Bab 2 Kebangkitan Nasionalisme", value: "Kebangkitan Nasionalisme" },
+  ],
+  Perniagaan: [
+    { label: "Asas Perniagaan", value: "Asas Perniagaan" },
+    { label: "Pengurusan Sumber Manusia", value: "Pengurusan Sumber Manusia" },
+  ],
+  Biologi: [
+    { label: "Bab 1 Cell Division", value: "Cell Division" },
+    { label: "Bab 2 Respiration", value: "Respiration" },
+  ],
+};
 type SubjectKey = keyof typeof SUBJECT_TOPICS;
 const SUBJECTS = Object.keys(SUBJECT_TOPICS) as SubjectKey[];
+const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
 
 function StudentFeed() {
-  const { t, lang } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const { user, signOut } = useAuth();
   const STUDENT_ID = user?.id ?? "";
   const [session, setSession] = useState<SessionResponse | null>(null);
@@ -80,7 +95,7 @@ function StudentFeed() {
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
   const [activeSubject, setActiveSubject] = useState<SubjectKey>(SUBJECTS[0]);
-  const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0]);
+  const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0].value);
   const initialLoadAttempted = useRef(false);
 
   const mock: MockBundle = {
@@ -96,15 +111,21 @@ function StudentFeed() {
     misconception: t.feedbackMisconception,
   };
 
-  const loadSession = async (subjectOverride?: SubjectKey, topicOverride?: string) => {
+  const loadSession = async (
+    subjectOverride?: SubjectKey,
+    topicOverride?: string,
+    langOverride?: "en" | "ms",
+  ) => {
     const subject = subjectOverride ?? activeSubject;
     const target = topicOverride ?? activeTopic;
+    const useLang = langOverride ?? (lang === "ms" ? "ms" : "en");
+    const apiLanguage = useLang === "ms" ? "Bahasa Melayu" : "English";
     setLoading(true);
     setError(null);
     setFeedback(null);
     setSelected(null);
     try {
-      const data = await startSession(STUDENT_ID, target, "KSSM", subject, mock);
+      const data = await startSession(STUDENT_ID, target, "KSSM", subject, mock, apiLanguage);
       setSession(data);
     } catch (err) {
       console.error("[Skor] startSession error:", err);
@@ -121,10 +142,12 @@ function StudentFeed() {
 
   const handleSubjectChange = (subject: SubjectKey) => {
     if (subject === activeSubject) return;
-    const firstTopic = SUBJECT_TOPICS[subject][0];
+    const firstTopic = SUBJECT_TOPICS[subject][0].value;
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
-    void loadSession(subject, firstTopic);
+    const nextLang: "en" | "ms" = BM_SUBJECTS.includes(subject) ? "ms" : "en";
+    setLang(nextLang);
+    void loadSession(subject, firstTopic, nextLang);
   };
 
   const handleTopicChange = (topic: string) => {
@@ -146,13 +169,15 @@ function StudentFeed() {
     setSelected(letter);
     setError(null);
     try {
+      const apiLanguage = lang === "ms" ? "Bahasa Melayu" : "English";
       const res = await submitAnswer(
         STUDENT_ID,
-        session.topic ?? "Kinematics",
+        session.topic ?? activeTopic,
         "KSSM",
         session.options[letter],
         {},
         mock,
+        apiLanguage,
       );
       setFeedback(res);
       if (res.correct) {
@@ -246,12 +271,26 @@ function StudentFeed() {
             </SelectTrigger>
             <SelectContent>
               {SUBJECT_TOPICS[activeSubject].map((topic) => (
-                <SelectItem key={topic} value={topic}>
-                  {topic}
+                <SelectItem key={topic.value} value={topic.value}>
+                  {topic.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Language toggle */}
+        <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/60 px-4 py-2.5 backdrop-blur">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
+            <span className={cn(lang !== "ms" && "text-foreground font-semibold")}>English</span>
+            <span className="opacity-40">/</span>
+            <span className={cn(lang === "ms" && "text-foreground font-semibold")}>Bahasa Melayu</span>
+          </div>
+          <Switch
+            checked={lang === "ms"}
+            onCheckedChange={(checked) => setLang(checked ? "ms" : "en")}
+            aria-label="Toggle language"
+          />
         </div>
 
         {/* Media player card */}
