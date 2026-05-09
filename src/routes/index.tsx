@@ -61,6 +61,8 @@ type TopicKey = (typeof TOPICS)[number]["topic"];
 
 function StudentFeed() {
   const { t, lang } = useI18n();
+  const { user, signOut } = useAuth();
+  const STUDENT_ID = user?.id ?? "";
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
