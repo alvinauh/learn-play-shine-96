@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   Users,
   Target,
   AlertTriangle,
-  ArrowLeft,
   TrendingUp,
   TrendingDown,
   Loader2,
