@@ -1,6 +1,31 @@
 // Skor API service — connects to local Python backend
 export const BASE_URL = "http://localhost:8000";
 
+export interface ClassMasteryItem {
+  subject: string;
+  mastery: number;
+}
+
+export interface RecentAlert {
+  diagnostic_tag: string;
+  topic?: string;
+  severity?: "destructive" | "warning" | "success" | string;
+}
+
+export interface TeacherInsightsResponse {
+  class_mastery: ClassMasteryItem[];
+  recent_alerts: RecentAlert[];
+  active_students?: number;
+  class_average_mastery?: number;
+  weakest_topic?: string;
+}
+
+export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
+  const res = await fetch(`${BASE_URL}/teacher_insights`, { method: "GET" });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<TeacherInsightsResponse>;
+}
+
 export interface SessionResponse {
   session_id?: string;
   question: string;
