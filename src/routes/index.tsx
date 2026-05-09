@@ -282,10 +282,6 @@ function StudentFeed() {
                       feedback &&
                       (letter === feedback.correct_answer ||
                         optionText === feedback.correct_answer);
-                    const isChecking = checking === letter;
-                    const isSelected = selected === letter;
-                    const showResult = feedback && isSelected;
-                    const isCorrectChoice = feedback && letter === feedback.correct_answer;
                     return (
                       <button
                         key={letter}
