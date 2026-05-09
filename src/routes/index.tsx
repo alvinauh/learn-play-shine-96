@@ -62,7 +62,7 @@ function StudentFeed() {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang]);
+  }, []);
 
   const handleAnswer = async (letter: Letter) => {
     if (checking || feedback) return;
