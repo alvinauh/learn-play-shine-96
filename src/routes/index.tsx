@@ -168,13 +168,15 @@ function StudentFeed() {
     setSelected(letter);
     setError(null);
     try {
+      const apiLanguage = lang === "ms" ? "Bahasa Melayu" : "English";
       const res = await submitAnswer(
         STUDENT_ID,
-        session.topic ?? "Kinematics",
+        session.topic ?? activeTopic,
         "KSSM",
         session.options[letter],
         {},
         mock,
+        apiLanguage,
       );
       setFeedback(res);
       if (res.correct) {
