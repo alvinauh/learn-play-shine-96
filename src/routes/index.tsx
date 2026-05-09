@@ -332,10 +332,13 @@ function StudentFeed() {
         )}
       </main>
 
-      {/* Feedback bottom sheet */}
-      <Sheet open={!!feedback} onOpenChange={(o) => !o && setFeedback(null)}>
+      {/* Feedback bottom sheet — only dismissable via Next Question button */}
+      <Sheet open={!!feedback}>
         <SheetContent
           side="bottom"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
           className={cn(
             "rounded-t-3xl border-t-2 bg-card/95 backdrop-blur-xl",
             feedback?.correct ? "border-neon-green" : "border-destructive",
@@ -356,12 +359,6 @@ function StudentFeed() {
                   </>
                 )}
               </SheetTitle>
-              <button
-                onClick={() => setFeedback(null)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
           </SheetHeader>
           <div className="mx-auto max-w-md space-y-4 pb-2 pt-3">
