@@ -49,6 +49,15 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 const STUDENT_ID = "00000000-0000-0000-0000-000000000001";
 type Letter = (typeof LETTERS)[number];
 
+const TOPICS = [
+  { topic: "Kinematics", subject: "Physics" },
+  { topic: "Electromagnetism", subject: "Physics" },
+  { topic: "Cell Division", subject: "Biology" },
+  { topic: "Asas Perniagaan", subject: "Perniagaan" },
+  { topic: "Sejarah Bab 1", subject: "Sejarah" },
+] as const;
+type TopicKey = (typeof TOPICS)[number]["topic"];
+
 function StudentFeed() {
   const { t, lang } = useI18n();
   const [session, setSession] = useState<SessionResponse | null>(null);
@@ -60,6 +69,7 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
+  const [activeTopic, setActiveTopic] = useState<TopicKey>(TOPICS[0].topic);
   const initialLoadAttempted = useRef(false);
 
   const mock: MockBundle = {
@@ -75,11 +85,15 @@ function StudentFeed() {
     misconception: t.feedbackMisconception,
   };
 
-  const loadSession = async () => {
+  const loadSession = async (topicOverride?: TopicKey) => {
+    const target = topicOverride ?? activeTopic;
+    const subject = TOPICS.find((t) => t.topic === target)?.subject ?? "Physics";
     setLoading(true);
     setError(null);
+    setFeedback(null);
+    setSelected(null);
     try {
-      const data = await startSession(STUDENT_ID, "Kinematics", "KSSM", "Physics", mock);
+      const data = await startSession(STUDENT_ID, target, "KSSM", subject, mock);
       setSession(data);
     } catch (err) {
       console.error("[Skor] startSession error:", err);
@@ -94,13 +108,16 @@ function StudentFeed() {
     }
   };
 
+  const handleTopicChange = (topic: TopicKey) => {
+    if (topic === activeTopic) return;
+    setActiveTopic(topic);
+    void loadSession(topic);
+  };
+
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
     void loadSession();
-    return () => {
-      initialLoadAttempted.current = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -175,6 +192,31 @@ function StudentFeed() {
       </header>
 
       <main className="relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6">
+        {/* Topic selector pills */}
+        <nav
+          aria-label="Topic selector"
+          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {TOPICS.map(({ topic }) => {
+            const active = topic === activeTopic;
+            return (
+              <button
+                key={topic}
+                onClick={() => handleTopicChange(topic)}
+                disabled={loading && active}
+                className={cn(
+                  "shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium whitespace-nowrap transition",
+                  active
+                    ? "border-primary bg-gradient-primary text-primary-foreground shadow-glow"
+                    : "border-border/60 bg-card/60 text-muted-foreground hover:text-foreground hover:border-primary/50",
+                )}
+              >
+                {topic}
+              </button>
+            );
+          })}
+        </nav>
+
         {/* Media player card */}
         <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
