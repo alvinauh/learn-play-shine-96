@@ -4,8 +4,10 @@ import { Play, Pause, Volume2, Heart, MessageCircle, BarChart3, Loader2, Sparkle
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { startSession, submitAnswer, type SessionResponse, type AnswerResponse } from "@/services/api";
+import { startSession, submitAnswer, type SessionResponse, type AnswerResponse, type MockBundle } from "@/services/api";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export const Route = createFileRoute("/")({
   head: () => ({
