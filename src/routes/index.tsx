@@ -25,6 +25,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useAuth } from "@/lib/auth";
+import { LogOut } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
