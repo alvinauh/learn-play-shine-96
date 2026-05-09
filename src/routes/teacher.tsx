@@ -280,6 +280,8 @@ function TeacherDashboard() {
             </ul>
           </div>
         </section>
+        </>
+        )}
       </main>
     </div>
   );
