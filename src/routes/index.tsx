@@ -218,30 +218,41 @@ function StudentFeed() {
       </header>
 
       <main className="relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6">
-        {/* Topic selector pills */}
-        <nav
-          aria-label="Topic selector"
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {TOPICS.map(({ topic }) => {
-            const active = topic === activeTopic;
-            return (
-              <button
-                key={topic}
-                onClick={() => handleTopicChange(topic)}
-                disabled={loading && active}
-                className={cn(
-                  "shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium whitespace-nowrap transition",
-                  active
-                    ? "border-primary bg-gradient-primary text-primary-foreground shadow-glow"
-                    : "border-border/60 bg-card/60 text-muted-foreground hover:text-foreground hover:border-primary/50",
-                )}
-              >
-                {topic}
-              </button>
-            );
-          })}
-        </nav>
+        {/* Subject + Topic selectors */}
+        <div className="grid grid-cols-2 gap-2">
+          <Select
+            value={activeSubject}
+            onValueChange={(v) => handleSubjectChange(v as SubjectKey)}
+            disabled={loading}
+          >
+            <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
+              <SelectValue placeholder="Subject" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUBJECTS.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={activeTopic}
+            onValueChange={handleTopicChange}
+            disabled={loading}
+          >
+            <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
+              <SelectValue placeholder="Topic" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUBJECT_TOPICS[activeSubject].map((topic) => (
+                <SelectItem key={topic} value={topic}>
+                  {topic}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* Media player card */}
         <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
