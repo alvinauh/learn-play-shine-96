@@ -81,7 +81,7 @@ const SUBJECTS = Object.keys(SUBJECT_TOPICS) as SubjectKey[];
 const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
 
 function StudentFeed() {
-  const { t, lang } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const { user, signOut } = useAuth();
   const STUDENT_ID = user?.id ?? "";
   const [session, setSession] = useState<SessionResponse | null>(null);
