@@ -359,12 +359,6 @@ function StudentFeed() {
                   </>
                 )}
               </SheetTitle>
-              <button
-                onClick={() => setFeedback(null)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
           </SheetHeader>
           <div className="mx-auto max-w-md space-y-4 pb-2 pt-3">
