@@ -54,7 +54,7 @@ function StudentFeed() {
     setLoading(true);
     (async () => {
       try {
-        const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
+        const data = await startSession("00000000-0000-0000-0000-000000000001", "Kinematics", "KSSM", "Physics", mock);
         if (mounted) setSession(data);
       } catch (err) {
         console.error("[Skor] startSession error:", err);
@@ -76,7 +76,7 @@ function StudentFeed() {
     setError(null);
     try {
       const res = await submitAnswer(
-        "student_001",
+        "00000000-0000-0000-0000-000000000001",
         session?.topic ?? "Kinematics",
         "KSSM",
         letter,
@@ -103,7 +103,7 @@ function StudentFeed() {
     setError(null);
     setLoading(true);
     try {
-      const data = await startSession("student_001", "Kinematics", "KSSM", "Physics", mock);
+      const data = await startSession("00000000-0000-0000-0000-000000000001", "Kinematics", "KSSM", "Physics", mock);
       setSession(data);
     } catch (err) {
       console.error("[Skor] startSession error:", err);
