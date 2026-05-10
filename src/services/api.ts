@@ -34,6 +34,7 @@ export interface SessionResponse {
   topic?: string;
   subject?: string;
   media_url?: string;
+  video_broll?: string;
   mnemonic_lyrics?: string[];
 }
 
