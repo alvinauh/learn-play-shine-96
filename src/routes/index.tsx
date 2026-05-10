@@ -81,8 +81,16 @@ type SubjectKey = keyof typeof SUBJECT_TOPICS;
 const SUBJECTS = Object.keys(SUBJECT_TOPICS) as SubjectKey[];
 const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
 
-function KineticLyrics({ lines }: { lines: string[] }) {
+// Royalty-free Lo-Fi loop (Pixabay CDN, CC0)
+const LOFI_AUDIO_URL =
+  "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3";
+
+function KineticLyrics({ lines, mediaUrl }: { lines: string[]; mediaUrl?: string }) {
   const [visible, setVisible] = useState(0);
+  const [muted, setMuted] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
   useEffect(() => {
     setVisible(0);
     if (!lines.length) return;
@@ -92,27 +100,77 @@ function KineticLyrics({ lines }: { lines: string[] }) {
     });
     return () => timers.forEach(clearTimeout);
   }, [lines]);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    a.volume = 0.45;
+    a.loop = true;
+    // Autoplay muted to satisfy browser policies; user can unmute.
+    a.muted = muted;
+    a.play().catch(() => {});
+  }, [muted]);
+
+  const toggleMute = () => {
+    setMuted((m) => {
+      const next = !m;
+      if (audioRef.current) audioRef.current.muted = next;
+      if (videoRef.current) videoRef.current.muted = true; // video stays muted
+      if (!next) audioRef.current?.play().catch(() => {});
+      return next;
+    });
+  };
+
   return (
-    <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,oklch(0.55_0.28_300/0.5),transparent_60%),radial-gradient(circle_at_80%_80%,oklch(0.55_0.28_240/0.5),transparent_60%)]" />
+    <div className="relative aspect-[9/14] sm:aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
+      {/* Layer 1 — Video background */}
+      {mediaUrl ? (
+        <video
+          ref={videoRef}
+          src={mediaUrl}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,oklch(0.55_0.28_300/0.5),transparent_60%),radial-gradient(circle_at_80%_80%,oklch(0.55_0.28_240/0.5),transparent_60%)]" />
+      )}
+
+      {/* Dark gradient overlay for legibility */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
+
+      {/* Layer 2 — Lo-Fi audio loop */}
+      <audio ref={audioRef} src={LOFI_AUDIO_URL} loop preload="auto" />
+
+      {/* Layer 3 — Kinetic lyrics */}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 sm:px-6 text-center">
         {lines.map((line, i) => (
           <div
             key={i}
             className={cn(
-              "font-display text-base sm:text-lg md:text-xl font-extrabold tracking-tight text-white leading-tight max-w-full break-words [text-wrap:balance] transition-all duration-700",
+              "font-display text-lg sm:text-xl md:text-2xl font-extrabold tracking-tight text-white leading-tight max-w-full break-words [text-wrap:balance] transition-all duration-700",
               i < visible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-3 scale-95",
             )}
-            style={{ textShadow: "0 0 24px rgba(236,72,153,0.55)" }}
+            style={{ textShadow: "0 2px 12px rgba(0,0,0,0.85), 0 0 28px rgba(236,72,153,0.55)" }}
           >
             {line}
           </div>
         ))}
       </div>
+
       <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-background/40 px-3 py-1 text-xs font-medium text-white backdrop-blur">
         <span className="h-2 w-2 rounded-full bg-neon-green animate-pulse" />
         Mnemonic Hook
       </div>
+      <button
+        onClick={toggleMute}
+        className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-background/50 text-white backdrop-blur transition hover:scale-105"
+        aria-label={muted ? "Unmute beat" : "Mute beat"}
+      >
+        <Volume2 className={cn("h-4 w-4", muted && "opacity-50")} />
+      </button>
     </div>
   );
 }
