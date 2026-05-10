@@ -113,9 +113,15 @@ function TeacherDashboard() {
   const insights = (recentAlerts.length ? recentAlerts : fallbackAlerts).map((a) => ({
     color: severityToColor(a.severity),
     emoji: severityToEmoji(a.severity),
-    text: a.diagnostic_tag,
     topic: a.topic ?? "",
+    category: a.category ?? "",
+    observation: a.observation ?? a.diagnostic_tag ?? "",
+    action: a.action ?? "",
   }));
+
+  const handleGenerateIntervention = (topic: string) => {
+    console.log("[Skor] Generate intervention for:", topic);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
