@@ -85,15 +85,24 @@ const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
 const LOFI_AUDIO_URL =
   "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3";
 
+function isValidUrl(u: unknown): u is string {
+  return typeof u === "string" && u.trim().length > 0 && u !== "null" && u !== "undefined";
+}
+
 function KineticLyrics({
   lines,
   videoBroll,
   voiceoverUrl,
 }: {
-  lines: string[];
-  videoBroll?: string;
-  voiceoverUrl?: string;
+  lines: unknown;
+  videoBroll?: string | null;
+  voiceoverUrl?: string | null;
 }) {
+  const safeLines = Array.isArray(lines)
+    ? lines.filter((l): l is string => typeof l === "string" && l.trim().length > 0)
+    : [];
+  const safeVideo = isValidUrl(videoBroll) ? videoBroll : undefined;
+  const safeVoice = isValidUrl(voiceoverUrl) ? voiceoverUrl : undefined;
   const [visible, setVisible] = useState(0);
   const [playing, setPlaying] = useState(false);
   const beatRef = useRef<HTMLAudioElement | null>(null);
@@ -103,13 +112,13 @@ function KineticLyrics({
   // Animate lyrics line-by-line; restart whenever lyrics change OR playback starts
   useEffect(() => {
     setVisible(0);
-    if (!lines.length || !playing) return;
+    if (!safeLines.length || !playing) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    lines.forEach((_, i) => {
+    safeLines.forEach((_, i) => {
       timers.push(setTimeout(() => setVisible((v) => Math.max(v, i + 1)), 600 + i * 900));
     });
     return () => timers.forEach(clearTimeout);
-  }, [lines, playing]);
+  }, [safeLines, playing]);
 
   // Reset playback state when source changes
   useEffect(() => {
@@ -122,7 +131,7 @@ function KineticLyrics({
       voiceRef.current.pause();
       voiceRef.current.currentTime = 0;
     }
-  }, [videoBroll, voiceoverUrl, lines]);
+  }, [safeVideo, safeVoice, safeLines]);
 
   const togglePlay = async () => {
     const beat = beatRef.current;
@@ -155,14 +164,15 @@ function KineticLyrics({
   return (
     <div className="relative aspect-[9/14] sm:aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
       {/* Layer 1 — Video b-roll background */}
-      {videoBroll ? (
+      {safeVideo ? (
         <video
           ref={videoRef}
-          src={videoBroll}
+          src={safeVideo}
           autoPlay
           loop
           muted
           playsInline
+          onError={() => console.warn("video b-roll failed to load")}
           className="absolute inset-0 h-full w-full object-cover"
         />
       ) : (
@@ -173,15 +183,15 @@ function KineticLyrics({
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
 
       {/* Layer 2a — AI voiceover (hidden) */}
-      {voiceoverUrl ? (
-        <audio ref={voiceRef} src={voiceoverUrl} preload="auto" className="hidden" />
+      {safeVoice ? (
+        <audio ref={voiceRef} src={safeVoice} preload="auto" className="hidden" onError={() => console.warn("voiceover failed to load")} />
       ) : null}
       {/* Layer 2b — Lo-Fi beat loop (hidden) */}
-      <audio ref={beatRef} src={LOFI_AUDIO_URL} loop preload="auto" className="hidden" />
+      <audio ref={beatRef} src={LOFI_AUDIO_URL} loop preload="auto" className="hidden" onError={() => console.warn("beat failed to load")} />
 
       {/* Layer 3 — Kinetic lyrics */}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 sm:px-6 text-center">
-        {lines.map((line, i) => (
+        {safeLines.map((line, i) => (
           <div
             key={i}
             className={cn(
@@ -476,8 +486,8 @@ function StudentFeed() {
         </div>
 
         {/* Media / Mnemonic Hook */}
-        {session?.mnemonic_lyrics && session.mnemonic_lyrics.length > 0 ? (
-          <KineticLyrics lines={session.mnemonic_lyrics} videoBroll={session.video_broll} voiceoverUrl={session.media_url} />
+        {Array.isArray(session?.mnemonic_lyrics) && session!.mnemonic_lyrics!.some((l) => typeof l === "string" && l.trim().length > 0) ? (
+          <KineticLyrics lines={session!.mnemonic_lyrics} videoBroll={session?.video_broll ?? null} voiceoverUrl={session?.media_url ?? null} />
         ) : (
           <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
