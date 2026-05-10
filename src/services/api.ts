@@ -154,6 +154,7 @@ export async function startSession(
   subject: string,
   mock?: MockBundle,
   language: string = "English",
+  isAdaptive: boolean = false,
 ): Promise<SessionResponse> {
   try {
     const data = await postJSON<StartSessionApiResponse>("/start_session", {
@@ -162,6 +163,7 @@ export async function startSession(
       curriculum,
       subject,
       language,
+      is_adaptive: isAdaptive,
     });
 
     return normalizeSessionResponse(data, topic, subject);
@@ -175,6 +177,15 @@ export async function startSession(
       correct: "C",
       topic: mock.topic,
       subject: mock.subject,
+      mnemonic_lyrics: isAdaptive
+        ? undefined
+        : [
+            `Welcome to ${mock.topic}`,
+            "Let the rhythm guide your mind 🎵",
+            "Feel the beat, feel the flow",
+            "Knowledge grows as concepts show",
+            "Ready? Tap Play and let's go!",
+          ],
     };
   }
 }
