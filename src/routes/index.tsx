@@ -164,14 +164,15 @@ function KineticLyrics({
   return (
     <div className="relative aspect-[9/14] sm:aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
       {/* Layer 1 — Video b-roll background */}
-      {videoBroll ? (
+      {safeVideo ? (
         <video
           ref={videoRef}
-          src={videoBroll}
+          src={safeVideo}
           autoPlay
           loop
           muted
           playsInline
+          onError={() => console.warn("video b-roll failed to load")}
           className="absolute inset-0 h-full w-full object-cover"
         />
       ) : (
@@ -182,15 +183,15 @@ function KineticLyrics({
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
 
       {/* Layer 2a — AI voiceover (hidden) */}
-      {voiceoverUrl ? (
-        <audio ref={voiceRef} src={voiceoverUrl} preload="auto" className="hidden" />
+      {safeVoice ? (
+        <audio ref={voiceRef} src={safeVoice} preload="auto" className="hidden" onError={() => console.warn("voiceover failed to load")} />
       ) : null}
       {/* Layer 2b — Lo-Fi beat loop (hidden) */}
-      <audio ref={beatRef} src={LOFI_AUDIO_URL} loop preload="auto" className="hidden" />
+      <audio ref={beatRef} src={LOFI_AUDIO_URL} loop preload="auto" className="hidden" onError={() => console.warn("beat failed to load")} />
 
       {/* Layer 3 — Kinetic lyrics */}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 sm:px-6 text-center">
-        {lines.map((line, i) => (
+        {safeLines.map((line, i) => (
           <div
             key={i}
             className={cn(
