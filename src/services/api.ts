@@ -34,6 +34,7 @@ export interface SessionResponse {
   topic?: string;
   subject?: string;
   media_url?: string;
+  video_broll?: string;
   mnemonic_lyrics?: string[];
 }
 
@@ -78,6 +79,7 @@ interface StartSessionApiResponse {
   topic?: string;
   subject?: string;
   media_url?: string;
+  video_broll?: string;
   mnemonic_lyrics?: string[];
   question_data?: {
     question?: string;
@@ -143,6 +145,7 @@ function normalizeSessionResponse(
     topic: data.topic ?? data.draft?.topic ?? topic,
     subject: data.subject ?? data.draft?.subject ?? subject,
     media_url: data.media_url,
+    video_broll: data.video_broll,
     mnemonic_lyrics: data.mnemonic_lyrics,
   };
 }

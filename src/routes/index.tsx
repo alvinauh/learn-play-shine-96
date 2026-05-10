@@ -85,49 +85,80 @@ const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
 const LOFI_AUDIO_URL =
   "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3";
 
-function KineticLyrics({ lines, mediaUrl }: { lines: string[]; mediaUrl?: string }) {
+function KineticLyrics({
+  lines,
+  videoBroll,
+  voiceoverUrl,
+}: {
+  lines: string[];
+  videoBroll?: string;
+  voiceoverUrl?: string;
+}) {
   const [visible, setVisible] = useState(0);
-  const [muted, setMuted] = useState(true);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const beatRef = useRef<HTMLAudioElement | null>(null);
+  const voiceRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
+  // Animate lyrics line-by-line; restart whenever lyrics change OR playback starts
   useEffect(() => {
     setVisible(0);
-    if (!lines.length) return;
+    if (!lines.length || !playing) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     lines.forEach((_, i) => {
       timers.push(setTimeout(() => setVisible((v) => Math.max(v, i + 1)), 600 + i * 900));
     });
     return () => timers.forEach(clearTimeout);
-  }, [lines]);
+  }, [lines, playing]);
 
+  // Reset playback state when source changes
   useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    a.volume = 0.45;
-    a.loop = true;
-    // Autoplay muted to satisfy browser policies; user can unmute.
-    a.muted = muted;
-    a.play().catch(() => {});
-  }, [muted]);
+    setPlaying(false);
+    if (beatRef.current) {
+      beatRef.current.pause();
+      beatRef.current.currentTime = 0;
+    }
+    if (voiceRef.current) {
+      voiceRef.current.pause();
+      voiceRef.current.currentTime = 0;
+    }
+  }, [videoBroll, voiceoverUrl, lines]);
 
-  const toggleMute = () => {
-    setMuted((m) => {
-      const next = !m;
-      if (audioRef.current) audioRef.current.muted = next;
-      if (videoRef.current) videoRef.current.muted = true; // video stays muted
-      if (!next) audioRef.current?.play().catch(() => {});
-      return next;
-    });
+  const togglePlay = async () => {
+    const beat = beatRef.current;
+    const voice = voiceRef.current;
+    if (playing) {
+      beat?.pause();
+      voice?.pause();
+      setPlaying(false);
+      return;
+    }
+    try {
+      if (beat) {
+        beat.volume = 0.3;
+        beat.loop = true;
+        beat.muted = false;
+        await beat.play();
+      }
+      if (voice) {
+        voice.volume = 1;
+        voice.muted = false;
+        await voice.play();
+      }
+      videoRef.current?.play().catch(() => {});
+      setPlaying(true);
+    } catch (e) {
+      console.warn("Audio playback failed", e);
+    }
   };
 
   return (
     <div className="relative aspect-[9/14] sm:aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
-      {/* Layer 1 — Video background */}
-      {mediaUrl ? (
+      {/* Layer 1 — Video b-roll background */}
+      {videoBroll ? (
         <video
           ref={videoRef}
-          src={mediaUrl}
+          src={videoBroll}
           autoPlay
           loop
           muted
@@ -141,8 +172,12 @@ function KineticLyrics({ lines, mediaUrl }: { lines: string[]; mediaUrl?: string
       {/* Dark gradient overlay for legibility */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
 
-      {/* Layer 2 — Lo-Fi audio loop */}
-      <audio ref={audioRef} src={LOFI_AUDIO_URL} loop preload="auto" />
+      {/* Layer 2a — AI voiceover (hidden) */}
+      {voiceoverUrl ? (
+        <audio ref={voiceRef} src={voiceoverUrl} preload="auto" className="hidden" />
+      ) : null}
+      {/* Layer 2b — Lo-Fi beat loop (hidden) */}
+      <audio ref={beatRef} src={LOFI_AUDIO_URL} loop preload="auto" className="hidden" />
 
       {/* Layer 3 — Kinetic lyrics */}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 sm:px-6 text-center">
@@ -164,13 +199,28 @@ function KineticLyrics({ lines, mediaUrl }: { lines: string[]; mediaUrl?: string
         <span className="h-2 w-2 rounded-full bg-neon-green animate-pulse" />
         Mnemonic Hook
       </div>
-      <button
-        onClick={toggleMute}
-        className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-background/50 text-white backdrop-blur transition hover:scale-105"
-        aria-label={muted ? "Unmute beat" : "Mute beat"}
-      >
-        <Volume2 className={cn("h-4 w-4", muted && "opacity-50")} />
-      </button>
+
+      {/* Master Play/Pause button */}
+      {!playing && (
+        <button
+          onClick={togglePlay}
+          className="absolute inset-0 z-10 grid place-items-center bg-black/30 backdrop-blur-[2px] transition hover:bg-black/40"
+          aria-label="Play mnemonic"
+        >
+          <span className="grid h-20 w-20 place-items-center rounded-full bg-white/90 text-black shadow-2xl transition hover:scale-105">
+            <Play className="h-9 w-9 translate-x-0.5" fill="currentColor" />
+          </span>
+        </button>
+      )}
+      {playing && (
+        <button
+          onClick={togglePlay}
+          className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-background/50 text-white backdrop-blur transition hover:scale-105"
+          aria-label="Pause mnemonic"
+        >
+          <Pause className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
@@ -427,7 +477,7 @@ function StudentFeed() {
 
         {/* Media / Mnemonic Hook */}
         {session?.mnemonic_lyrics && session.mnemonic_lyrics.length > 0 ? (
-          <KineticLyrics lines={session.mnemonic_lyrics} mediaUrl={session.media_url} />
+          <KineticLyrics lines={session.mnemonic_lyrics} videoBroll={session.video_broll} voiceoverUrl={session.media_url} />
         ) : (
           <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
