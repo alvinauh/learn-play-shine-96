@@ -34,6 +34,7 @@ export interface SessionResponse {
   topic?: string;
   subject?: string;
   media_url?: string;
+  mnemonic_lyrics?: string[];
 }
 
 export interface AnswerResponse {
@@ -42,6 +43,8 @@ export interface AnswerResponse {
   feedback: string;
   misconception?: string;
   next_question?: SessionResponse;
+  topic_complete?: boolean;
+  next_topic?: string;
 }
 
 export interface MockBundle {
