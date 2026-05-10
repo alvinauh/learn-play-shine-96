@@ -427,7 +427,7 @@ function StudentFeed() {
 
         {/* Media / Mnemonic Hook */}
         {session?.mnemonic_lyrics && session.mnemonic_lyrics.length > 0 ? (
-          <KineticLyrics lines={session.mnemonic_lyrics} />
+          <KineticLyrics lines={session.mnemonic_lyrics} mediaUrl={session.media_url} />
         ) : (
           <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
