@@ -159,15 +159,23 @@ export async function startSession(
   language: string = "English",
   isAdaptive: boolean = false,
 ): Promise<SessionResponse> {
+  const safeStudentId =
+    studentId && studentId !== "undefined"
+      ? studentId
+      : "00000000-0000-0000-0000-000000000001";
+  const payload = {
+    student_id: safeStudentId,
+    topic: topic || "Kinematics",
+    curriculum: curriculum || "KSSM",
+    subject: subject || "Physics",
+    language: language || "English",
+    is_adaptive: !!isAdaptive,
+  };
+  if (!payload.topic || !payload.subject) {
+    throw new Error("startSession: missing required fields");
+  }
   try {
-    const data = await postJSON<StartSessionApiResponse>("/start_session", {
-      student_id: studentId,
-      topic,
-      curriculum,
-      subject,
-      language,
-      is_adaptive: isAdaptive,
-    });
+    const data = await postJSON<StartSessionApiResponse>("/start_session", payload);
 
     return normalizeSessionResponse(data, topic, subject);
   } catch (err) {
