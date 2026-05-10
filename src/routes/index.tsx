@@ -367,34 +367,38 @@ function StudentFeed() {
           />
         </div>
 
-        {/* Media player card */}
-        <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
-          <div className="absolute inset-0 grid place-items-center">
-            <button
-              onClick={() => setPlaying((p) => !p)}
-              className="grid h-20 w-20 place-items-center rounded-full bg-background/40 backdrop-blur-md ring-1 ring-white/10 transition hover:scale-105"
-              aria-label={playing ? "Pause" : "Play"}
-            >
-              {playing ? (
-                <Pause className="h-9 w-9 fill-foreground" />
-              ) : (
-                <Play className="h-9 w-9 fill-foreground translate-x-0.5" />
-              )}
-            </button>
+        {/* Media / Mnemonic Hook */}
+        {session?.mnemonic_lyrics && session.mnemonic_lyrics.length > 0 ? (
+          <KineticLyrics lines={session.mnemonic_lyrics} />
+        ) : (
+          <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
+            <div className="absolute inset-0 grid place-items-center">
+              <button
+                onClick={() => setPlaying((p) => !p)}
+                className="grid h-20 w-20 place-items-center rounded-full bg-background/40 backdrop-blur-md ring-1 ring-white/10 transition hover:scale-105"
+                aria-label={playing ? "Pause" : "Play"}
+              >
+                {playing ? (
+                  <Pause className="h-9 w-9 fill-foreground" />
+                ) : (
+                  <Play className="h-9 w-9 fill-foreground translate-x-0.5" />
+                )}
+              </button>
+            </div>
+            <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-background/50 px-3 py-1 text-xs font-medium backdrop-blur">
+              <span className="h-2 w-2 rounded-full bg-neon-green animate-pulse" />
+              {session?.subject ?? "Physics"} • {session?.topic ?? "Kinematics"}
+            </div>
+            <div className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-background/50 backdrop-blur">
+              <Volume2 className="h-4 w-4" />
+            </div>
+            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-muted-foreground">
+              <span>0:00 / 0:42</span>
+              <span>{t.form}</span>
+            </div>
           </div>
-          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-background/50 px-3 py-1 text-xs font-medium backdrop-blur">
-            <span className="h-2 w-2 rounded-full bg-neon-green animate-pulse" />
-            {session?.subject ?? "Physics"} • {session?.topic ?? "Kinematics"}
-          </div>
-          <div className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-background/50 backdrop-blur">
-            <Volume2 className="h-4 w-4" />
-          </div>
-          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-muted-foreground">
-            <span>0:00 / 0:42</span>
-            <span>{t.form}</span>
-          </div>
-        </div>
+        )}
 
         {/* Side actions row (TikTok-style) */}
         <div className="flex items-center gap-3 px-1 text-sm text-muted-foreground">
