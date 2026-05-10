@@ -338,7 +338,13 @@ function StudentFeed() {
               <SelectValue placeholder="Topic" />
             </SelectTrigger>
             <SelectContent>
-              {SUBJECT_TOPICS[activeSubject].map((topic) => (
+              {[
+                ...SUBJECT_TOPICS[activeSubject],
+                ...(dynamicTopic &&
+                !SUBJECT_TOPICS[activeSubject].some((tt) => tt.value === dynamicTopic)
+                  ? [{ label: dynamicTopic, value: dynamicTopic }]
+                  : []),
+              ].map((topic) => (
                 <SelectItem key={topic.value} value={topic.value}>
                   {topic.label}
                 </SelectItem>
