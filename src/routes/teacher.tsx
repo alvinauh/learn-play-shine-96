@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { Badge } from "@/components/ui/badge";
 import {
   Users,
   Target,
@@ -113,9 +114,15 @@ function TeacherDashboard() {
   const insights = (recentAlerts.length ? recentAlerts : fallbackAlerts).map((a) => ({
     color: severityToColor(a.severity),
     emoji: severityToEmoji(a.severity),
-    text: a.diagnostic_tag,
     topic: a.topic ?? "",
+    category: a.category ?? "",
+    observation: a.observation ?? a.diagnostic_tag ?? "",
+    action: a.action ?? "",
   }));
+
+  const handleGenerateIntervention = (topic: string) => {
+    console.log("[Skor] Generate intervention for:", topic);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -255,6 +262,7 @@ function TeacherDashboard() {
               <h2 className="font-display text-lg font-semibold">{t.diagnosticInsights}</h2>
               <span className="text-xs text-muted-foreground">{insights.length} {t.alerts}</span>
             </div>
+            
             <ul className="mt-4 space-y-3">
               {insights.map((i, idx) => (
                 <li
@@ -269,9 +277,42 @@ function TeacherDashboard() {
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-lg leading-none">{i.emoji}</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium leading-snug">{i.text}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{i.topic}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {i.category && (
+                          <Badge
+                            variant={
+                              i.color === "destructive"
+                                ? "destructive"
+                                : i.color === "success"
+                                  ? "secondary"
+                                  : "outline"
+                            }
+                            className="text-[10px] uppercase tracking-wide"
+                          >
+                            {i.category}
+                          </Badge>
+                        )}
+                        {i.topic && (
+                          <span className="text-xs text-muted-foreground">{i.topic}</span>
+                        )}
+                      </div>
+                      {i.observation && (
+                        <p className="mt-2 text-sm font-medium leading-snug">{i.observation}</p>
+                      )}
+                      {(i.action || i.topic) && (
+                        <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-background/40 p-3">
+                          <p className="flex-1 text-xs text-muted-foreground leading-snug">
+                            {i.action || "Recommended next step"}
+                          </p>
+                          <button
+                            onClick={() => handleGenerateIntervention(i.topic)}
+                            className="shrink-0 rounded-md bg-gradient-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition"
+                          >
+                            Generate Intervention
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </li>
