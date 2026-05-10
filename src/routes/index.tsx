@@ -228,7 +228,7 @@ function KineticLyrics({
 function StudentFeed() {
   const { t, lang, setLang } = useI18n();
   const { user, signOut } = useAuth();
-  const STUDENT_ID = user?.id ?? "";
+  const STUDENT_ID = "00000000-0000-0000-0000-000000000001";
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
