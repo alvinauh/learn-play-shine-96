@@ -95,12 +95,12 @@ function KineticLyrics({ lines }: { lines: string[] }) {
   return (
     <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,oklch(0.55_0.28_300/0.5),transparent_60%),radial-gradient(circle_at_80%_80%,oklch(0.55_0.28_240/0.5),transparent_60%)]" />
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 sm:px-6 text-center">
         {lines.map((line, i) => (
           <div
             key={i}
             className={cn(
-              "font-display text-2xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_20px_rgba(168,85,247,0.6)] transition-all duration-700",
+              "font-display text-base sm:text-lg md:text-xl font-extrabold tracking-tight text-white leading-tight max-w-full break-words [text-wrap:balance] transition-all duration-700",
               i < visible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-3 scale-95",
             )}
             style={{ textShadow: "0 0 24px rgba(236,72,153,0.55)" }}
