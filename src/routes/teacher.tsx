@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { Badge } from "@/components/ui/badge";
 import {
   Users,
   Target,
