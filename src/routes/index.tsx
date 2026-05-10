@@ -536,14 +536,23 @@ function StudentFeed() {
           onEscapeKeyDown={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
           className={cn(
-            "rounded-t-3xl border-t-2 bg-card/95 backdrop-blur-xl",
-            feedback?.correct ? "border-neon-green" : "border-destructive",
+            "rounded-t-3xl border-t-2 backdrop-blur-xl",
+            feedback?.topic_complete
+              ? "border-neon-green bg-[linear-gradient(135deg,oklch(0.35_0.18_150/0.95),oklch(0.25_0.12_180/0.95))] animate-pulse-glow"
+              : feedback?.correct
+                ? "border-neon-green bg-card/95"
+                : "border-destructive bg-card/95",
           )}
         >
           <SheetHeader className="text-left">
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-2 font-display text-2xl">
-                {feedback?.correct ? (
+                {feedback?.topic_complete ? (
+                  <>
+                    <span className="text-3xl animate-bounce">🚀</span>
+                    <span className="text-neon-green">Level Up!</span>
+                  </>
+                ) : feedback?.correct ? (
                   <>
                     <span className="text-2xl">🎉</span>
                     <span className="text-neon-green">{t.spotOn}</span>
@@ -575,9 +584,16 @@ function StudentFeed() {
             <Button
               onClick={handleNext}
               size="lg"
-              className="h-14 w-full rounded-2xl bg-gradient-primary text-base font-bold shadow-glow hover:opacity-95"
+              className={cn(
+                "h-14 w-full rounded-2xl text-base font-bold shadow-glow hover:opacity-95",
+                feedback?.topic_complete
+                  ? "bg-[linear-gradient(135deg,oklch(0.78_0.24_145),oklch(0.65_0.22_175))] text-background"
+                  : "bg-gradient-primary",
+              )}
             >
-              {t.nextQuestion}
+              {feedback?.topic_complete && feedback.next_topic
+                ? `Advance to ${feedback.next_topic} →`
+                : t.nextQuestion}
             </Button>
           </div>
         </SheetContent>
