@@ -81,6 +81,42 @@ type SubjectKey = keyof typeof SUBJECT_TOPICS;
 const SUBJECTS = Object.keys(SUBJECT_TOPICS) as SubjectKey[];
 const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
 
+function KineticLyrics({ lines }: { lines: string[] }) {
+  const [visible, setVisible] = useState(0);
+  useEffect(() => {
+    setVisible(0);
+    if (!lines.length) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    lines.forEach((_, i) => {
+      timers.push(setTimeout(() => setVisible((v) => Math.max(v, i + 1)), 600 + i * 900));
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [lines]);
+  return (
+    <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,oklch(0.55_0.28_300/0.5),transparent_60%),radial-gradient(circle_at_80%_80%,oklch(0.55_0.28_240/0.5),transparent_60%)]" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+        {lines.map((line, i) => (
+          <div
+            key={i}
+            className={cn(
+              "font-display text-2xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_20px_rgba(168,85,247,0.6)] transition-all duration-700",
+              i < visible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-3 scale-95",
+            )}
+            style={{ textShadow: "0 0 24px rgba(236,72,153,0.55)" }}
+          >
+            {line}
+          </div>
+        ))}
+      </div>
+      <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-background/40 px-3 py-1 text-xs font-medium text-white backdrop-blur">
+        <span className="h-2 w-2 rounded-full bg-neon-green animate-pulse" />
+        Mnemonic Hook
+      </div>
+    </div>
+  );
+}
+
 function StudentFeed() {
   const { t, lang, setLang } = useI18n();
   const { user, signOut } = useAuth();
@@ -96,6 +132,7 @@ function StudentFeed() {
   const [error, setError] = useState<string | null>(null);
   const [activeSubject, setActiveSubject] = useState<SubjectKey>(SUBJECTS[0]);
   const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0].value);
+  const [dynamicTopic, setDynamicTopic] = useState<string | null>(null);
   const initialLoadAttempted = useRef(false);
 
   const mock: MockBundle = {
@@ -115,6 +152,7 @@ function StudentFeed() {
     subjectOverride?: SubjectKey,
     topicOverride?: string,
     langOverride?: "en" | "ms",
+    isAdaptive: boolean = false,
   ) => {
     const subject = subjectOverride ?? activeSubject;
     const target = topicOverride ?? activeTopic;
@@ -125,7 +163,15 @@ function StudentFeed() {
     setFeedback(null);
     setSelected(null);
     try {
-      const data = await startSession(STUDENT_ID, target, "KSSM", subject, mock, apiLanguage);
+      const data = await startSession(
+        STUDENT_ID,
+        target,
+        "KSSM",
+        subject,
+        mock,
+        apiLanguage,
+        isAdaptive,
+      );
       setSession(data);
     } catch (err) {
       console.error("[Skor] startSession error:", err);
@@ -145,15 +191,16 @@ function StudentFeed() {
     const firstTopic = SUBJECT_TOPICS[subject][0].value;
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
+    setDynamicTopic(null);
     const nextLang: "en" | "ms" = BM_SUBJECTS.includes(subject) ? "ms" : "en";
     setLang(nextLang);
-    void loadSession(subject, firstTopic, nextLang);
+    void loadSession(subject, firstTopic, nextLang, false);
   };
 
   const handleTopicChange = (topic: string) => {
     if (topic === activeTopic) return;
     setActiveTopic(topic);
-    void loadSession(activeSubject, topic);
+    void loadSession(activeSubject, topic, undefined, false);
   };
 
   useEffect(() => {
@@ -198,9 +245,30 @@ function StudentFeed() {
   };
 
   const handleNext = async () => {
+    const nextTopic = feedback?.topic_complete ? feedback.next_topic : null;
     setFeedback(null);
     setSelected(null);
-    await loadSession();
+    if (nextTopic) {
+      // Find subject containing this topic; if not found, attach to current subject as dynamic
+      let targetSubject: SubjectKey = activeSubject;
+      let found = false;
+      for (const s of SUBJECTS) {
+        if (SUBJECT_TOPICS[s].some((t) => t.value === nextTopic)) {
+          targetSubject = s;
+          found = true;
+          break;
+        }
+      }
+      if (!found) setDynamicTopic(nextTopic);
+      else setDynamicTopic(null);
+      setActiveSubject(targetSubject);
+      setActiveTopic(nextTopic);
+      const nextLang: "en" | "ms" = BM_SUBJECTS.includes(targetSubject) ? "ms" : "en";
+      setLang(nextLang);
+      await loadSession(targetSubject, nextTopic, nextLang, false);
+    } else {
+      await loadSession(activeSubject, activeTopic, undefined, true);
+    }
   };
 
   const showMaintenanceState = !loading && !session && !!error;
