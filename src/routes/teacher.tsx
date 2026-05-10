@@ -270,14 +270,56 @@ function TeacherDashboard() {
                       ? "border-destructive/40 bg-destructive/5"
                       : i.color === "warning"
                         ? "border-warning/40 bg-warning/5"
+            <ul className="mt-4 space-y-3">
+              {insights.map((i, idx) => (
+                <li
+                  key={idx}
+                  className={`rounded-xl border p-4 transition hover:bg-accent/30 ${
+                    i.color === "destructive"
+                      ? "border-destructive/40 bg-destructive/5"
+                      : i.color === "warning"
+                        ? "border-warning/40 bg-warning/5"
                         : "border-success/40 bg-success/5"
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-lg leading-none">{i.emoji}</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium leading-snug">{i.text}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{i.topic}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {i.category && (
+                          <Badge
+                            variant={
+                              i.color === "destructive"
+                                ? "destructive"
+                                : i.color === "success"
+                                  ? "secondary"
+                                  : "outline"
+                            }
+                            className="text-[10px] uppercase tracking-wide"
+                          >
+                            {i.category}
+                          </Badge>
+                        )}
+                        {i.topic && (
+                          <span className="text-xs text-muted-foreground">{i.topic}</span>
+                        )}
+                      </div>
+                      {i.observation && (
+                        <p className="mt-2 text-sm font-medium leading-snug">{i.observation}</p>
+                      )}
+                      {(i.action || i.topic) && (
+                        <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-background/40 p-3">
+                          <p className="flex-1 text-xs text-muted-foreground leading-snug">
+                            {i.action || "Recommended next step"}
+                          </p>
+                          <button
+                            onClick={() => handleGenerateIntervention(i.topic)}
+                            className="shrink-0 rounded-md bg-gradient-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition"
+                          >
+                            Generate Intervention
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </li>
