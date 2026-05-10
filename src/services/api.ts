@@ -34,6 +34,7 @@ export interface SessionResponse {
   topic?: string;
   subject?: string;
   media_url?: string;
+  mnemonic_lyrics?: string[];
 }
 
 export interface AnswerResponse {
@@ -42,6 +43,8 @@ export interface AnswerResponse {
   feedback: string;
   misconception?: string;
   next_question?: SessionResponse;
+  topic_complete?: boolean;
+  next_topic?: string;
 }
 
 export interface MockBundle {
@@ -75,6 +78,7 @@ interface StartSessionApiResponse {
   topic?: string;
   subject?: string;
   media_url?: string;
+  mnemonic_lyrics?: string[];
   question_data?: {
     question?: string;
     options?: string[];
@@ -139,6 +143,7 @@ function normalizeSessionResponse(
     topic: data.topic ?? data.draft?.topic ?? topic,
     subject: data.subject ?? data.draft?.subject ?? subject,
     media_url: data.media_url,
+    mnemonic_lyrics: data.mnemonic_lyrics,
   };
 }
 
@@ -149,6 +154,7 @@ export async function startSession(
   subject: string,
   mock?: MockBundle,
   language: string = "English",
+  isAdaptive: boolean = false,
 ): Promise<SessionResponse> {
   try {
     const data = await postJSON<StartSessionApiResponse>("/start_session", {
@@ -157,6 +163,7 @@ export async function startSession(
       curriculum,
       subject,
       language,
+      is_adaptive: isAdaptive,
     });
 
     return normalizeSessionResponse(data, topic, subject);
@@ -170,6 +177,15 @@ export async function startSession(
       correct: "C",
       topic: mock.topic,
       subject: mock.subject,
+      mnemonic_lyrics: isAdaptive
+        ? undefined
+        : [
+            `Welcome to ${mock.topic}`,
+            "Let the rhythm guide your mind 🎵",
+            "Feel the beat, feel the flow",
+            "Knowledge grows as concepts show",
+            "Ready? Tap Play and let's go!",
+          ],
     };
   }
 }
