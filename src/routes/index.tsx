@@ -112,13 +112,13 @@ function KineticLyrics({
   // Animate lyrics line-by-line; restart whenever lyrics change OR playback starts
   useEffect(() => {
     setVisible(0);
-    if (!lines.length || !playing) return;
+    if (!safeLines.length || !playing) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    lines.forEach((_, i) => {
+    safeLines.forEach((_, i) => {
       timers.push(setTimeout(() => setVisible((v) => Math.max(v, i + 1)), 600 + i * 900));
     });
     return () => timers.forEach(clearTimeout);
-  }, [lines, playing]);
+  }, [safeLines, playing]);
 
   // Reset playback state when source changes
   useEffect(() => {
@@ -131,7 +131,7 @@ function KineticLyrics({
       voiceRef.current.pause();
       voiceRef.current.currentTime = 0;
     }
-  }, [videoBroll, voiceoverUrl, lines]);
+  }, [safeVideo, safeVoice, safeLines]);
 
   const togglePlay = async () => {
     const beat = beatRef.current;
