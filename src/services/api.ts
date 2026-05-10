@@ -79,6 +79,7 @@ interface StartSessionApiResponse {
   topic?: string;
   subject?: string;
   media_url?: string;
+  video_broll?: string;
   mnemonic_lyrics?: string[];
   question_data?: {
     question?: string;
