@@ -85,15 +85,24 @@ const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
 const LOFI_AUDIO_URL =
   "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3";
 
+function isValidUrl(u: unknown): u is string {
+  return typeof u === "string" && u.trim().length > 0 && u !== "null" && u !== "undefined";
+}
+
 function KineticLyrics({
   lines,
   videoBroll,
   voiceoverUrl,
 }: {
-  lines: string[];
-  videoBroll?: string;
-  voiceoverUrl?: string;
+  lines: unknown;
+  videoBroll?: string | null;
+  voiceoverUrl?: string | null;
 }) {
+  const safeLines = Array.isArray(lines)
+    ? lines.filter((l): l is string => typeof l === "string" && l.trim().length > 0)
+    : [];
+  const safeVideo = isValidUrl(videoBroll) ? videoBroll : undefined;
+  const safeVoice = isValidUrl(voiceoverUrl) ? voiceoverUrl : undefined;
   const [visible, setVisible] = useState(0);
   const [playing, setPlaying] = useState(false);
   const beatRef = useRef<HTMLAudioElement | null>(null);
