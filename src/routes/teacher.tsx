@@ -261,15 +261,7 @@ function TeacherDashboard() {
               <h2 className="font-display text-lg font-semibold">{t.diagnosticInsights}</h2>
               <span className="text-xs text-muted-foreground">{insights.length} {t.alerts}</span>
             </div>
-            <ul className="mt-4 space-y-3">
-              {insights.map((i, idx) => (
-                <li
-                  key={idx}
-                  className={`rounded-xl border p-4 transition hover:bg-accent/30 ${
-                    i.color === "destructive"
-                      ? "border-destructive/40 bg-destructive/5"
-                      : i.color === "warning"
-                        ? "border-warning/40 bg-warning/5"
+            
             <ul className="mt-4 space-y-3">
               {insights.map((i, idx) => (
                 <li
