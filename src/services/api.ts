@@ -7,9 +7,12 @@ export interface ClassMasteryItem {
 }
 
 export interface RecentAlert {
-  diagnostic_tag: string;
+  diagnostic_tag?: string;
   topic?: string;
   severity?: "destructive" | "warning" | "success" | string;
+  category?: string;
+  observation?: string;
+  action?: string;
 }
 
 export interface TeacherInsightsResponse {
