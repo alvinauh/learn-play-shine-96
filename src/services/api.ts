@@ -210,15 +210,20 @@ export async function submitAnswer(
   mock?: MockBundle,
   language: string = "English",
 ): Promise<AnswerResponse> {
+  const safeStudentId =
+    studentId && studentId !== "undefined"
+      ? studentId
+      : "00000000-0000-0000-0000-000000000001";
+  const payload = {
+    student_id: safeStudentId,
+    topic: topic || "Kinematics",
+    curriculum: curriculum || "KSSM",
+    student_answer: studentAnswer ?? "",
+    draft: draft ?? {},
+    language: language || "English",
+  };
   try {
-    return await postJSON<AnswerResponse>("/submit_answer", {
-      student_id: studentId,
-      topic,
-      curriculum,
-      student_answer: studentAnswer,
-      draft,
-      language,
-    });
+    return await postJSON<AnswerResponse>("/submit_answer", payload);
   } catch (err) {
     console.warn("[Skor API] submitAnswer failed, using mock:", err);
     if (!mock || err instanceof ApiResponseError) throw err;
