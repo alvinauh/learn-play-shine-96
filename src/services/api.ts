@@ -145,6 +145,7 @@ function normalizeSessionResponse(
     topic: data.topic ?? data.draft?.topic ?? topic,
     subject: data.subject ?? data.draft?.subject ?? subject,
     media_url: data.media_url,
+    video_broll: data.video_broll,
     mnemonic_lyrics: data.mnemonic_lyrics,
   };
 }
