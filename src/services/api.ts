@@ -88,6 +88,8 @@ interface StartSessionApiResponse {
     question?: string;
     options?: string[];
     correct_answer?: string;
+    answer?: string;
+    explanation?: string;
   };
   draft?: {
     question?: string;
@@ -137,6 +139,13 @@ function normalizeSessionResponse(
     throw new Error("Invalid start_session payload");
   }
 
+  const lyricsRaw = data.mnemonic_lyrics as unknown;
+  const mnemonic_lyrics: string[] | undefined = Array.isArray(lyricsRaw)
+    ? (lyricsRaw.filter((l) => typeof l === "string") as string[])
+    : typeof lyricsRaw === "string" && lyricsRaw.trim().length > 0
+      ? lyricsRaw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+      : undefined;
+
   return {
     session_id: data.session_id,
     question,
@@ -144,12 +153,15 @@ function normalizeSessionResponse(
       data.options ?? data.question_data?.options ?? data.draft?.options,
     ),
     correct:
-      data.correct ?? data.question_data?.correct_answer ?? data.draft?.correct_answer,
+      data.correct ??
+      data.question_data?.correct_answer ??
+      data.question_data?.answer ??
+      data.draft?.correct_answer,
     topic: data.topic ?? data.draft?.topic ?? topic,
     subject: data.subject ?? data.draft?.subject ?? subject,
     media_url: data.media_url,
     video_broll: data.video_broll,
-    mnemonic_lyrics: data.mnemonic_lyrics,
+    mnemonic_lyrics,
   };
 }
 
