@@ -88,6 +88,8 @@ interface StartSessionApiResponse {
     question?: string;
     options?: string[];
     correct_answer?: string;
+    answer?: string;
+    explanation?: string;
   };
   draft?: {
     question?: string;
