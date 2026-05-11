@@ -214,11 +214,16 @@ function KineticLyrics({
       {!playing && (
         <button
           onClick={togglePlay}
-          className="absolute inset-0 z-10 grid place-items-center bg-black/30 backdrop-blur-[2px] transition hover:bg-black/40"
-          aria-label="Play mnemonic"
+          className="absolute inset-0 z-10 grid place-items-center bg-black/40 backdrop-blur-[2px] transition hover:bg-black/50"
+          aria-label="Tap to play audio"
         >
-          <span className="grid h-20 w-20 place-items-center rounded-full bg-white/90 text-black shadow-2xl transition hover:scale-105">
-            <Play className="h-9 w-9 translate-x-0.5" fill="currentColor" />
+          <span className="flex flex-col items-center gap-3">
+            <span className="grid h-20 w-20 place-items-center rounded-full bg-white/95 text-black shadow-2xl transition group-hover:scale-105">
+              <Play className="h-9 w-9 translate-x-0.5" fill="currentColor" />
+            </span>
+            <span className="rounded-full bg-black/70 px-4 py-1.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg">
+              Tap to Play Audio
+            </span>
           </span>
         </button>
       )}
