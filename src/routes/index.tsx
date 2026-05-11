@@ -106,13 +106,18 @@ function KineticLyrics({
   const [visible, setVisible] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [audioLoaded, setAudioLoaded] = useState(false);
+  const [voiceLoaded, setVoiceLoaded] = useState(false);
+  const [beatLoaded, setBeatLoaded] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const beatRef = useRef<HTMLAudioElement | null>(null);
   const voiceRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoProbeRef = useRef<HTMLVideoElement | null>(null);
+  const voiceProbeRef = useRef<HTMLAudioElement | null>(null);
+  const beatProbeRef = useRef<HTMLAudioElement | null>(null);
   const showLyrics = safeLines.length > 0 && (videoLoaded || !safeVideo || videoError);
-  const isLoadingMedia = Boolean(safeVideo && !videoLoaded && !videoError);
+  const showPlayOverlay = !playing && (!safeVideo || videoLoaded || videoError) && ((!safeVoice && beatLoaded) || (safeVoice && voiceLoaded && beatLoaded));
+  const isLoadingMedia = Boolean((safeVideo && !videoLoaded && !videoError) || (safeVoice && !voiceLoaded) || !beatLoaded);
 
   // Animate lyrics line-by-line; restart whenever lyrics change OR playback starts
   useEffect(() => {
@@ -129,7 +134,8 @@ function KineticLyrics({
   useEffect(() => {
     setPlaying(false);
     setVideoLoaded(!safeVideo);
-    setAudioLoaded(!safeVoice);
+    setVoiceLoaded(!safeVoice);
+    setBeatLoaded(false);
     setVideoError(false);
     if (beatRef.current) {
       beatRef.current.pause();
@@ -141,17 +147,85 @@ function KineticLyrics({
     }
   }, [safeVideo, safeVoice, safeLines]);
 
+  useEffect(() => {
+    if (!safeVideo) return;
+    const probe = document.createElement("video");
+    probe.preload = "auto";
+    probe.muted = true;
+    probe.playsInline = true;
+    const handleLoaded = () => setVideoLoaded(true);
+    const handleError = () => {
+      console.warn("video b-roll failed to load");
+      setVideoError(true);
+      setVideoLoaded(false);
+    };
+    probe.addEventListener("loadeddata", handleLoaded);
+    probe.addEventListener("error", handleError);
+    probe.src = safeVideo;
+    probe.load();
+    videoProbeRef.current = probe;
+    return () => {
+      probe.removeEventListener("loadeddata", handleLoaded);
+      probe.removeEventListener("error", handleError);
+      probe.src = "";
+      videoProbeRef.current = null;
+    };
+  }, [safeVideo]);
+
+  useEffect(() => {
+    if (!safeVoice) return;
+    const probe = new Audio();
+    probe.preload = "auto";
+    const handleLoaded = () => setVoiceLoaded(true);
+    const handleError = () => {
+      console.warn("voiceover failed to load");
+      setVoiceLoaded(false);
+    };
+    probe.addEventListener("loadeddata", handleLoaded);
+    probe.addEventListener("error", handleError);
+    probe.src = safeVoice;
+    probe.load();
+    voiceProbeRef.current = probe;
+    return () => {
+      probe.removeEventListener("loadeddata", handleLoaded);
+      probe.removeEventListener("error", handleError);
+      probe.src = "";
+      voiceProbeRef.current = null;
+    };
+  }, [safeVoice]);
+
+  useEffect(() => {
+    const probe = new Audio();
+    probe.preload = "auto";
+    const handleLoaded = () => setBeatLoaded(true);
+    const handleError = () => {
+      console.warn("beat failed to load");
+      setBeatLoaded(true);
+    };
+    probe.addEventListener("loadeddata", handleLoaded);
+    probe.addEventListener("error", handleError);
+    probe.src = LOFI_AUDIO_URL;
+    probe.load();
+    beatProbeRef.current = probe;
+    return () => {
+      probe.removeEventListener("loadeddata", handleLoaded);
+      probe.removeEventListener("error", handleError);
+      probe.src = "";
+      beatProbeRef.current = null;
+    };
+  }, []);
+
   const handlePlayAudio = async () => {
     const beat = beatRef.current;
     const voice = voiceRef.current;
     try {
-      if (beat && audioLoaded) {
+      if (beat && beatLoaded) {
         beat.volume = 0.3;
         beat.loop = true;
         beat.muted = false;
         await beat.play();
       }
-      if (voice && safeVoice) {
+      if (voice && safeVoice && voiceLoaded) {
         voice.volume = 1;
         voice.muted = false;
         await voice.play();
@@ -172,7 +246,7 @@ function KineticLyrics({
   return (
     <div className="relative aspect-[9/14] sm:aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
       {/* Layer 1 — Video b-roll background */}
-      {safeVideo && !videoError ? (
+      {safeVideo && videoLoaded && !videoError ? (
         <video
           key={safeVideo}
           ref={videoRef}
@@ -182,7 +256,6 @@ function KineticLyrics({
           muted
           playsInline
           preload="auto"
-          onLoadedData={() => setVideoLoaded(true)}
           onError={() => {
             console.warn("video b-roll failed to load");
             setVideoError(true);
@@ -198,29 +271,27 @@ function KineticLyrics({
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
 
       {/* Layer 2a — AI voiceover (hidden) */}
-      {safeVoice && videoLoaded ? (
+      {safeVoice && voiceLoaded ? (
         <audio
           ref={voiceRef}
           src={safeVoice}
           preload="auto"
           className="hidden"
-          onLoadedData={() => setAudioLoaded(true)}
           onEnded={() => setPlaying(false)}
           onError={() => {
             console.warn("voiceover failed to load");
-            setAudioLoaded(false);
+            setVoiceLoaded(false);
           }}
         />
       ) : null}
       {/* Layer 2b — Lo-Fi beat loop (hidden) */}
-      {videoLoaded ? (
+      {beatLoaded ? (
         <audio
           ref={beatRef}
           src={LOFI_AUDIO_URL}
           loop
           preload="auto"
           className="hidden"
-          onLoadedData={() => setAudioLoaded((current) => current || !safeVoice)}
           onError={() => console.warn("beat failed to load")}
         />
       ) : null}
@@ -256,7 +327,7 @@ function KineticLyrics({
       </div>
 
       {/* Master Play/Pause button */}
-      {!playing && videoLoaded && (
+      {showPlayOverlay && (
         <button
           onClick={handlePlayAudio}
           className="absolute inset-0 z-10 grid place-items-center bg-black/40 backdrop-blur-[2px] transition hover:bg-black/50"
