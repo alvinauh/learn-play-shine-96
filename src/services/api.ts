@@ -191,6 +191,7 @@ export async function startSession(
   }
   try {
     const data = await postJSON<StartSessionApiResponse>("/start_session", payload);
+    console.log("[Skor API] /start_session response:", data);
 
     return normalizeSessionResponse(data, topic, subject);
   } catch (err) {
