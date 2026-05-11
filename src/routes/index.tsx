@@ -183,7 +183,6 @@ function KineticLyrics({
           onError={() => {
             console.warn("video b-roll failed to load");
             setVideoError(true);
-            setVideoLoaded(false);
           }}
           className="absolute inset-0 h-full w-full object-cover"
         />
@@ -195,7 +194,7 @@ function KineticLyrics({
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
 
       {/* Layer 2a — AI voiceover (hidden) */}
-      {safeVoice && voiceLoaded ? (
+      {safeVoice ? (
         <audio
           ref={voiceRef}
           src={safeVoice}
