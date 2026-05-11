@@ -536,8 +536,16 @@ function StudentFeed() {
         </div>
 
         {/* Media / Mnemonic Hook */}
-        {Array.isArray(session?.mnemonic_lyrics) && session!.mnemonic_lyrics!.some((l) => typeof l === "string" && l.trim().length > 0) ? (
-          <KineticLyrics lines={session!.mnemonic_lyrics} videoBroll={session?.video_broll ?? null} voiceoverUrl={session?.media_url ?? null} />
+        {session && (
+          (Array.isArray(session.mnemonic_lyrics) && session.mnemonic_lyrics.some((l) => typeof l === "string" && l.trim().length > 0)) ||
+          isValidUrl(session.video_broll) ||
+          isValidUrl(session.media_url)
+        ) ? (
+          <KineticLyrics
+            lines={session?.mnemonic_lyrics}
+            videoBroll={session?.video_broll ?? null}
+            voiceoverUrl={session?.media_url ?? null}
+          />
         ) : (
           <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
