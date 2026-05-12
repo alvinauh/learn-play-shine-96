@@ -368,9 +368,7 @@ function StudentFeed() {
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
     setDynamicTopic(null);
-    const nextLang: Lang = BM_SUBJECTS.includes(subject) ? "ms" : "en";
-    handleLanguageChange(nextLang);
-    void loadSession(subject, firstTopic, nextLang, false);
+    void loadSession(subject, firstTopic, activeLanguage, false);
   };
 
   const handleTopicChange = (topic: string) => {
@@ -443,9 +441,7 @@ function StudentFeed() {
       else setDynamicTopic(null);
       setActiveSubject(targetSubject);
       setActiveTopic(nextTopic);
-      const nextLang: Lang = BM_SUBJECTS.includes(targetSubject) ? "ms" : "en";
-      handleLanguageChange(nextLang);
-      await loadSession(targetSubject, nextTopic, nextLang, false);
+      await loadSession(targetSubject, nextTopic, activeLanguage, false);
     } else {
       await loadSession(activeSubject, activeTopic, undefined, true);
     }
@@ -544,16 +540,16 @@ function StudentFeed() {
         {/* Language toggle */}
         <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/60 px-4 py-2.5 backdrop-blur">
           <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
-              <span className={cn(activeLanguage !== "ms" && "text-foreground font-semibold")}>English</span>
+            <span className={cn(activeLanguage === "en" && "text-foreground font-semibold")}>English</span>
             <span className="opacity-40">/</span>
-              <span className={cn(activeLanguage === "ms" && "text-foreground font-semibold")}>Bahasa Melayu</span>
+            <span className={cn(activeLanguage === "ms" && "text-foreground font-semibold")}>Bahasa Melayu</span>
           </div>
           <Switch
-              checked={activeLanguage === "ms"}
+            checked={activeLanguage === "ms"}
             onCheckedChange={(checked) => {
-                const next: Lang = checked ? "ms" : "en";
-                handleLanguageChange(next);
-                void loadSession(activeSubject, activeTopic, next, false);
+              const next: Lang = checked ? "ms" : "en";
+              handleLanguageChange(next);
+              void loadSession(activeSubject, activeTopic, next, false);
             }}
             aria-label="Toggle language"
           />
