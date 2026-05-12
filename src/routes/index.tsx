@@ -298,16 +298,19 @@ function StudentFeed() {
     misconception: t.feedbackMisconception,
   };
 
+  const langToApi = (l: string): string =>
+    l === "ms" ? "Bahasa Melayu" : l === "zh" ? "Chinese" : "English";
+
   const loadSession = async (
     subjectOverride?: SubjectKey,
     topicOverride?: string,
-    langOverride?: "en" | "ms",
+    langOverride?: "en" | "ms" | "zh",
     isAdaptive: boolean = false,
   ) => {
     const subject = subjectOverride ?? activeSubject;
     const target = topicOverride ?? activeTopic;
-    const useLang = langOverride ?? (lang === "ms" ? "ms" : "en");
-    const apiLanguage = useLang === "ms" ? "Bahasa Melayu" : "English";
+    const useLang = langOverride ?? lang;
+    const apiLanguage = langToApi(useLang);
     setLoading(true);
     setError(null);
     setFeedback(null);
@@ -367,7 +370,7 @@ function StudentFeed() {
     setSelected(letter);
     setError(null);
     try {
-      const apiLanguage = lang === "ms" ? "Bahasa Melayu" : "English";
+      const apiLanguage = langToApi(lang);
       const res = await submitAnswer(
         STUDENT_ID,
         session.topic ?? activeTopic,
@@ -513,7 +516,11 @@ function StudentFeed() {
           </div>
           <Switch
             checked={lang === "ms"}
-            onCheckedChange={(checked) => setLang(checked ? "ms" : "en")}
+            onCheckedChange={(checked) => {
+              const next: "en" | "ms" = checked ? "ms" : "en";
+              setLang(next);
+              void loadSession(activeSubject, activeTopic, next, false);
+            }}
             aria-label="Toggle language"
           />
         </div>
