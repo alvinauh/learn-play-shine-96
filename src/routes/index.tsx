@@ -516,7 +516,11 @@ function StudentFeed() {
           </div>
           <Switch
             checked={lang === "ms"}
-            onCheckedChange={(checked) => setLang(checked ? "ms" : "en")}
+            onCheckedChange={(checked) => {
+              const next: "en" | "ms" = checked ? "ms" : "en";
+              setLang(next);
+              void loadSession(activeSubject, activeTopic, next, false);
+            }}
             aria-label="Toggle language"
           />
         </div>
