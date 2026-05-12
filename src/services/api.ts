@@ -100,11 +100,13 @@ interface StartSessionApiResponse {
   };
 }
 
-async function postJSON<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+async function postJSON<T>(path: string, body: unknown, bustCache: boolean = false): Promise<T> {
+  const url = bustCache ? `${BASE_URL}${path}?t=${Date.now()}` : `${BASE_URL}${path}`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    cache: "no-store",
   });
   if (!res.ok) throw new ApiResponseError(res.status);
   return res.json() as Promise<T>;
@@ -169,9 +171,9 @@ export async function startSession(
   studentId: string,
   topic: string,
   curriculum: string,
+  activeLanguage: string,
   subject: string,
   mock?: MockBundle,
-  language: string = "English",
   isAdaptive: boolean = false,
 ): Promise<SessionResponse> {
   const safeStudentId =
@@ -182,15 +184,15 @@ export async function startSession(
     student_id: safeStudentId,
     topic: topic || "Kinematics",
     curriculum: curriculum || "KSSM",
+    language: activeLanguage || "English",
     subject: subject || "Physics",
-    language: language || "English",
     is_adaptive: !!isAdaptive,
   };
   if (!payload.topic || !payload.subject) {
     throw new Error("startSession: missing required fields");
   }
   try {
-    const data = await postJSON<StartSessionApiResponse>("/start_session", payload);
+    const data = await postJSON<StartSessionApiResponse>("/start_session", payload, true);
     console.log("[Skor API] /start_session response:", data);
 
     return normalizeSessionResponse(data, topic, subject);
