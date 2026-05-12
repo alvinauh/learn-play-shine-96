@@ -370,7 +370,7 @@ function StudentFeed() {
     setSelected(letter);
     setError(null);
     try {
-      const apiLanguage = lang === "ms" ? "Bahasa Melayu" : "English";
+      const apiLanguage = langToApi(lang);
       const res = await submitAnswer(
         STUDENT_ID,
         session.topic ?? activeTopic,
