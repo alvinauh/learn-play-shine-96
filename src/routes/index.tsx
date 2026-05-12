@@ -356,7 +356,9 @@ function StudentFeed() {
       );
       setSession((current) => current);
     } finally {
-      setLoading(false);
+      if (requestId === latestLoadRequestRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -468,6 +470,7 @@ function StudentFeed() {
           <LanguageSwitcher
             compact
             lang={activeLanguage}
+            languages={["en", "ms"]}
             onLangChange={(next) => {
               handleLanguageChange(next);
               void loadSession(activeSubject, activeTopic, next, false);
