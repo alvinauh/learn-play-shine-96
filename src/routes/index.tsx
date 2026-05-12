@@ -31,7 +31,7 @@ import {
   type MockBundle,
 } from "@/services/api";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, type Lang } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuth } from "@/lib/auth";
 import { LogOut } from "lucide-react";
@@ -272,6 +272,9 @@ function StudentFeed() {
   const { user, signOut } = useAuth();
   const STUDENT_ID = "00000000-0000-0000-0000-000000000001";
   const [session, setSession] = useState<SessionResponse | null>(null);
+  const [videoBroll, setVideoBroll] = useState<string | null>(null);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [mnemonicLyrics, setMnemonicLyrics] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [selected, setSelected] = useState<Letter | null>(null);
@@ -282,8 +285,10 @@ function StudentFeed() {
   const [error, setError] = useState<string | null>(null);
   const [activeSubject, setActiveSubject] = useState<SubjectKey>(SUBJECTS[0]);
   const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0].value);
+  const [activeLanguage, setActiveLanguage] = useState<Lang>(lang);
   const [dynamicTopic, setDynamicTopic] = useState<string | null>(null);
   const initialLoadAttempted = useRef(false);
+  const latestLoadRequestRef = useRef(0);
 
   const mock: MockBundle = {
     question: t.mockQuestion,
@@ -301,33 +306,48 @@ function StudentFeed() {
   const langToApi = (l: string): string =>
     l === "ms" ? "Bahasa Melayu" : l === "zh" ? "Chinese" : "English";
 
+  const handleLanguageChange = (nextLanguage: Lang) => {
+    setActiveLanguage(nextLanguage);
+    setLang(nextLanguage);
+  };
+
   const loadSession = async (
     subjectOverride?: SubjectKey,
     topicOverride?: string,
-    langOverride?: "en" | "ms" | "zh",
+    languageOverride?: Lang,
     isAdaptive: boolean = false,
   ) => {
+    const requestId = ++latestLoadRequestRef.current;
     const subject = subjectOverride ?? activeSubject;
     const target = topicOverride ?? activeTopic;
-    const useLang = langOverride ?? lang;
-    const apiLanguage = langToApi(useLang);
+    const nextActiveLanguage = languageOverride ?? activeLanguage;
+    const apiLanguage = langToApi(nextActiveLanguage);
     setLoading(true);
     setError(null);
     setFeedback(null);
     setSelected(null);
+    setVideoBroll(null);
+    setMediaUrl(null);
+    setMnemonicLyrics(null);
+    setSession((current) => (current ? { ...current, video_broll: undefined, media_url: undefined, mnemonic_lyrics: undefined } : current));
     try {
       const data = await startSession(
-        STUDENT_ID,
+        user?.id ?? STUDENT_ID,
         target,
         "KSSM",
+        apiLanguage,
         subject,
         mock,
-        apiLanguage,
         isAdaptive,
       );
+      if (requestId !== latestLoadRequestRef.current) return;
       console.log("[Skor] startSession response:", data);
+      setVideoBroll(data.video_broll ?? null);
+      setMediaUrl(data.media_url ?? null);
+      setMnemonicLyrics(data.mnemonic_lyrics ?? null);
       setSession(data);
     } catch (err) {
+      if (requestId !== latestLoadRequestRef.current) return;
       console.error("[Skor] startSession error:", err);
       setError(
         err instanceof ApiResponseError
@@ -336,7 +356,9 @@ function StudentFeed() {
       );
       setSession((current) => current);
     } finally {
-      setLoading(false);
+      if (requestId === latestLoadRequestRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -346,8 +368,8 @@ function StudentFeed() {
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
     setDynamicTopic(null);
-    const nextLang: "en" | "ms" = BM_SUBJECTS.includes(subject) ? "ms" : "en";
-    setLang(nextLang);
+    const nextLang: Lang = BM_SUBJECTS.includes(subject) ? "ms" : "en";
+    handleLanguageChange(nextLang);
     void loadSession(subject, firstTopic, nextLang, false);
   };
 
@@ -364,13 +386,17 @@ function StudentFeed() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    setActiveLanguage(lang);
+  }, [lang]);
+
   const handleAnswer = async (letter: Letter) => {
     if (checking || feedback || !session) return;
     setChecking(letter);
     setSelected(letter);
     setError(null);
     try {
-      const apiLanguage = langToApi(lang);
+      const apiLanguage = langToApi(activeLanguage);
       const res = await submitAnswer(
         STUDENT_ID,
         session.topic ?? activeTopic,
@@ -417,8 +443,8 @@ function StudentFeed() {
       else setDynamicTopic(null);
       setActiveSubject(targetSubject);
       setActiveTopic(nextTopic);
-      const nextLang: "en" | "ms" = BM_SUBJECTS.includes(targetSubject) ? "ms" : "en";
-      setLang(nextLang);
+      const nextLang: Lang = BM_SUBJECTS.includes(targetSubject) ? "ms" : "en";
+      handleLanguageChange(nextLang);
       await loadSession(targetSubject, nextTopic, nextLang, false);
     } else {
       await loadSession(activeSubject, activeTopic, undefined, true);
@@ -441,7 +467,15 @@ function StudentFeed() {
           <span className="font-display text-xl font-bold tracking-tight">Skor</span>
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <LanguageSwitcher compact />
+          <LanguageSwitcher
+            compact
+            lang={activeLanguage}
+            languages={["en", "ms"]}
+            onLangChange={(next) => {
+              handleLanguageChange(next);
+              void loadSession(activeSubject, activeTopic, next, false);
+            }}
+          />
           <span className="rounded-full border border-border/60 bg-card/60 px-3 py-1 backdrop-blur">
             🔥 <span className="font-semibold">{streak}</span>
           </span>
@@ -510,16 +544,16 @@ function StudentFeed() {
         {/* Language toggle */}
         <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/60 px-4 py-2.5 backdrop-blur">
           <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
-            <span className={cn(lang !== "ms" && "text-foreground font-semibold")}>English</span>
+              <span className={cn(activeLanguage !== "ms" && "text-foreground font-semibold")}>English</span>
             <span className="opacity-40">/</span>
-            <span className={cn(lang === "ms" && "text-foreground font-semibold")}>Bahasa Melayu</span>
+              <span className={cn(activeLanguage === "ms" && "text-foreground font-semibold")}>Bahasa Melayu</span>
           </div>
           <Switch
-            checked={lang === "ms"}
+              checked={activeLanguage === "ms"}
             onCheckedChange={(checked) => {
-              const next: "en" | "ms" = checked ? "ms" : "en";
-              setLang(next);
-              void loadSession(activeSubject, activeTopic, next, false);
+                const next: Lang = checked ? "ms" : "en";
+                handleLanguageChange(next);
+                void loadSession(activeSubject, activeTopic, next, false);
             }}
             aria-label="Toggle language"
           />
@@ -527,14 +561,14 @@ function StudentFeed() {
 
         {/* Media / Mnemonic Hook */}
         {session && (
-          (Array.isArray(session.mnemonic_lyrics) && session.mnemonic_lyrics.some((l) => typeof l === "string" && l.trim().length > 0)) ||
-          isValidUrl(session.video_broll) ||
-          isValidUrl(session.media_url)
+          (Array.isArray(mnemonicLyrics) && mnemonicLyrics.some((l) => typeof l === "string" && l.trim().length > 0)) ||
+          isValidUrl(videoBroll) ||
+          isValidUrl(mediaUrl)
         ) ? (
           <KineticLyrics
-            lines={session?.mnemonic_lyrics}
-            videoBroll={session?.video_broll ?? null}
-            voiceoverUrl={session?.media_url ?? null}
+            lines={mnemonicLyrics}
+            videoBroll={videoBroll}
+            voiceoverUrl={mediaUrl}
           />
         ) : (
           <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">

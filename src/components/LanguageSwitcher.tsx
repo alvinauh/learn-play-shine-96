@@ -7,9 +7,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
-  const { lang, setLang } = useI18n();
-  const current = LANGUAGES.find((l) => l.code === lang)!;
+export function LanguageSwitcher({
+  compact = false,
+  lang,
+  onLangChange,
+  languages,
+}: {
+  compact?: boolean;
+  lang?: Lang;
+  onLangChange?: (lang: Lang) => void;
+  languages?: Lang[];
+}) {
+  const i18n = useI18n();
+  const activeLang = lang ?? i18n.lang;
+  const setActiveLang = onLangChange ?? i18n.setLang;
+  const availableLanguages = languages
+    ? LANGUAGES.filter((language) => languages.includes(language.code))
+    : LANGUAGES;
+  const current =
+    availableLanguages.find((language) => language.code === activeLang) ??
+    LANGUAGES.find((language) => language.code === activeLang)!;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -20,11 +37,11 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
         {compact ? current.short : current.label}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[10rem]">
-        {LANGUAGES.map((l) => (
+        {availableLanguages.map((l) => (
           <DropdownMenuItem
             key={l.code}
-            onClick={() => setLang(l.code as Lang)}
-            className={lang === l.code ? "bg-accent" : ""}
+            onClick={() => setActiveLang(l.code)}
+            className={activeLang === l.code ? "bg-accent" : ""}
           >
             <span className="mr-2 font-mono text-xs text-muted-foreground">{l.short}</span>
             {l.label}
