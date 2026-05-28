@@ -60,7 +60,14 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
 
 type TopicOption = { label: string; value: string };
-const SUBJECT_TOPICS: Record<string, TopicOption[]> = {
+
+/**
+ * Optional per-subject topic suggestions. This is NOT a source-of-truth list
+ * of subjects — subjects are fetched dynamically from the backend. Any subject
+ * not listed here falls back to a single generic topic equal to the subject
+ * name, so brand-new subjects from the backend render automatically.
+ */
+const TOPIC_SUGGESTIONS: Record<string, TopicOption[]> = {
   Physics: [
     { label: "Kinematics", value: "Kinematics" },
     { label: "Electromagnetism", value: "Electromagnetism" },
@@ -78,9 +85,12 @@ const SUBJECT_TOPICS: Record<string, TopicOption[]> = {
     { label: "Bab 2 Respiration", value: "Respiration" },
   ],
 };
-type SubjectKey = keyof typeof SUBJECT_TOPICS;
-const SUBJECTS = Object.keys(SUBJECT_TOPICS) as SubjectKey[];
-const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
+
+function getTopicsForSubject(subject: string): TopicOption[] {
+  const known = TOPIC_SUGGESTIONS[subject];
+  if (known && known.length > 0) return known;
+  return [{ label: subject, value: subject }];
+}
 
 // Royalty-free Lo-Fi loop (Pixabay CDN, CC0)
 const LOFI_AUDIO_URL =
