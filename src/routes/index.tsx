@@ -294,8 +294,10 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
-  const [activeSubject, setActiveSubject] = useState<SubjectKey>(SUBJECTS[0]);
-  const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0].value);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(true);
+  const [activeSubject, setActiveSubject] = useState<string>("");
+  const [activeTopic, setActiveTopic] = useState<string>("");
   const [activeLanguage, setActiveLanguage] = useState<Lang>(lang);
   const [dynamicTopic, setDynamicTopic] = useState<string | null>(null);
   const initialLoadAttempted = useRef(false);
