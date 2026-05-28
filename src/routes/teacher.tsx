@@ -87,11 +87,6 @@ function TeacherDashboard() {
     fullMark: 100,
   }));
 
-  const masteryData = classMastery.map((m) => ({
-    subject: m.subject,
-    mastery: m.mastery,
-    fullMark: 100,
-  }));
 
   const severityToColor = (sev?: string) => {
     if (sev === "destructive" || sev === "high") return "destructive";
