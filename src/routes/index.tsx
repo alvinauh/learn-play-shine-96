@@ -474,10 +474,10 @@ function StudentFeed() {
     setSelected(null);
     if (nextTopic) {
       // Find subject containing this topic; if not found, attach to current subject as dynamic
-      let targetSubject: SubjectKey = activeSubject;
+      let targetSubject: string = activeSubject;
       let found = false;
-      for (const s of SUBJECTS) {
-        if (SUBJECT_TOPICS[s].some((t) => t.value === nextTopic)) {
+      for (const s of subjects) {
+        if (getTopicsForSubject(s).some((t) => t.value === nextTopic)) {
           targetSubject = s;
           found = true;
           break;
