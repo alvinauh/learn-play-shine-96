@@ -325,7 +325,7 @@ function StudentFeed() {
   };
 
   const loadSession = async (
-    subjectOverride?: SubjectKey,
+    subjectOverride?: string,
     topicOverride?: string,
     languageOverride?: Lang,
     isAdaptive: boolean = false,
@@ -335,6 +335,10 @@ function StudentFeed() {
     const target = topicOverride ?? activeTopic;
     const nextActiveLanguage = languageOverride ?? activeLanguage;
     const apiLanguage = langToApi(nextActiveLanguage);
+    if (!subject || !target) {
+      // Nothing to load yet (subjects still loading from backend).
+      return;
+    }
     setLoading(true);
     setError(null);
     setFeedback(null);
@@ -375,9 +379,9 @@ function StudentFeed() {
     }
   };
 
-  const handleSubjectChange = (subject: SubjectKey) => {
+  const handleSubjectChange = (subject: string) => {
     if (subject === activeSubject) return;
-    const firstTopic = SUBJECT_TOPICS[subject][0].value;
+    const firstTopic = getTopicsForSubject(subject)[0].value;
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
     setDynamicTopic(null);
