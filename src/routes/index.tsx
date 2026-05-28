@@ -26,6 +26,7 @@ import {
   ApiResponseError,
   startSession,
   submitAnswer,
+  fetchSubjects,
   type SessionResponse,
   type AnswerResponse,
   type MockBundle,
@@ -59,7 +60,14 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
 
 type TopicOption = { label: string; value: string };
-const SUBJECT_TOPICS: Record<string, TopicOption[]> = {
+
+/**
+ * Optional per-subject topic suggestions. This is NOT a source-of-truth list
+ * of subjects — subjects are fetched dynamically from the backend. Any subject
+ * not listed here falls back to a single generic topic equal to the subject
+ * name, so brand-new subjects from the backend render automatically.
+ */
+const TOPIC_SUGGESTIONS: Record<string, TopicOption[]> = {
   Physics: [
     { label: "Kinematics", value: "Kinematics" },
     { label: "Electromagnetism", value: "Electromagnetism" },
@@ -77,9 +85,12 @@ const SUBJECT_TOPICS: Record<string, TopicOption[]> = {
     { label: "Bab 2 Respiration", value: "Respiration" },
   ],
 };
-type SubjectKey = keyof typeof SUBJECT_TOPICS;
-const SUBJECTS = Object.keys(SUBJECT_TOPICS) as SubjectKey[];
-const BM_SUBJECTS: SubjectKey[] = ["Sejarah", "Perniagaan"];
+
+function getTopicsForSubject(subject: string): TopicOption[] {
+  const known = TOPIC_SUGGESTIONS[subject];
+  if (known && known.length > 0) return known;
+  return [{ label: subject, value: subject }];
+}
 
 // Royalty-free Lo-Fi loop (Pixabay CDN, CC0)
 const LOFI_AUDIO_URL =
@@ -283,8 +294,10 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
-  const [activeSubject, setActiveSubject] = useState<SubjectKey>(SUBJECTS[0]);
-  const [activeTopic, setActiveTopic] = useState<string>(SUBJECT_TOPICS[SUBJECTS[0]][0].value);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(true);
+  const [activeSubject, setActiveSubject] = useState<string>("");
+  const [activeTopic, setActiveTopic] = useState<string>("");
   const [activeLanguage, setActiveLanguage] = useState<Lang>(lang);
   const [dynamicTopic, setDynamicTopic] = useState<string | null>(null);
   const initialLoadAttempted = useRef(false);
@@ -312,7 +325,7 @@ function StudentFeed() {
   };
 
   const loadSession = async (
-    subjectOverride?: SubjectKey,
+    subjectOverride?: string,
     topicOverride?: string,
     languageOverride?: Lang,
     isAdaptive: boolean = false,
@@ -322,6 +335,10 @@ function StudentFeed() {
     const target = topicOverride ?? activeTopic;
     const nextActiveLanguage = languageOverride ?? activeLanguage;
     const apiLanguage = langToApi(nextActiveLanguage);
+    if (!subject || !target) {
+      // Nothing to load yet (subjects still loading from backend).
+      return;
+    }
     setLoading(true);
     setError(null);
     setFeedback(null);
@@ -362,9 +379,9 @@ function StudentFeed() {
     }
   };
 
-  const handleSubjectChange = (subject: SubjectKey) => {
+  const handleSubjectChange = (subject: string) => {
     if (subject === activeSubject) return;
-    const firstTopic = SUBJECT_TOPICS[subject][0].value;
+    const firstTopic = getTopicsForSubject(subject)[0].value;
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
     setDynamicTopic(null);
@@ -377,10 +394,39 @@ function StudentFeed() {
     void loadSession(activeSubject, topic, undefined, false);
   };
 
+  // Fetch the list of available subjects from the backend on mount.
+  // No hardcoded subject arrays — new subjects added to the database
+  // automatically appear in the UI.
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
-    void loadSession();
+    let cancelled = false;
+    (async () => {
+      setSubjectsLoading(true);
+      let list: string[] = [];
+      try {
+        list = await fetchSubjects();
+        console.log("[Skor] fetched subjects:", list);
+      } catch (err) {
+        console.warn("[Skor] fetchSubjects failed:", err);
+      }
+      if (cancelled) return;
+      setSubjects(list);
+      setSubjectsLoading(false);
+      if (list.length === 0) {
+        setError("No subjects available right now. Please try again later.");
+        setLoading(false);
+        return;
+      }
+      const firstSubject = list[0];
+      const firstTopic = getTopicsForSubject(firstSubject)[0].value;
+      setActiveSubject(firstSubject);
+      setActiveTopic(firstTopic);
+      void loadSession(firstSubject, firstTopic, undefined, false);
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -428,10 +474,10 @@ function StudentFeed() {
     setSelected(null);
     if (nextTopic) {
       // Find subject containing this topic; if not found, attach to current subject as dynamic
-      let targetSubject: SubjectKey = activeSubject;
+      let targetSubject: string = activeSubject;
       let found = false;
-      for (const s of SUBJECTS) {
-        if (SUBJECT_TOPICS[s].some((t) => t.value === nextTopic)) {
+      for (const s of subjects) {
+        if (getTopicsForSubject(s).some((t) => t.value === nextTopic)) {
           targetSubject = s;
           found = true;
           break;
@@ -499,14 +545,14 @@ function StudentFeed() {
         <div className="grid grid-cols-2 gap-2">
           <Select
             value={activeSubject}
-            onValueChange={(v) => handleSubjectChange(v as SubjectKey)}
-            disabled={loading}
+            onValueChange={(v) => handleSubjectChange(v)}
+            disabled={loading || subjectsLoading || subjects.length === 0}
           >
             <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
-              <SelectValue placeholder="Subject" />
+              <SelectValue placeholder={subjectsLoading ? "Loading subjects…" : "Subject"} />
             </SelectTrigger>
             <SelectContent>
-              {SUBJECTS.map((s) => (
+              {subjects.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
                 </SelectItem>
@@ -516,16 +562,17 @@ function StudentFeed() {
           <Select
             value={activeTopic}
             onValueChange={handleTopicChange}
-            disabled={loading}
+            disabled={loading || !activeSubject}
           >
             <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
               <SelectValue placeholder="Topic" />
             </SelectTrigger>
             <SelectContent>
               {[
-                ...SUBJECT_TOPICS[activeSubject],
+                ...(activeSubject ? getTopicsForSubject(activeSubject) : []),
                 ...(dynamicTopic &&
-                !SUBJECT_TOPICS[activeSubject].some((tt) => tt.value === dynamicTopic)
+                activeSubject &&
+                !getTopicsForSubject(activeSubject).some((tt) => tt.value === dynamicTopic)
                   ? [{ label: dynamicTopic, value: dynamicTopic }]
                   : []),
               ].map((topic) => (
