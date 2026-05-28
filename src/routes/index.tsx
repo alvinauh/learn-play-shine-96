@@ -394,10 +394,39 @@ function StudentFeed() {
     void loadSession(activeSubject, topic, undefined, false);
   };
 
+  // Fetch the list of available subjects from the backend on mount.
+  // No hardcoded subject arrays — new subjects added to the database
+  // automatically appear in the UI.
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
-    void loadSession();
+    let cancelled = false;
+    (async () => {
+      setSubjectsLoading(true);
+      let list: string[] = [];
+      try {
+        list = await fetchSubjects();
+        console.log("[Skor] fetched subjects:", list);
+      } catch (err) {
+        console.warn("[Skor] fetchSubjects failed:", err);
+      }
+      if (cancelled) return;
+      setSubjects(list);
+      setSubjectsLoading(false);
+      if (list.length === 0) {
+        setError("No subjects available right now. Please try again later.");
+        setLoading(false);
+        return;
+      }
+      const firstSubject = list[0];
+      const firstTopic = getTopicsForSubject(firstSubject)[0].value;
+      setActiveSubject(firstSubject);
+      setActiveTopic(firstTopic);
+      void loadSession(firstSubject, firstTopic, undefined, false);
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
