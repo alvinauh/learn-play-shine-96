@@ -29,6 +29,25 @@ export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
   return res.json() as Promise<TeacherInsightsResponse>;
 }
 
+/**
+ * Dynamically discover the list of available subjects from the backend.
+ * Derived from /teacher_insights.class_mastery so new subjects added on the
+ * backend appear in the UI automatically without any frontend code changes.
+ */
+export async function fetchSubjects(): Promise<string[]> {
+  const insights = await fetchTeacherInsights();
+  const seen = new Set<string>();
+  const subjects: string[] = [];
+  for (const item of insights.class_mastery ?? []) {
+    const name = (item?.subject ?? "").trim();
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      subjects.push(name);
+    }
+  }
+  return subjects;
+}
+
 export interface SessionResponse {
   session_id?: string;
   question: string;
