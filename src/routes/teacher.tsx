@@ -98,13 +98,13 @@ function TeacherDashboard() {
     return c === "destructive" ? "🔴" : c === "success" ? "🟢" : "🟡";
   };
 
-  const insights = recentAlerts.map((a) => ({
-    color: severityToColor(a.severity),
-    emoji: severityToEmoji(a.severity),
-    topic: a.topic ?? "",
-    category: a.category ?? "",
-    observation: a.observation ?? a.diagnostic_tag ?? "",
-    action: a.action ?? "",
+  const insights = (recentAlerts ?? []).map((a) => ({
+    color: severityToColor(a?.severity),
+    emoji: severityToEmoji(a?.severity),
+    topic: a?.topic ?? "",
+    category: a?.category ?? "",
+    observation: a?.observation ?? a?.diagnostic_tag ?? "",
+    action: a?.action ?? "",
   }));
 
   const handleGenerateIntervention = (topic: string) => {
