@@ -403,21 +403,22 @@ function StudentFeed() {
     let cancelled = false;
     (async () => {
       setSubjectsLoading(true);
+      const FALLBACK_SUBJECTS = ["Physics", "Math", "Biologi", "Sejarah"];
       let list: string[] = [];
       try {
         list = await fetchSubjects();
         console.log("[Skor] fetched subjects:", list);
       } catch (err) {
-        console.warn("[Skor] fetchSubjects failed:", err);
+        console.warn("[Skor] fetchSubjects failed, using fallback:", err);
       }
       if (cancelled) return;
+      if (!list || list.length === 0) {
+        list = FALLBACK_SUBJECTS;
+        console.info("[Skor] using fallback subject list:", list);
+      }
       setSubjects(list);
       setSubjectsLoading(false);
-      if (list.length === 0) {
-        setError("No subjects available right now. Please try again later.");
-        setLoading(false);
-        return;
-      }
+
       const firstSubject = list[0];
       const firstTopic = getTopicsForSubject(firstSubject)[0].value;
       setActiveSubject(firstSubject);
