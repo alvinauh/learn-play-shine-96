@@ -26,6 +26,7 @@ import {
   ApiResponseError,
   startSession,
   submitAnswer,
+  fetchSubjects,
   type SessionResponse,
   type AnswerResponse,
   type MockBundle,
