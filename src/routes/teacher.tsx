@@ -61,8 +61,9 @@ function TeacherDashboard() {
     fetchTeacherInsights()
       .then((data) => {
         if (cancelled) return;
-        setClassMastery(data.class_mastery ?? []);
-        setRecentAlerts(data.recent_alerts ?? []);
+        // Defensive: backend may return partial / malformed payloads.
+        setClassMastery(Array.isArray(data?.class_mastery) ? data.class_mastery : []);
+        setRecentAlerts(Array.isArray(data?.recent_alerts) ? data.recent_alerts : []);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -79,6 +80,12 @@ function TeacherDashboard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const masteryData = (classMastery ?? []).map((m) => ({
+    subject: m?.subject ?? "",
+    mastery: m?.mastery ?? 0,
+    fullMark: 100,
+  }));
 
   const masteryData = classMastery.map((m) => ({
     subject: m.subject,
