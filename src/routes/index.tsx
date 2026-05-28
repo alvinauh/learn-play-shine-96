@@ -545,14 +545,14 @@ function StudentFeed() {
         <div className="grid grid-cols-2 gap-2">
           <Select
             value={activeSubject}
-            onValueChange={(v) => handleSubjectChange(v as SubjectKey)}
-            disabled={loading}
+            onValueChange={(v) => handleSubjectChange(v)}
+            disabled={loading || subjectsLoading || subjects.length === 0}
           >
             <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
-              <SelectValue placeholder="Subject" />
+              <SelectValue placeholder={subjectsLoading ? "Loading subjects…" : "Subject"} />
             </SelectTrigger>
             <SelectContent>
-              {SUBJECTS.map((s) => (
+              {subjects.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
                 </SelectItem>
@@ -562,16 +562,17 @@ function StudentFeed() {
           <Select
             value={activeTopic}
             onValueChange={handleTopicChange}
-            disabled={loading}
+            disabled={loading || !activeSubject}
           >
             <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
               <SelectValue placeholder="Topic" />
             </SelectTrigger>
             <SelectContent>
               {[
-                ...SUBJECT_TOPICS[activeSubject],
+                ...(activeSubject ? getTopicsForSubject(activeSubject) : []),
                 ...(dynamicTopic &&
-                !SUBJECT_TOPICS[activeSubject].some((tt) => tt.value === dynamicTopic)
+                activeSubject &&
+                !getTopicsForSubject(activeSubject).some((tt) => tt.value === dynamicTopic)
                   ? [{ label: dynamicTopic, value: dynamicTopic }]
                   : []),
               ].map((topic) => (
