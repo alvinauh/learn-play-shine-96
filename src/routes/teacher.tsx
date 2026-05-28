@@ -96,7 +96,7 @@ function TeacherDashboard() {
     return c === "destructive" ? "🔴" : c === "success" ? "🟢" : "🟡";
   };
 
-  const insights = (recentAlerts.length ? recentAlerts : fallbackAlerts).map((a) => ({
+  const insights = recentAlerts.map((a) => ({
     color: severityToColor(a.severity),
     emoji: severityToEmoji(a.severity),
     topic: a.topic ?? "",
