@@ -49,21 +49,6 @@ function TeacherDashboard() {
   const { signOut } = useAuth();
   const [tab, setTab] = useState<"insights" | "classrooms">("insights");
 
-  const fallbackMastery: ClassMasteryItem[] = [
-    { subject: t.subjKinematics, mastery: 72 },
-    { subject: t.subjAlgebra, mastery: 84 },
-    { subject: t.subjEM, mastery: 48 },
-    { subject: t.subjBio, mastery: 76 },
-    { subject: t.subjSejarah, mastery: 65 },
-  ];
-
-  const fallbackAlerts: RecentAlert[] = [
-    { diagnostic_tag: t.insight1, topic: t.insight1Topic, severity: "destructive" },
-    { diagnostic_tag: t.insight2, topic: t.insight2Topic, severity: "warning" },
-    { diagnostic_tag: t.insight3, topic: t.insight3Topic, severity: "warning" },
-    { diagnostic_tag: t.insight4, topic: t.insight4Topic, severity: "success" },
-  ];
-
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,15 +61,15 @@ function TeacherDashboard() {
     fetchTeacherInsights()
       .then((data) => {
         if (cancelled) return;
-        setClassMastery(data.class_mastery?.length ? data.class_mastery : fallbackMastery);
-        setRecentAlerts(data.recent_alerts?.length ? data.recent_alerts : fallbackAlerts);
+        setClassMastery(data.class_mastery ?? []);
+        setRecentAlerts(data.recent_alerts ?? []);
       })
       .catch((err) => {
         if (cancelled) return;
         console.error("[Skor] fetchTeacherInsights failed", err);
-        setError("Couldn't load live insights. Showing the latest cached snapshot.");
-        setClassMastery(fallbackMastery);
-        setRecentAlerts(fallbackAlerts);
+        setError("Couldn't load live insights.");
+        setClassMastery([]);
+        setRecentAlerts([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -95,7 +80,7 @@ function TeacherDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const masteryData = (classMastery.length ? classMastery : fallbackMastery).map((m) => ({
+  const masteryData = classMastery.map((m) => ({
     subject: m.subject,
     mastery: m.mastery,
     fullMark: 100,
@@ -111,7 +96,7 @@ function TeacherDashboard() {
     return c === "destructive" ? "🔴" : c === "success" ? "🟢" : "🟡";
   };
 
-  const insights = (recentAlerts.length ? recentAlerts : fallbackAlerts).map((a) => ({
+  const insights = recentAlerts.map((a) => ({
     color: severityToColor(a.severity),
     emoji: severityToEmoji(a.severity),
     topic: a.topic ?? "",

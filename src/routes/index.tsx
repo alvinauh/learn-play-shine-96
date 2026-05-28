@@ -403,27 +403,22 @@ function StudentFeed() {
     let cancelled = false;
     (async () => {
       setSubjectsLoading(true);
-      const FALLBACK_SUBJECTS = ["Physics", "Math", "Biologi", "Sejarah"];
-      let list: string[] = [];
       try {
-        list = await fetchSubjects();
+        const list = await fetchSubjects();
         console.log("[Skor] fetched subjects:", list);
+        if (cancelled) return;
+        setSubjects(list);
+        setSubjectsLoading(false);
+        if (list.length === 0) return;
+        const firstSubject = list[0];
+        const firstTopic = getTopicsForSubject(firstSubject)[0].value;
+        setActiveSubject(firstSubject);
+        setActiveTopic(firstTopic);
+        void loadSession(firstSubject, firstTopic, undefined, false);
       } catch (err) {
-        console.warn("[Skor] fetchSubjects failed, using fallback:", err);
+        console.error("[Skor] fetchSubjects failed:", err);
+        if (!cancelled) setSubjectsLoading(false);
       }
-      if (cancelled) return;
-      if (!list || list.length === 0) {
-        list = FALLBACK_SUBJECTS;
-        console.info("[Skor] using fallback subject list:", list);
-      }
-      setSubjects(list);
-      setSubjectsLoading(false);
-
-      const firstSubject = list[0];
-      const firstTopic = getTopicsForSubject(firstSubject)[0].value;
-      setActiveSubject(firstSubject);
-      setActiveTopic(firstTopic);
-      void loadSession(firstSubject, firstTopic, undefined, false);
     })();
     return () => {
       cancelled = true;
