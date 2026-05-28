@@ -1,5 +1,5 @@
-// Skor API service — connects to local Python backend
-export const BASE_URL = "http://localhost:8000";
+// Skor API service — configurable base URL via VITE_API_BASE_URL env var
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://178.105.130.105";
 
 export interface ClassMasteryItem {
   subject: string;
