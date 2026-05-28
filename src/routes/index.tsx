@@ -403,22 +403,25 @@ function StudentFeed() {
     let cancelled = false;
     (async () => {
       setSubjectsLoading(true);
+      let list: string[] = [];
       try {
-        const list = await fetchSubjects();
+        list = (await fetchSubjects()) ?? [];
         console.log("[Skor] fetched subjects:", list);
-        if (cancelled) return;
-        setSubjects(list);
-        setSubjectsLoading(false);
-        if (list.length === 0) return;
-        const firstSubject = list[0];
-        const firstTopic = getTopicsForSubject(firstSubject)[0].value;
-        setActiveSubject(firstSubject);
-        setActiveTopic(firstTopic);
-        void loadSession(firstSubject, firstTopic, undefined, false);
       } catch (err) {
-        console.error("[Skor] fetchSubjects failed:", err);
-        if (!cancelled) setSubjectsLoading(false);
+        console.error("[Skor] fetchSubjects failed, continuing without dynamic subjects:", err);
+        list = [];
       }
+      if (cancelled) return;
+      setSubjects(list);
+      setSubjectsLoading(false);
+      // Always kick off a session so the UI never stays frozen on skeletons,
+      // even if /teacher_insights is unreachable / blocked (mixed content, CORS, etc.).
+      const firstSubject = list[0] ?? "Physics";
+      const firstTopic =
+        getTopicsForSubject(firstSubject)?.[0]?.value ?? firstSubject;
+      setActiveSubject(firstSubject);
+      setActiveTopic(firstTopic);
+      void loadSession(firstSubject, firstTopic, undefined, false);
     })();
     return () => {
       cancelled = true;
