@@ -303,6 +303,8 @@ function StudentFeed() {
   const [activeTopic, setActiveTopic] = useState<string>("");
   const [activeLanguage, setActiveLanguage] = useState<Lang>(lang);
   const [dynamicTopic, setDynamicTopic] = useState<string | null>(null);
+  const [questionType, setQuestionType] = useState<QuestionType>("mcq");
+  const [textAnswer, setTextAnswer] = useState<string>("");
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
 
