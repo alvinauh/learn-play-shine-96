@@ -421,11 +421,14 @@ function StudentFeed() {
         list = [];
       }
       if (cancelled) return;
-      setSubjects(list);
+      // Fallback subjects so the dropdown still renders (and shows the
+      // active subject) when /teacher_insights is unreachable.
+      const safeList = list.length > 0 ? list : ["Physics", "Chemistry", "Biology", "Mathematics"];
+      setSubjects(safeList);
       setSubjectsLoading(false);
       // Always kick off a session so the UI never stays frozen on skeletons,
       // even if /teacher_insights is unreachable / blocked (mixed content, CORS, etc.).
-      const firstSubject = list[0] ?? "Physics";
+      const firstSubject = safeList[0];
       const firstTopic =
         getTopicsForSubject(firstSubject)?.[0]?.value ?? firstSubject;
       setActiveSubject(firstSubject);
