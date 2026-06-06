@@ -759,10 +759,75 @@ function StudentFeed() {
               )}
             </section>
 
-            <div className="grid gap-3">
-              {loading || !session || !LETTERS.every((l) => session.options?.[l])
-                ? LETTERS.map((l) => <Skeleton key={l} className="h-16 w-full rounded-2xl" />)
-                : LETTERS.map((letter) => {
+            {(() => {
+              const qt: QuestionType = session?.question_type ?? "mcq";
+              if (loading || !session) {
+                return (
+                  <div className="grid gap-3">
+                    {LETTERS.map((l) => (
+                      <Skeleton key={l} className="h-16 w-full rounded-2xl" />
+                    ))}
+                  </div>
+                );
+              }
+              if (qt === "short_answer") {
+                return (
+                  <div className="flex flex-col gap-3">
+                    <Input
+                      value={textAnswer}
+                      onChange={(e) => setTextAnswer(e.target.value)}
+                      disabled={!!feedback || submittingText}
+                      placeholder="Type your answer…"
+                      className="h-14 rounded-2xl border-2 border-border bg-card/60 px-4 text-base"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void handleTextSubmit();
+                      }}
+                    />
+                    <Button
+                      onClick={() => void handleTextSubmit()}
+                      disabled={!!feedback || submittingText || !textAnswer.trim()}
+                      size="lg"
+                      className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
+                    >
+                      {submittingText ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Answer"}
+                    </Button>
+                  </div>
+                );
+              }
+              if (qt === "essay") {
+                return (
+                  <div className="flex flex-col gap-3">
+                    <Textarea
+                      value={textAnswer}
+                      onChange={(e) => setTextAnswer(e.target.value)}
+                      disabled={!!feedback || submittingText}
+                      placeholder="Write your essay response…"
+                      className="min-h-[180px] rounded-2xl border-2 border-border bg-card/60 px-4 py-3 text-base leading-relaxed"
+                    />
+                    <Button
+                      onClick={() => void handleTextSubmit()}
+                      disabled={!!feedback || submittingText || !textAnswer.trim()}
+                      size="lg"
+                      className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
+                    >
+                      {submittingText ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Essay"}
+                    </Button>
+                  </div>
+                );
+              }
+              // mcq (default)
+              if (!LETTERS.every((l) => session.options?.[l])) {
+                return (
+                  <div className="grid gap-3">
+                    {LETTERS.map((l) => (
+                      <Skeleton key={l} className="h-16 w-full rounded-2xl" />
+                    ))}
+                  </div>
+                );
+              }
+              return (
+                <div className="grid gap-3">
+                  {LETTERS.map((letter) => {
                     const optionText = session.options[letter];
                     const isChecking = checking === letter;
                     const isSelected = selected === letter;
@@ -816,7 +881,9 @@ function StudentFeed() {
                       </button>
                     );
                   })}
-            </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </main>
