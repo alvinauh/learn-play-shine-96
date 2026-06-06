@@ -48,6 +48,8 @@ export async function fetchSubjects(): Promise<string[]> {
   return subjects;
 }
 
+export type QuestionType = "mcq" | "short_answer" | "essay";
+
 export interface SessionResponse {
   session_id?: string;
   question: string;
@@ -58,6 +60,7 @@ export interface SessionResponse {
   media_url?: string;
   video_broll?: string;
   mnemonic_lyrics?: string[];
+  question_type?: QuestionType;
 }
 
 export interface AnswerResponse {
@@ -68,6 +71,9 @@ export interface AnswerResponse {
   next_question?: SessionResponse;
   topic_complete?: boolean;
   next_topic?: string;
+  partial_credit?: number;
+  marks_awarded?: number;
+  max_marks?: number;
 }
 
 export interface MockBundle {
