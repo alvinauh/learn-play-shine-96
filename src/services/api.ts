@@ -192,6 +192,8 @@ function normalizeSessionResponse(
     media_url: data.media_url,
     video_broll: data.video_broll,
     mnemonic_lyrics,
+    question_type:
+      data.question_type ?? data.question_data?.question_type ?? data.draft?.question_type ?? "mcq",
   };
 }
 
@@ -203,6 +205,7 @@ export async function startSession(
   subject: string,
   mock?: MockBundle,
   isAdaptive: boolean = false,
+  questionType: QuestionType = "mcq",
 ): Promise<SessionResponse> {
   const safeStudentId =
     studentId && studentId !== "undefined"
