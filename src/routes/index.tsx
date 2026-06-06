@@ -353,6 +353,7 @@ function StudentFeed() {
     setVideoBroll(null);
     setMediaUrl(null);
     setMnemonicLyrics(null);
+    setTextAnswer("");
     setSession((current) => (current ? { ...current, video_broll: undefined, media_url: undefined, mnemonic_lyrics: undefined } : current));
     try {
       const data = await startSession(
@@ -363,6 +364,7 @@ function StudentFeed() {
         subject,
         mock,
         isAdaptive,
+        qType,
       );
       if (requestId !== latestLoadRequestRef.current) return;
       console.log("[Skor] startSession response:", data);
