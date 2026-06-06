@@ -218,6 +218,7 @@ export async function startSession(
     language: activeLanguage || "English",
     subject: subject || "Physics",
     is_adaptive: !!isAdaptive,
+    question_type: questionType,
   };
   if (!payload.topic || !payload.subject) {
     throw new Error("startSession: missing required fields");
@@ -237,6 +238,7 @@ export async function startSession(
       correct: "C",
       topic: mock.topic,
       subject: mock.subject,
+      question_type: questionType,
       mnemonic_lyrics: isAdaptive
         ? undefined
         : [
