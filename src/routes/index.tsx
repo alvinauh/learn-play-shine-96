@@ -30,7 +30,10 @@ import {
   type SessionResponse,
   type AnswerResponse,
   type MockBundle,
+  type QuestionType,
 } from "@/services/api";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useI18n, type Lang } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
