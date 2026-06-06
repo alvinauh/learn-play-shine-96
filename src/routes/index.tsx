@@ -442,10 +442,8 @@ function StudentFeed() {
     setActiveLanguage(lang);
   }, [lang]);
 
-  const handleAnswer = async (letter: Letter) => {
-    if (checking || feedback || !session) return;
-    setChecking(letter);
-    setSelected(letter);
+  const submitToBackend = async (answerText: string) => {
+    if (!session) return;
     setError(null);
     try {
       const apiLanguage = langToApi(activeLanguage);
@@ -453,7 +451,7 @@ function StudentFeed() {
         STUDENT_ID,
         session.topic ?? activeTopic,
         "KSSM",
-        session.options[letter],
+        answerText,
         {},
         mock,
         apiLanguage,
@@ -471,9 +469,37 @@ function StudentFeed() {
           : "Couldn't submit your answer. Please try again.",
       );
       setSelected(null);
+    }
+  };
+
+  const handleAnswer = async (letter: Letter) => {
+    if (checking || feedback || !session) return;
+    setChecking(letter);
+    setSelected(letter);
+    try {
+      await submitToBackend(session.options[letter]);
     } finally {
       setChecking(null);
     }
+  };
+
+  const [submittingText, setSubmittingText] = useState(false);
+  const handleTextSubmit = async () => {
+    if (submittingText || feedback || !session) return;
+    const trimmed = textAnswer.trim();
+    if (!trimmed) return;
+    setSubmittingText(true);
+    try {
+      await submitToBackend(trimmed);
+    } finally {
+      setSubmittingText(false);
+    }
+  };
+
+  const handleQuestionTypeChange = (next: QuestionType) => {
+    if (next === questionType) return;
+    setQuestionType(next);
+    void loadSession(activeSubject, activeTopic, activeLanguage, false, next);
   };
 
   const handleNext = async () => {
