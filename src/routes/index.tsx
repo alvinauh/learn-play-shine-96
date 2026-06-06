@@ -899,9 +899,11 @@ function StudentFeed() {
             "rounded-t-3xl border-t-2 backdrop-blur-xl",
             feedback?.topic_complete
               ? "border-neon-green bg-[linear-gradient(135deg,oklch(0.35_0.18_150/0.95),oklch(0.25_0.12_180/0.95))] animate-pulse-glow"
-              : feedback?.correct
-                ? "border-neon-green bg-card/95"
-                : "border-destructive bg-card/95",
+              : typeof feedback?.max_marks === "number"
+                ? "border-primary bg-card/95"
+                : feedback?.correct
+                  ? "border-neon-green bg-card/95"
+                  : "border-destructive bg-card/95",
           )}
         >
           <SheetHeader className="text-left">
@@ -911,6 +913,11 @@ function StudentFeed() {
                   <>
                     <span className="text-3xl animate-bounce">🚀</span>
                     <span className="text-neon-green">Level Up!</span>
+                  </>
+                ) : typeof feedback?.max_marks === "number" ? (
+                  <>
+                    <span className="text-2xl">📝</span>
+                    <span className="text-primary-glow">Graded</span>
                   </>
                 ) : feedback?.correct ? (
                   <>
