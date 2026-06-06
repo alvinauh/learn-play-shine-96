@@ -48,6 +48,8 @@ export async function fetchSubjects(): Promise<string[]> {
   return subjects;
 }
 
+export type QuestionType = "mcq" | "short_answer" | "essay";
+
 export interface SessionResponse {
   session_id?: string;
   question: string;
@@ -58,6 +60,7 @@ export interface SessionResponse {
   media_url?: string;
   video_broll?: string;
   mnemonic_lyrics?: string[];
+  question_type?: QuestionType;
 }
 
 export interface AnswerResponse {
@@ -68,6 +71,9 @@ export interface AnswerResponse {
   next_question?: SessionResponse;
   topic_complete?: boolean;
   next_topic?: string;
+  partial_credit?: number;
+  marks_awarded?: number;
+  max_marks?: number;
 }
 
 export interface MockBundle {
@@ -103,12 +109,14 @@ interface StartSessionApiResponse {
   media_url?: string;
   video_broll?: string;
   mnemonic_lyrics?: string[];
+  question_type?: QuestionType;
   question_data?: {
     question?: string;
     options?: string[];
     correct_answer?: string;
     answer?: string;
     explanation?: string;
+    question_type?: QuestionType;
   };
   draft?: {
     question?: string;
@@ -116,6 +124,7 @@ interface StartSessionApiResponse {
     correct_answer?: string;
     topic?: string;
     subject?: string;
+    question_type?: QuestionType;
   };
 }
 
@@ -183,6 +192,8 @@ function normalizeSessionResponse(
     media_url: data.media_url,
     video_broll: data.video_broll,
     mnemonic_lyrics,
+    question_type:
+      data.question_type ?? data.question_data?.question_type ?? data.draft?.question_type ?? "mcq",
   };
 }
 
@@ -194,6 +205,7 @@ export async function startSession(
   subject: string,
   mock?: MockBundle,
   isAdaptive: boolean = false,
+  questionType: QuestionType = "mcq",
 ): Promise<SessionResponse> {
   const safeStudentId =
     studentId && studentId !== "undefined"
@@ -206,6 +218,7 @@ export async function startSession(
     language: activeLanguage || "English",
     subject: subject || "Physics",
     is_adaptive: !!isAdaptive,
+    question_type: questionType,
   };
   if (!payload.topic || !payload.subject) {
     throw new Error("startSession: missing required fields");
@@ -225,6 +238,7 @@ export async function startSession(
       correct: "C",
       topic: mock.topic,
       subject: mock.subject,
+      question_type: questionType,
       mnemonic_lyrics: isAdaptive
         ? undefined
         : [

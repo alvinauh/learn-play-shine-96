@@ -30,7 +30,10 @@ import {
   type SessionResponse,
   type AnswerResponse,
   type MockBundle,
+  type QuestionType,
 } from "@/services/api";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useI18n, type Lang } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -300,6 +303,8 @@ function StudentFeed() {
   const [activeTopic, setActiveTopic] = useState<string>("");
   const [activeLanguage, setActiveLanguage] = useState<Lang>(lang);
   const [dynamicTopic, setDynamicTopic] = useState<string | null>(null);
+  const [questionType, setQuestionType] = useState<QuestionType>("mcq");
+  const [textAnswer, setTextAnswer] = useState<string>("");
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
 
@@ -329,11 +334,13 @@ function StudentFeed() {
     topicOverride?: string,
     languageOverride?: Lang,
     isAdaptive: boolean = false,
+    questionTypeOverride?: QuestionType,
   ) => {
     const requestId = ++latestLoadRequestRef.current;
     const subject = subjectOverride ?? activeSubject;
     const target = topicOverride ?? activeTopic;
     const nextActiveLanguage = languageOverride ?? activeLanguage;
+    const qType = questionTypeOverride ?? questionType;
     const apiLanguage = langToApi(nextActiveLanguage);
     if (!subject || !target) {
       // Nothing to load yet (subjects still loading from backend).
@@ -346,6 +353,7 @@ function StudentFeed() {
     setVideoBroll(null);
     setMediaUrl(null);
     setMnemonicLyrics(null);
+    setTextAnswer("");
     setSession((current) => (current ? { ...current, video_broll: undefined, media_url: undefined, mnemonic_lyrics: undefined } : current));
     try {
       const data = await startSession(
@@ -356,6 +364,7 @@ function StudentFeed() {
         subject,
         mock,
         isAdaptive,
+        qType,
       );
       if (requestId !== latestLoadRequestRef.current) return;
       console.log("[Skor] startSession response:", data);
@@ -433,10 +442,8 @@ function StudentFeed() {
     setActiveLanguage(lang);
   }, [lang]);
 
-  const handleAnswer = async (letter: Letter) => {
-    if (checking || feedback || !session) return;
-    setChecking(letter);
-    setSelected(letter);
+  const submitToBackend = async (answerText: string) => {
+    if (!session) return;
     setError(null);
     try {
       const apiLanguage = langToApi(activeLanguage);
@@ -444,7 +451,7 @@ function StudentFeed() {
         STUDENT_ID,
         session.topic ?? activeTopic,
         "KSSM",
-        session.options[letter],
+        answerText,
         {},
         mock,
         apiLanguage,
@@ -462,9 +469,37 @@ function StudentFeed() {
           : "Couldn't submit your answer. Please try again.",
       );
       setSelected(null);
+    }
+  };
+
+  const handleAnswer = async (letter: Letter) => {
+    if (checking || feedback || !session) return;
+    setChecking(letter);
+    setSelected(letter);
+    try {
+      await submitToBackend(session.options[letter]);
     } finally {
       setChecking(null);
     }
+  };
+
+  const [submittingText, setSubmittingText] = useState(false);
+  const handleTextSubmit = async () => {
+    if (submittingText || feedback || !session) return;
+    const trimmed = textAnswer.trim();
+    if (!trimmed) return;
+    setSubmittingText(true);
+    try {
+      await submitToBackend(trimmed);
+    } finally {
+      setSubmittingText(false);
+    }
+  };
+
+  const handleQuestionTypeChange = (next: QuestionType) => {
+    if (next === questionType) return;
+    setQuestionType(next);
+    void loadSession(activeSubject, activeTopic, activeLanguage, false, next);
   };
 
   const handleNext = async () => {
@@ -582,6 +617,22 @@ function StudentFeed() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Question type selector */}
+        <Select
+          value={questionType}
+          onValueChange={(v) => handleQuestionTypeChange(v as QuestionType)}
+          disabled={loading}
+        >
+          <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
+            <SelectValue placeholder="Question type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="mcq">Multiple Choice</SelectItem>
+            <SelectItem value="short_answer">Short Answer</SelectItem>
+            <SelectItem value="essay">Essay</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Language toggle */}
         <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/60 px-4 py-2.5 backdrop-blur">
@@ -708,10 +759,75 @@ function StudentFeed() {
               )}
             </section>
 
-            <div className="grid gap-3">
-              {loading || !session || !LETTERS.every((l) => session.options?.[l])
-                ? LETTERS.map((l) => <Skeleton key={l} className="h-16 w-full rounded-2xl" />)
-                : LETTERS.map((letter) => {
+            {(() => {
+              const qt: QuestionType = session?.question_type ?? "mcq";
+              if (loading || !session) {
+                return (
+                  <div className="grid gap-3">
+                    {LETTERS.map((l) => (
+                      <Skeleton key={l} className="h-16 w-full rounded-2xl" />
+                    ))}
+                  </div>
+                );
+              }
+              if (qt === "short_answer") {
+                return (
+                  <div className="flex flex-col gap-3">
+                    <Input
+                      value={textAnswer}
+                      onChange={(e) => setTextAnswer(e.target.value)}
+                      disabled={!!feedback || submittingText}
+                      placeholder="Type your answer…"
+                      className="h-14 rounded-2xl border-2 border-border bg-card/60 px-4 text-base"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void handleTextSubmit();
+                      }}
+                    />
+                    <Button
+                      onClick={() => void handleTextSubmit()}
+                      disabled={!!feedback || submittingText || !textAnswer.trim()}
+                      size="lg"
+                      className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
+                    >
+                      {submittingText ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Answer"}
+                    </Button>
+                  </div>
+                );
+              }
+              if (qt === "essay") {
+                return (
+                  <div className="flex flex-col gap-3">
+                    <Textarea
+                      value={textAnswer}
+                      onChange={(e) => setTextAnswer(e.target.value)}
+                      disabled={!!feedback || submittingText}
+                      placeholder="Write your essay response…"
+                      className="min-h-[180px] rounded-2xl border-2 border-border bg-card/60 px-4 py-3 text-base leading-relaxed"
+                    />
+                    <Button
+                      onClick={() => void handleTextSubmit()}
+                      disabled={!!feedback || submittingText || !textAnswer.trim()}
+                      size="lg"
+                      className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
+                    >
+                      {submittingText ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Essay"}
+                    </Button>
+                  </div>
+                );
+              }
+              // mcq (default)
+              if (!LETTERS.every((l) => session.options?.[l])) {
+                return (
+                  <div className="grid gap-3">
+                    {LETTERS.map((l) => (
+                      <Skeleton key={l} className="h-16 w-full rounded-2xl" />
+                    ))}
+                  </div>
+                );
+              }
+              return (
+                <div className="grid gap-3">
+                  {LETTERS.map((letter) => {
                     const optionText = session.options[letter];
                     const isChecking = checking === letter;
                     const isSelected = selected === letter;
@@ -765,7 +881,9 @@ function StudentFeed() {
                       </button>
                     );
                   })}
-            </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </main>
@@ -781,9 +899,11 @@ function StudentFeed() {
             "rounded-t-3xl border-t-2 backdrop-blur-xl",
             feedback?.topic_complete
               ? "border-neon-green bg-[linear-gradient(135deg,oklch(0.35_0.18_150/0.95),oklch(0.25_0.12_180/0.95))] animate-pulse-glow"
-              : feedback?.correct
-                ? "border-neon-green bg-card/95"
-                : "border-destructive bg-card/95",
+              : typeof feedback?.max_marks === "number"
+                ? "border-primary bg-card/95"
+                : feedback?.correct
+                  ? "border-neon-green bg-card/95"
+                  : "border-destructive bg-card/95",
           )}
         >
           <SheetHeader className="text-left">
@@ -793,6 +913,11 @@ function StudentFeed() {
                   <>
                     <span className="text-3xl animate-bounce">🚀</span>
                     <span className="text-neon-green">Level Up!</span>
+                  </>
+                ) : typeof feedback?.max_marks === "number" ? (
+                  <>
+                    <span className="text-2xl">📝</span>
+                    <span className="text-primary-glow">Graded</span>
                   </>
                 ) : feedback?.correct ? (
                   <>
@@ -809,6 +934,34 @@ function StudentFeed() {
             </div>
           </SheetHeader>
           <div className="mx-auto max-w-md space-y-4 pb-2 pt-3">
+            {typeof feedback?.max_marks === "number" && (
+              <div className="rounded-2xl border border-primary/40 bg-primary/10 p-4">
+                <div className="text-xs uppercase tracking-widest text-primary-glow">
+                  Score
+                </div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="font-display text-3xl font-bold text-foreground">
+                    {(feedback.marks_awarded ?? 0).toFixed(1)}
+                  </span>
+                  <span className="text-lg text-muted-foreground">
+                    / {feedback.max_marks}
+                  </span>
+                  {typeof feedback.partial_credit === "number" && (
+                    <span className="ml-auto rounded-full bg-background/60 px-3 py-1 text-xs font-semibold text-foreground">
+                      {Math.round(feedback.partial_credit * 100)}%
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-background/50">
+                  <div
+                    className="h-full rounded-full bg-gradient-primary transition-all"
+                    style={{
+                      width: `${Math.max(0, Math.min(1, feedback.partial_credit ?? (feedback.max_marks ? (feedback.marks_awarded ?? 0) / feedback.max_marks : 0))) * 100}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="rounded-2xl border border-border bg-background/50 p-4">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">
                 {t.diagnosticFeedback}
