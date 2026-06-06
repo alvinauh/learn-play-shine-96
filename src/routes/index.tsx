@@ -334,8 +334,13 @@ function StudentFeed() {
     topicOverride?: string,
     languageOverride?: Lang,
     isAdaptive: boolean = false,
+    questionTypeOverride?: QuestionType,
   ) => {
     const requestId = ++latestLoadRequestRef.current;
+    const subject = subjectOverride ?? activeSubject;
+    const target = topicOverride ?? activeTopic;
+    const nextActiveLanguage = languageOverride ?? activeLanguage;
+    const qType = questionTypeOverride ?? questionType;
     const subject = subjectOverride ?? activeSubject;
     const target = topicOverride ?? activeTopic;
     const nextActiveLanguage = languageOverride ?? activeLanguage;
