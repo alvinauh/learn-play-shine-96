@@ -618,6 +618,22 @@ function StudentFeed() {
           </Select>
         </div>
 
+        {/* Question type selector */}
+        <Select
+          value={questionType}
+          onValueChange={(v) => handleQuestionTypeChange(v as QuestionType)}
+          disabled={loading}
+        >
+          <SelectTrigger className="h-11 rounded-2xl border-border/60 bg-card/60 backdrop-blur">
+            <SelectValue placeholder="Question type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="mcq">Multiple Choice</SelectItem>
+            <SelectItem value="short_answer">Short Answer</SelectItem>
+            <SelectItem value="essay">Essay</SelectItem>
+          </SelectContent>
+        </Select>
+
         {/* Language toggle */}
         <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/60 px-4 py-2.5 backdrop-blur">
           <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
