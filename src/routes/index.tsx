@@ -341,9 +341,6 @@ function StudentFeed() {
     const target = topicOverride ?? activeTopic;
     const nextActiveLanguage = languageOverride ?? activeLanguage;
     const qType = questionTypeOverride ?? questionType;
-    const subject = subjectOverride ?? activeSubject;
-    const target = topicOverride ?? activeTopic;
-    const nextActiveLanguage = languageOverride ?? activeLanguage;
     const apiLanguage = langToApi(nextActiveLanguage);
     if (!subject || !target) {
       // Nothing to load yet (subjects still loading from backend).
