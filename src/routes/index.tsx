@@ -927,6 +927,34 @@ function StudentFeed() {
             </div>
           </SheetHeader>
           <div className="mx-auto max-w-md space-y-4 pb-2 pt-3">
+            {typeof feedback?.max_marks === "number" && (
+              <div className="rounded-2xl border border-primary/40 bg-primary/10 p-4">
+                <div className="text-xs uppercase tracking-widest text-primary-glow">
+                  Score
+                </div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="font-display text-3xl font-bold text-foreground">
+                    {(feedback.marks_awarded ?? 0).toFixed(1)}
+                  </span>
+                  <span className="text-lg text-muted-foreground">
+                    / {feedback.max_marks}
+                  </span>
+                  {typeof feedback.partial_credit === "number" && (
+                    <span className="ml-auto rounded-full bg-background/60 px-3 py-1 text-xs font-semibold text-foreground">
+                      {Math.round(feedback.partial_credit * 100)}%
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-background/50">
+                  <div
+                    className="h-full rounded-full bg-gradient-primary transition-all"
+                    style={{
+                      width: `${Math.max(0, Math.min(1, feedback.partial_credit ?? (feedback.max_marks ? (feedback.marks_awarded ?? 0) / feedback.max_marks : 0))) * 100}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="rounded-2xl border border-border bg-background/50 p-4">
               <div className="text-xs uppercase tracking-widest text-muted-foreground">
                 {t.diagnosticFeedback}
