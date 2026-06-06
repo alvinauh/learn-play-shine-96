@@ -109,12 +109,14 @@ interface StartSessionApiResponse {
   media_url?: string;
   video_broll?: string;
   mnemonic_lyrics?: string[];
+  question_type?: QuestionType;
   question_data?: {
     question?: string;
     options?: string[];
     correct_answer?: string;
     answer?: string;
     explanation?: string;
+    question_type?: QuestionType;
   };
   draft?: {
     question?: string;
@@ -122,6 +124,7 @@ interface StartSessionApiResponse {
     correct_answer?: string;
     topic?: string;
     subject?: string;
+    question_type?: QuestionType;
   };
 }
 
