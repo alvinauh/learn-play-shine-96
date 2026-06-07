@@ -10,6 +10,7 @@ import {
   Loader2,
   Sparkles,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -248,6 +249,77 @@ function KineticLyrics({
     </div>
   );
 }
+
+function RateLimitWaitingCard({
+  lang,
+  onRetry,
+}: {
+  lang: Lang;
+  onRetry: () => void;
+}) {
+  const WAIT_SECONDS = 15;
+  const [secondsLeft, setSecondsLeft] = useState(WAIT_SECONDS);
+
+  useEffect(() => {
+    setSecondsLeft(WAIT_SECONDS);
+    const id = setInterval(() => {
+      setSecondsLeft((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const isMs = lang === "ms";
+  const canRetry = secondsLeft === 0;
+
+  return (
+    <section className="rounded-3xl border border-[oklch(0.7_0.16_75/0.45)] bg-[oklch(0.3_0.08_75/0.18)] p-5 backdrop-blur">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[oklch(0.7_0.16_75/0.2)]">
+          <AlertTriangle className="h-5 w-5 text-[oklch(0.82_0.17_75)]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold uppercase tracking-widest text-[oklch(0.82_0.17_75)]">
+            {isMs ? "Sila Tunggu" : "Please Wait"}
+          </div>
+          <h2 className="mt-1 font-display text-xl font-semibold leading-snug text-[oklch(0.95_0.04_75)]">
+            Sedang menjana soalan... sila tunggu sebentar.
+          </h2>
+          <p className="mt-1 text-sm text-[oklch(0.85_0.04_75)]">
+            Generating question, please wait a moment.
+          </p>
+
+          <div className="mt-4 flex items-center gap-3">
+            {canRetry ? (
+              <Sparkles className="h-5 w-5 text-[oklch(0.82_0.17_75)]" />
+            ) : (
+              <Loader2 className="h-5 w-5 animate-spin text-[oklch(0.82_0.17_75)]" />
+            )}
+            <span className="text-sm text-[oklch(0.88_0.04_75)]">
+              {canRetry
+                ? isMs
+                  ? "Sedia untuk cuba semula"
+                  : "Ready to try again"
+                : isMs
+                  ? `Cuba semula dalam ${secondsLeft}s`
+                  : `Retry in ${secondsLeft}s`}
+            </span>
+          </div>
+
+          <Button
+            onClick={onRetry}
+            disabled={!canRetry}
+            size="lg"
+            className="mt-5 h-12 rounded-2xl bg-gradient-primary px-6 font-bold shadow-glow hover:opacity-95 disabled:opacity-60"
+          >
+            {isMs ? "Cuba Semula" : "Try Again"}
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
 
 function StudentFeed() {
   const { t, lang, setLang } = useI18n();
@@ -494,6 +566,18 @@ function StudentFeed() {
 
   const showMaintenanceState = !loading && !session && !!error;
 
+  // Guard: detect rate-limit / empty question payloads from /start_session.
+  // Treat all of these as "still generating, please wait":
+  //   - question text contains "API Rate Limit Hit"
+  //   - question_data was null (session.question ends up empty)
+  //   - question is an empty / whitespace-only string
+  const rawQuestion = typeof session?.question === "string" ? session.question : "";
+  const isAwaitingQuestion =
+    !loading &&
+    !!session &&
+    (rawQuestion.includes("API Rate Limit Hit") || rawQuestion.trim().length === 0);
+
+
   return (
     <div className="relative min-h-[100dvh] bg-gradient-feed text-foreground overflow-hidden">
       {/* Ambient glow */}
@@ -704,8 +788,14 @@ function StudentFeed() {
               Retry
             </Button>
           </section>
+        ) : isAwaitingQuestion ? (
+          <RateLimitWaitingCard
+            lang={activeLanguage}
+            onRetry={() => void loadSession(activeSubject, activeTopic, activeLanguage, false)}
+          />
         ) : (
           <>
+
             <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
               {loading || !session ? (
                 <div className="space-y-3">
