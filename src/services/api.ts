@@ -1,5 +1,5 @@
 // Call the quiz backend through a same-origin proxy so the HTTPS preview can safely reach the VPS on port 8001.
-export const BASE_URL = "/api/public/skor";
+export const BASE_URL = "https://178.105.130.105.nip.io:8443";
 
 export interface ClassMasteryItem {
   subject: string;
