@@ -1,5 +1,5 @@
-// Skor API service — configurable base URL via VITE_API_BASE_URL env var
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://178.105.130.105:8001";
+// Call the quiz backend through a same-origin proxy so the HTTPS preview can safely reach the VPS on port 8001.
+export const BASE_URL = "/api/public/skor";
 
 export interface ClassMasteryItem {
   subject: string;

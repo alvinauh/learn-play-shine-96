@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicSkorSplatRouteImport } from './routes/api.public.skor.$'
 
 const TeacherRoute = TeacherRouteImport.update({
   id: '/teacher',
@@ -28,35 +29,44 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSkorSplatRoute = ApiPublicSkorSplatRouteImport.update({
+  id: '/api/public/skor/$',
+  path: '/api/public/skor/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/teacher': typeof TeacherRoute
+  '/api/public/skor/$': typeof ApiPublicSkorSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/teacher': typeof TeacherRoute
+  '/api/public/skor/$': typeof ApiPublicSkorSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/teacher': typeof TeacherRoute
+  '/api/public/skor/$': typeof ApiPublicSkorSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/teacher'
+  fullPaths: '/' | '/login' | '/teacher' | '/api/public/skor/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/teacher'
-  id: '__root__' | '/' | '/login' | '/teacher'
+  to: '/' | '/login' | '/teacher' | '/api/public/skor/$'
+  id: '__root__' | '/' | '/login' | '/teacher' | '/api/public/skor/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   TeacherRoute: typeof TeacherRoute
+  ApiPublicSkorSplatRoute: typeof ApiPublicSkorSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/skor/$': {
+      id: '/api/public/skor/$'
+      path: '/api/public/skor/$'
+      fullPath: '/api/public/skor/$'
+      preLoaderRoute: typeof ApiPublicSkorSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   TeacherRoute: TeacherRoute,
+  ApiPublicSkorSplatRoute: ApiPublicSkorSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
