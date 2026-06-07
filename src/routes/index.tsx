@@ -556,8 +556,8 @@ function StudentFeed() {
             </SelectTrigger>
             <SelectContent>
               {subjects.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
+                <SelectItem key={s.subject} value={s.subject}>
+                  {s.subject}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -572,15 +572,15 @@ function StudentFeed() {
             </SelectTrigger>
             <SelectContent>
               {[
-                ...(activeSubject ? getTopicsForSubject(activeSubject) : []),
+                ...(activeSubject ? topicsForSubject(activeSubject) : []),
                 ...(dynamicTopic &&
                 activeSubject &&
-                !getTopicsForSubject(activeSubject).some((tt) => tt.value === dynamicTopic)
-                  ? [{ label: dynamicTopic, value: dynamicTopic }]
+                !topicsForSubject(activeSubject).includes(dynamicTopic)
+                  ? [dynamicTopic]
                   : []),
               ].map((topic) => (
-                <SelectItem key={topic.value} value={topic.value}>
-                  {topic.label}
+                <SelectItem key={topic} value={topic}>
+                  {topic}
                 </SelectItem>
               ))}
             </SelectContent>
