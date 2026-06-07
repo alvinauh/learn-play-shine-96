@@ -788,8 +788,14 @@ function StudentFeed() {
               Retry
             </Button>
           </section>
+        ) : isAwaitingQuestion ? (
+          <RateLimitWaitingCard
+            lang={activeLanguage}
+            onRetry={() => void loadSession(activeSubject, activeTopic, activeLanguage, false)}
+          />
         ) : (
           <>
+
             <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
               {loading || !session ? (
                 <div className="space-y-3">
