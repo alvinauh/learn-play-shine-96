@@ -752,6 +752,16 @@ function StudentFeed() {
                 </div>
               ) : (
                 <>
+                  {typeof session.illustrative_notes === "string" && session.illustrative_notes.trim().length > 0 && (
+                    <div className="mb-3 rounded-2xl border border-[oklch(0.55_0.1_85/0.35)] bg-[oklch(0.25_0.04_85/0.12)] p-3.5">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.82_0.16_85)]">
+                        📖 Concept Note
+                      </div>
+                      <p className="mt-1 text-sm leading-relaxed text-[oklch(0.88_0.03_85)]">
+                        {session.illustrative_notes}
+                      </p>
+                    </div>
+                  )}
                   <div className="text-xs uppercase tracking-widest text-primary-glow">
                     {t.question}
                   </div>
