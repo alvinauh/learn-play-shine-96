@@ -118,6 +118,7 @@ interface StartSessionApiResponse {
     answer?: string;
     explanation?: string;
     question_type?: QuestionType;
+    illustrative_notes?: string;
   };
   draft?: {
     question?: string;
