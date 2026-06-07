@@ -39,9 +39,17 @@ export interface SubjectWithTopics {
  * GET /subjects → { subjects: [{ subject, topics: [] }] }
  */
 export async function fetchSubjects(): Promise<SubjectWithTopics[]> {
-  const res = await fetch(`${BASE_URL}/subjects`, { method: "GET" });
-  if (!res.ok) throw new ApiResponseError(res.status);
+  const url = `${BASE_URL}/subjects`;
+  console.log("[Skor API] GET subjects → resolved URL:", url, "(origin:", typeof window !== "undefined" ? window.location.origin : "ssr", ")");
+  const res = await fetch(url, { method: "GET" });
+  console.log("[Skor API] /subjects status:", res.status, res.statusText);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error("[Skor API] /subjects error body:", text);
+    throw new ApiResponseError(res.status);
+  }
   const data = (await res.json()) as { subjects?: Array<{ subject?: string; topics?: string[] }> };
+  console.log("[Skor API] /subjects raw response:", data);
   const seen = new Set<string>();
   const out: SubjectWithTopics[] = [];
   for (const item of data?.subjects ?? []) {
@@ -55,6 +63,7 @@ export async function fetchSubjects(): Promise<SubjectWithTopics[]> {
   }
   return out;
 }
+
 
 export type QuestionType = "mcq" | "short_answer" | "essay";
 
