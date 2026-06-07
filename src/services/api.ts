@@ -196,6 +196,7 @@ function normalizeSessionResponse(
     mnemonic_lyrics,
     question_type:
       data.question_type ?? data.question_data?.question_type ?? data.draft?.question_type ?? "mcq",
+    illustrative_notes: data.question_data?.illustrative_notes,
   };
 }
 
