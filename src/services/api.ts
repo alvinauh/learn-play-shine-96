@@ -280,6 +280,7 @@ export async function submitAnswer(
   draft: Record<string, unknown> = {},
   mock?: MockBundle,
   language: string = "English",
+  subject: string = "",
 ): Promise<AnswerResponse> {
   const safeStudentId =
     studentId && studentId !== "undefined"
@@ -288,7 +289,8 @@ export async function submitAnswer(
   const payload = {
     student_id: safeStudentId,
     topic: topic || "Kinematics",
-    curriculum: curriculum || "KSSM",
+    subject: subject || "",
+    curriculum: curriculum ?? "",
     student_answer: studentAnswer ?? "",
     draft: draft ?? {},
     language: language || "English",
