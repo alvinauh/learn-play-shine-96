@@ -419,11 +419,12 @@ function StudentFeed() {
       const res = await submitAnswer(
         STUDENT_ID,
         session.topic ?? activeTopic,
-        "KSSM",
+        "",
         answerText,
         {},
         mock,
         apiLanguage,
+        session.subject ?? activeSubject,
       );
       setFeedback(res);
       if (res.correct) {
