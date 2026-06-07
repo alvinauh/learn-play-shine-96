@@ -546,9 +546,6 @@ function StudentFeed() {
 
       {(() => { console.log("[Skor] dropdown render → subjects state:", subjects, "activeSubject:", activeSubject, "activeTopic:", activeTopic, "topics for active:", activeSubject ? topicsForSubject(activeSubject) : []); return null; })()}
       <main className="relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6">
-        <pre style={{fontSize:10,background:"#111",color:"#0f0",padding:8,overflow:"auto",maxHeight:200}}>
-          {JSON.stringify({subjects, activeSubject, activeTopic}, null, 2)}
-        </pre>
         {/* Subject + Topic selectors */}
         <div className="grid grid-cols-2 gap-2">
           <Select
