@@ -1,5 +1,5 @@
 // Skor API service — configurable base URL via VITE_API_BASE_URL env var
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://178.105.130.105.nip.io";
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://178.105.130.105:8001";
 
 export interface ClassMasteryItem {
   subject: string;
