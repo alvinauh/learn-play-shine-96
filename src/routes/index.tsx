@@ -63,39 +63,6 @@ export const Route = createFileRoute("/")({
 const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
 
-type TopicOption = { label: string; value: string };
-
-/**
- * Optional per-subject topic suggestions. This is NOT a source-of-truth list
- * of subjects — subjects are fetched dynamically from the backend. Any subject
- * not listed here falls back to a single generic topic equal to the subject
- * name, so brand-new subjects from the backend render automatically.
- */
-const TOPIC_SUGGESTIONS: Record<string, TopicOption[]> = {
-  Physics: [
-    { label: "Kinematics", value: "Kinematics" },
-    { label: "Electromagnetism", value: "Electromagnetism" },
-  ],
-  Sejarah: [
-    { label: "Bab 1 Warisan Negara Bangsa", value: "Warisan Negara Bangsa" },
-    { label: "Bab 2 Kebangkitan Nasionalisme", value: "Kebangkitan Nasionalisme" },
-  ],
-  Perniagaan: [
-    { label: "Asas Perniagaan", value: "Asas Perniagaan" },
-    { label: "Pengurusan Sumber Manusia", value: "Pengurusan Sumber Manusia" },
-  ],
-  Biologi: [
-    { label: "Bab 1 Cell Division", value: "Cell Division" },
-    { label: "Bab 2 Respiration", value: "Respiration" },
-  ],
-};
-
-function getTopicsForSubject(subject: string): TopicOption[] {
-  const known = TOPIC_SUGGESTIONS[subject];
-  if (known && known.length > 0) return known;
-  return [{ label: subject, value: subject }];
-}
-
 // Royalty-free Lo-Fi loop (Pixabay CDN, CC0)
 const LOFI_AUDIO_URL =
   "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3";
