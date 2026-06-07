@@ -480,8 +480,8 @@ function StudentFeed() {
       let targetSubject: string = activeSubject;
       let found = false;
       for (const s of subjects) {
-        if (getTopicsForSubject(s).some((t) => t.value === nextTopic)) {
-          targetSubject = s;
+        if (s.topics.includes(nextTopic)) {
+          targetSubject = s.subject;
           found = true;
           break;
         }
