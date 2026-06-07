@@ -61,7 +61,7 @@ export async function fetchSubjects(): Promise<SubjectWithTopics[]> {
       : [];
     out.push({ subject: name, topics });
   }
-  return out;
+  return out.filter((s) => s.subject.length > 0);
 }
 
 
