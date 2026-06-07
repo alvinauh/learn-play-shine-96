@@ -376,11 +376,9 @@ function StudentFeed() {
     void loadSession(activeSubject, topic, undefined, false);
   };
 
-  // Fetch subjects + topics from GET /subjects on mount.
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
-    let cancelled = false;
     (async () => {
       setSubjectsLoading(true);
       let list: SubjectWithTopics[] = [];
@@ -391,7 +389,6 @@ function StudentFeed() {
         console.error("[Skor] fetchSubjects failed, continuing without dynamic subjects:", err);
         list = [];
       }
-      if (cancelled) return;
       setSubjects(list);
       setSubjectsLoading(false);
       if (list.length === 0) return;
@@ -401,11 +398,9 @@ function StudentFeed() {
       setActiveTopic(firstTopic);
       if (firstTopic) void loadSession(firstSubject, firstTopic, undefined, false);
     })();
-    return () => {
-      cancelled = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   useEffect(() => {
     setActiveLanguage(lang);
