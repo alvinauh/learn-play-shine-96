@@ -31,6 +31,7 @@ import {
   type AnswerResponse,
   type MockBundle,
   type QuestionType,
+  type SubjectWithTopics,
 } from "@/services/api";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,39 +62,6 @@ export const Route = createFileRoute("/")({
 
 const LETTERS = ["A", "B", "C", "D"] as const;
 type Letter = (typeof LETTERS)[number];
-
-type TopicOption = { label: string; value: string };
-
-/**
- * Optional per-subject topic suggestions. This is NOT a source-of-truth list
- * of subjects — subjects are fetched dynamically from the backend. Any subject
- * not listed here falls back to a single generic topic equal to the subject
- * name, so brand-new subjects from the backend render automatically.
- */
-const TOPIC_SUGGESTIONS: Record<string, TopicOption[]> = {
-  Physics: [
-    { label: "Kinematics", value: "Kinematics" },
-    { label: "Electromagnetism", value: "Electromagnetism" },
-  ],
-  Sejarah: [
-    { label: "Bab 1 Warisan Negara Bangsa", value: "Warisan Negara Bangsa" },
-    { label: "Bab 2 Kebangkitan Nasionalisme", value: "Kebangkitan Nasionalisme" },
-  ],
-  Perniagaan: [
-    { label: "Asas Perniagaan", value: "Asas Perniagaan" },
-    { label: "Pengurusan Sumber Manusia", value: "Pengurusan Sumber Manusia" },
-  ],
-  Biologi: [
-    { label: "Bab 1 Cell Division", value: "Cell Division" },
-    { label: "Bab 2 Respiration", value: "Respiration" },
-  ],
-};
-
-function getTopicsForSubject(subject: string): TopicOption[] {
-  const known = TOPIC_SUGGESTIONS[subject];
-  if (known && known.length > 0) return known;
-  return [{ label: subject, value: subject }];
-}
 
 // Royalty-free Lo-Fi loop (Pixabay CDN, CC0)
 const LOFI_AUDIO_URL =
@@ -297,7 +265,7 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
-  const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjects, setSubjects] = useState<SubjectWithTopics[]>([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
   const [activeSubject, setActiveSubject] = useState<string>("");
   const [activeTopic, setActiveTopic] = useState<string>("");
@@ -307,6 +275,11 @@ function StudentFeed() {
   const [textAnswer, setTextAnswer] = useState<string>("");
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
+
+  const topicsForSubject = (subject: string): string[] => {
+    const found = subjects.find((s) => s.subject === subject);
+    return found?.topics ?? [];
+  };
 
   const mock: MockBundle = {
     question: t.mockQuestion,
@@ -390,11 +363,11 @@ function StudentFeed() {
 
   const handleSubjectChange = (subject: string) => {
     if (subject === activeSubject) return;
-    const firstTopic = getTopicsForSubject(subject)[0].value;
+    const firstTopic = topicsForSubject(subject)[0] ?? "";
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
     setDynamicTopic(null);
-    void loadSession(subject, firstTopic, activeLanguage, false);
+    if (firstTopic) void loadSession(subject, firstTopic, activeLanguage, false);
   };
 
   const handleTopicChange = (topic: string) => {
@@ -403,16 +376,14 @@ function StudentFeed() {
     void loadSession(activeSubject, topic, undefined, false);
   };
 
-  // Fetch the list of available subjects from the backend on mount.
-  // No hardcoded subject arrays — new subjects added to the database
-  // automatically appear in the UI.
+  // Fetch subjects + topics from GET /subjects on mount.
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
     let cancelled = false;
     (async () => {
       setSubjectsLoading(true);
-      let list: string[] = [];
+      let list: SubjectWithTopics[] = [];
       try {
         list = (await fetchSubjects()) ?? [];
         console.log("[Skor] fetched subjects:", list);
@@ -423,17 +394,12 @@ function StudentFeed() {
       if (cancelled) return;
       setSubjects(list);
       setSubjectsLoading(false);
-      if (list.length === 0) {
-        // No subjects from backend — leave dropdown empty and don't start a session.
-        return;
-      }
-      const firstSubject = list[0];
-      const firstTopic =
-        getTopicsForSubject(firstSubject)?.[0]?.value ?? firstSubject;
+      if (list.length === 0) return;
+      const firstSubject = list[0].subject;
+      const firstTopic = list[0].topics[0] ?? "";
       setActiveSubject(firstSubject);
       setActiveTopic(firstTopic);
-      void loadSession(firstSubject, firstTopic, undefined, false);
-
+      if (firstTopic) void loadSession(firstSubject, firstTopic, undefined, false);
     })();
     return () => {
       cancelled = true;
@@ -514,8 +480,8 @@ function StudentFeed() {
       let targetSubject: string = activeSubject;
       let found = false;
       for (const s of subjects) {
-        if (getTopicsForSubject(s).some((t) => t.value === nextTopic)) {
-          targetSubject = s;
+        if (s.topics.includes(nextTopic)) {
+          targetSubject = s.subject;
           found = true;
           break;
         }
@@ -590,8 +556,8 @@ function StudentFeed() {
             </SelectTrigger>
             <SelectContent>
               {subjects.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
+                <SelectItem key={s.subject} value={s.subject}>
+                  {s.subject}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -606,15 +572,15 @@ function StudentFeed() {
             </SelectTrigger>
             <SelectContent>
               {[
-                ...(activeSubject ? getTopicsForSubject(activeSubject) : []),
+                ...(activeSubject ? topicsForSubject(activeSubject) : []),
                 ...(dynamicTopic &&
                 activeSubject &&
-                !getTopicsForSubject(activeSubject).some((tt) => tt.value === dynamicTopic)
-                  ? [{ label: dynamicTopic, value: dynamicTopic }]
+                !topicsForSubject(activeSubject).includes(dynamicTopic)
+                  ? [dynamicTopic]
                   : []),
               ].map((topic) => (
-                <SelectItem key={topic.value} value={topic.value}>
-                  {topic.label}
+                <SelectItem key={topic} value={topic}>
+                  {topic}
                 </SelectItem>
               ))}
             </SelectContent>

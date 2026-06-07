@@ -29,23 +29,31 @@ export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
   return res.json() as Promise<TeacherInsightsResponse>;
 }
 
+export interface SubjectWithTopics {
+  subject: string;
+  topics: string[];
+}
+
 /**
- * Dynamically discover the list of available subjects from the backend.
- * Derived from /teacher_insights.class_mastery so new subjects added on the
- * backend appear in the UI automatically without any frontend code changes.
+ * Fetch the catalog of subjects and their topics from the backend.
+ * GET /subjects → { subjects: [{ subject, topics: [] }] }
  */
-export async function fetchSubjects(): Promise<string[]> {
-  const insights = await fetchTeacherInsights();
+export async function fetchSubjects(): Promise<SubjectWithTopics[]> {
+  const res = await fetch(`${BASE_URL}/subjects`, { method: "GET" });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  const data = (await res.json()) as { subjects?: Array<{ subject?: string; topics?: string[] }> };
   const seen = new Set<string>();
-  const subjects: string[] = [];
-  for (const item of insights.class_mastery ?? []) {
+  const out: SubjectWithTopics[] = [];
+  for (const item of data?.subjects ?? []) {
     const name = (item?.subject ?? "").trim();
-    if (name && !seen.has(name)) {
-      seen.add(name);
-      subjects.push(name);
-    }
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    const topics = Array.isArray(item?.topics)
+      ? item!.topics!.map((t) => (typeof t === "string" ? t.trim() : "")).filter((t) => t.length > 0)
+      : [];
+    out.push({ subject: name, topics });
   }
-  return subjects;
+  return out;
 }
 
 export type QuestionType = "mcq" | "short_answer" | "essay";
