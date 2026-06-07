@@ -363,11 +363,11 @@ function StudentFeed() {
 
   const handleSubjectChange = (subject: string) => {
     if (subject === activeSubject) return;
-    const firstTopic = getTopicsForSubject(subject)[0].value;
+    const firstTopic = topicsForSubject(subject)[0] ?? "";
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
     setDynamicTopic(null);
-    void loadSession(subject, firstTopic, activeLanguage, false);
+    if (firstTopic) void loadSession(subject, firstTopic, activeLanguage, false);
   };
 
   const handleTopicChange = (topic: string) => {
@@ -376,16 +376,14 @@ function StudentFeed() {
     void loadSession(activeSubject, topic, undefined, false);
   };
 
-  // Fetch the list of available subjects from the backend on mount.
-  // No hardcoded subject arrays — new subjects added to the database
-  // automatically appear in the UI.
+  // Fetch subjects + topics from GET /subjects on mount.
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
     let cancelled = false;
     (async () => {
       setSubjectsLoading(true);
-      let list: string[] = [];
+      let list: SubjectWithTopics[] = [];
       try {
         list = (await fetchSubjects()) ?? [];
         console.log("[Skor] fetched subjects:", list);
@@ -396,17 +394,12 @@ function StudentFeed() {
       if (cancelled) return;
       setSubjects(list);
       setSubjectsLoading(false);
-      if (list.length === 0) {
-        // No subjects from backend — leave dropdown empty and don't start a session.
-        return;
-      }
-      const firstSubject = list[0];
-      const firstTopic =
-        getTopicsForSubject(firstSubject)?.[0]?.value ?? firstSubject;
+      if (list.length === 0) return;
+      const firstSubject = list[0].subject;
+      const firstTopic = list[0].topics[0] ?? "";
       setActiveSubject(firstSubject);
       setActiveTopic(firstTopic);
-      void loadSession(firstSubject, firstTopic, undefined, false);
-
+      if (firstTopic) void loadSession(firstSubject, firstTopic, undefined, false);
     })();
     return () => {
       cancelled = true;
