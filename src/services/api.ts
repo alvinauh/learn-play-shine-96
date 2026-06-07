@@ -61,6 +61,7 @@ export interface SessionResponse {
   video_broll?: string;
   mnemonic_lyrics?: string[];
   question_type?: QuestionType;
+  illustrative_notes?: string;
 }
 
 export interface AnswerResponse {
