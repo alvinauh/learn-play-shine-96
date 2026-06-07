@@ -265,7 +265,7 @@ function StudentFeed() {
   const [streak, setStreak] = useState(7);
   const [xp, setXp] = useState(1240);
   const [error, setError] = useState<string | null>(null);
-  const [subjects, setSubjects] = useState<string[]>([]);
+  const [subjects, setSubjects] = useState<SubjectWithTopics[]>([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
   const [activeSubject, setActiveSubject] = useState<string>("");
   const [activeTopic, setActiveTopic] = useState<string>("");
@@ -275,6 +275,11 @@ function StudentFeed() {
   const [textAnswer, setTextAnswer] = useState<string>("");
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
+
+  const topicsForSubject = (subject: string): string[] => {
+    const found = subjects.find((s) => s.subject === subject);
+    return found?.topics ?? [];
+  };
 
   const mock: MockBundle = {
     question: t.mockQuestion,
