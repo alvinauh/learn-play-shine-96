@@ -566,6 +566,18 @@ function StudentFeed() {
 
   const showMaintenanceState = !loading && !session && !!error;
 
+  // Guard: detect rate-limit / empty question payloads from /start_session.
+  // Treat all of these as "still generating, please wait":
+  //   - question text contains "API Rate Limit Hit"
+  //   - question_data was null (session.question ends up empty)
+  //   - question is an empty / whitespace-only string
+  const rawQuestion = typeof session?.question === "string" ? session.question : "";
+  const isAwaitingQuestion =
+    !loading &&
+    !!session &&
+    (rawQuestion.includes("API Rate Limit Hit") || rawQuestion.trim().length === 0);
+
+
   return (
     <div className="relative min-h-[100dvh] bg-gradient-feed text-foreground overflow-hidden">
       {/* Ambient glow */}
