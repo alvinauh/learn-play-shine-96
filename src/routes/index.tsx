@@ -345,6 +345,7 @@ function StudentFeed() {
   const [dynamicTopic, setDynamicTopic] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState<QuestionType>("mcq");
   const [textAnswer, setTextAnswer] = useState<string>("");
+  const [studyPackOpen, setStudyPackOpen] = useState(false);
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
 
