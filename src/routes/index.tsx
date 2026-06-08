@@ -41,6 +41,7 @@ import { useI18n, type Lang } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuth } from "@/lib/auth";
 import { LogOut } from "lucide-react";
+import { StudyPackModal } from "@/components/StudyPackModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -1070,6 +1071,17 @@ function StudentFeed() {
           </div>
         </SheetContent>
       </Sheet>
+      {session && (
+        <StudyPackModal
+          open={studyPackOpen}
+          onClose={() => setStudyPackOpen(false)}
+          question={session.question ?? ""}
+          conceptNote={session.illustrative_notes ?? ""}
+          subject={session.subject ?? activeSubject}
+          topic={session.topic ?? activeTopic}
+          language={activeLanguage}
+        />
+      )}
     </div>
   );
 }
