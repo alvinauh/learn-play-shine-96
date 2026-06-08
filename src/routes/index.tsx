@@ -41,6 +41,7 @@ import { useI18n, type Lang } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuth } from "@/lib/auth";
 import { LogOut } from "lucide-react";
+import { StudyPackModal } from "@/components/StudyPackModal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -345,6 +346,7 @@ function StudentFeed() {
   const [dynamicTopic, setDynamicTopic] = useState<string | null>(null);
   const [questionType, setQuestionType] = useState<QuestionType>("mcq");
   const [textAnswer, setTextAnswer] = useState<string>("");
+  const [studyPackOpen, setStudyPackOpen] = useState(false);
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
 
@@ -806,14 +808,24 @@ function StudentFeed() {
               ) : (
                 <>
                   {typeof session.illustrative_notes === "string" && session.illustrative_notes.trim().length > 0 && (
-                    <div className="mb-3 rounded-2xl border border-[oklch(0.55_0.1_85/0.35)] bg-[oklch(0.25_0.04_85/0.12)] p-3.5">
-                      <div className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.82_0.16_85)]">
-                        📖 Concept Note
+                    <button
+                      type="button"
+                      onClick={() => setStudyPackOpen(true)}
+                      className="group mb-3 block w-full rounded-2xl border border-[oklch(0.55_0.1_85/0.35)] bg-[oklch(0.25_0.04_85/0.12)] p-3.5 text-left transition hover:border-[oklch(0.65_0.14_85/0.6)] hover:bg-[oklch(0.28_0.05_85/0.2)]"
+                      aria-label={activeLanguage === "ms" ? "Buka pek pembelajaran" : "Open study pack"}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.82_0.16_85)]">
+                          📖 {activeLanguage === "ms" ? "Nota Konsep" : "Concept Note"}
+                        </div>
+                        <div className="text-[10px] font-medium uppercase tracking-wider text-[oklch(0.82_0.16_85)] opacity-70 group-hover:opacity-100">
+                          {activeLanguage === "ms" ? "Ketuk untuk belajar →" : "Tap to study →"}
+                        </div>
                       </div>
                       <p className="mt-1 text-sm leading-relaxed text-[oklch(0.88_0.03_85)]">
                         {session.illustrative_notes}
                       </p>
-                    </div>
+                    </button>
                   )}
                   <div className="text-xs uppercase tracking-widest text-primary-glow">
                     {t.question}
@@ -1059,6 +1071,17 @@ function StudentFeed() {
           </div>
         </SheetContent>
       </Sheet>
+      {session && (
+        <StudyPackModal
+          open={studyPackOpen}
+          onClose={() => setStudyPackOpen(false)}
+          question={session.question ?? ""}
+          conceptNote={session.illustrative_notes ?? ""}
+          subject={session.subject ?? activeSubject}
+          topic={session.topic ?? activeTopic}
+          language={activeLanguage}
+        />
+      )}
     </div>
   );
 }
