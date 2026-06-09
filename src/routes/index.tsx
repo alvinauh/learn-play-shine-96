@@ -42,6 +42,8 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuth } from "@/lib/auth";
 import { LogOut } from "lucide-react";
 import { StudyPackModal } from "@/components/StudyPackModal";
+import { TutorChatDrawer } from "@/components/TutorChatDrawer";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
