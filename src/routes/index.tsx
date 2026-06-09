@@ -758,11 +758,18 @@ function StudentFeed() {
           <button className="flex items-center gap-1.5 hover:text-foreground transition">
             <Heart className="h-5 w-5" /> 1.2k
           </button>
-          <button className="flex items-center gap-1.5 hover:text-foreground transition">
-            <MessageCircle className="h-5 w-5" /> 84
+          <button
+            onClick={() => session?.session_id && setTutorChatOpen(true)}
+            disabled={!session?.session_id}
+            className="flex items-center gap-1.5 hover:text-primary-glow transition disabled:opacity-50"
+            aria-label={activeLanguage === "ms" ? "Tanya Tutor" : "Ask Tutor"}
+          >
+            <MessageCircle className="h-5 w-5" />
+            {activeLanguage === "ms" ? "Tanya Tutor" : "Ask Tutor"}
           </button>
           <span className="ml-auto text-xs">@cikgu_aisyah</span>
         </div>
+
 
         {error && session && (
           <div
