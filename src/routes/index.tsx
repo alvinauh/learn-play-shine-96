@@ -1130,6 +1130,16 @@ function StudentFeed() {
           language={activeLanguage}
         />
       )}
+      {session?.session_id && (
+        <TutorChatDrawer
+          open={tutorChatOpen}
+          onClose={() => setTutorChatOpen(false)}
+          studentId={user?.id ?? STUDENT_ID}
+          lessonId={session.lesson_id ?? session.session_id}
+          language={activeLanguage}
+        />
+      )}
+
     </div>
   );
 }
