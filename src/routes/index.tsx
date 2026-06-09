@@ -845,6 +845,39 @@ function StudentFeed() {
               )}
             </section>
 
+            {session?.question_type === "listening" && (
+              <section className="rounded-3xl border border-primary/40 bg-card/60 p-4 backdrop-blur space-y-3">
+                <div className="text-xs uppercase tracking-widest text-primary-glow">
+                  🎧 {activeLanguage === "ms" ? "Audio Mendengar" : "Listening Audio"}
+                </div>
+                {isValidUrl(session.audio_url) ? (
+                  <audio
+                    key={session.audio_url}
+                    src={session.audio_url}
+                    controls
+                    className="w-full"
+                  />
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                    {activeLanguage === "ms"
+                      ? "Audio tidak tersedia untuk soalan ini."
+                      : "Audio is not available for this question."}
+                  </div>
+                )}
+                {typeof session.passage === "string" && session.passage.trim().length > 0 && (
+                  <div className="rounded-xl border border-border/60 bg-background/40 p-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      {activeLanguage === "ms" ? "Petikan" : "Passage"}
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+                      {session.passage}
+                    </p>
+                  </div>
+                )}
+              </section>
+            )}
+
+
             {(() => {
               const qt: QuestionType = session?.question_type ?? "mcq";
               if (loading || !session) {
