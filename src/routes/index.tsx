@@ -689,6 +689,8 @@ function StudentFeed() {
             <SelectItem value="mcq">Multiple Choice</SelectItem>
             <SelectItem value="short_answer">Short Answer</SelectItem>
             <SelectItem value="essay">Essay</SelectItem>
+            <SelectItem value="listening">Listening</SelectItem>
+
           </SelectContent>
         </Select>
 
