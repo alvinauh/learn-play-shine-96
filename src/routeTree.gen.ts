@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LessonLessonIdRouteImport } from './routes/lesson.$lessonId'
 import { Route as ApiPublicSkorSplatRouteImport } from './routes/api.public.skor.$'
 
 const TeacherRoute = TeacherRouteImport.update({
@@ -29,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LessonLessonIdRoute = LessonLessonIdRouteImport.update({
+  id: '/lesson/$lessonId',
+  path: '/lesson/$lessonId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicSkorSplatRoute = ApiPublicSkorSplatRouteImport.update({
   id: '/api/public/skor/$',
   path: '/api/public/skor/$',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/teacher': typeof TeacherRoute
+  '/lesson/$lessonId': typeof LessonLessonIdRoute
   '/api/public/skor/$': typeof ApiPublicSkorSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/teacher': typeof TeacherRoute
+  '/lesson/$lessonId': typeof LessonLessonIdRoute
   '/api/public/skor/$': typeof ApiPublicSkorSplatRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,33 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/teacher': typeof TeacherRoute
+  '/lesson/$lessonId': typeof LessonLessonIdRoute
   '/api/public/skor/$': typeof ApiPublicSkorSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/teacher' | '/api/public/skor/$'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/teacher'
+    | '/lesson/$lessonId'
+    | '/api/public/skor/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/teacher' | '/api/public/skor/$'
-  id: '__root__' | '/' | '/login' | '/teacher' | '/api/public/skor/$'
+  to: '/' | '/login' | '/teacher' | '/lesson/$lessonId' | '/api/public/skor/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/teacher'
+    | '/lesson/$lessonId'
+    | '/api/public/skor/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   TeacherRoute: typeof TeacherRoute
+  LessonLessonIdRoute: typeof LessonLessonIdRoute
   ApiPublicSkorSplatRoute: typeof ApiPublicSkorSplatRoute
 }
 
@@ -92,6 +113,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lesson/$lessonId': {
+      id: '/lesson/$lessonId'
+      path: '/lesson/$lessonId'
+      fullPath: '/lesson/$lessonId'
+      preLoaderRoute: typeof LessonLessonIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/skor/$': {
       id: '/api/public/skor/$'
       path: '/api/public/skor/$'
@@ -106,18 +134,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   TeacherRoute: TeacherRoute,
+  LessonLessonIdRoute: LessonLessonIdRoute,
   ApiPublicSkorSplatRoute: ApiPublicSkorSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

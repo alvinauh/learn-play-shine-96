@@ -42,6 +42,8 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuth } from "@/lib/auth";
 import { LogOut } from "lucide-react";
 import { StudyPackModal } from "@/components/StudyPackModal";
+import { TutorChatDrawer } from "@/components/TutorChatDrawer";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -347,6 +349,8 @@ function StudentFeed() {
   const [questionType, setQuestionType] = useState<QuestionType>("mcq");
   const [textAnswer, setTextAnswer] = useState<string>("");
   const [studyPackOpen, setStudyPackOpen] = useState(false);
+  const [tutorChatOpen, setTutorChatOpen] = useState(false);
+
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
 
@@ -494,7 +498,9 @@ function StudentFeed() {
         mock,
         apiLanguage,
         session.subject ?? activeSubject,
+        session.session_id,
       );
+
       setFeedback(res);
       if (res.correct) {
         setStreak((s) => s + 1);
@@ -683,6 +689,8 @@ function StudentFeed() {
             <SelectItem value="mcq">Multiple Choice</SelectItem>
             <SelectItem value="short_answer">Short Answer</SelectItem>
             <SelectItem value="essay">Essay</SelectItem>
+            <SelectItem value="listening">Listening</SelectItem>
+
           </SelectContent>
         </Select>
 
@@ -750,11 +758,18 @@ function StudentFeed() {
           <button className="flex items-center gap-1.5 hover:text-foreground transition">
             <Heart className="h-5 w-5" /> 1.2k
           </button>
-          <button className="flex items-center gap-1.5 hover:text-foreground transition">
-            <MessageCircle className="h-5 w-5" /> 84
+          <button
+            onClick={() => session?.session_id && setTutorChatOpen(true)}
+            disabled={!session?.session_id}
+            className="flex items-center gap-1.5 hover:text-primary-glow transition disabled:opacity-50"
+            aria-label={activeLanguage === "ms" ? "Tanya Tutor" : "Ask Tutor"}
+          >
+            <MessageCircle className="h-5 w-5" />
+            {activeLanguage === "ms" ? "Tanya Tutor" : "Ask Tutor"}
           </button>
           <span className="ml-auto text-xs">@cikgu_aisyah</span>
         </div>
+
 
         {error && session && (
           <div
@@ -836,6 +851,39 @@ function StudentFeed() {
                 </>
               )}
             </section>
+
+            {session?.question_type === "listening" && (
+              <section className="rounded-3xl border border-primary/40 bg-card/60 p-4 backdrop-blur space-y-3">
+                <div className="text-xs uppercase tracking-widest text-primary-glow">
+                  🎧 {activeLanguage === "ms" ? "Audio Mendengar" : "Listening Audio"}
+                </div>
+                {isValidUrl(session.audio_url) ? (
+                  <audio
+                    key={session.audio_url}
+                    src={session.audio_url}
+                    controls
+                    className="w-full"
+                  />
+                ) : (
+                  <div className="rounded-xl border border-dashed border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                    {activeLanguage === "ms"
+                      ? "Audio tidak tersedia untuk soalan ini."
+                      : "Audio is not available for this question."}
+                  </div>
+                )}
+                {typeof session.passage === "string" && session.passage.trim().length > 0 && (
+                  <div className="rounded-xl border border-border/60 bg-background/40 p-3">
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      {activeLanguage === "ms" ? "Petikan" : "Passage"}
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+                      {session.passage}
+                    </p>
+                  </div>
+                )}
+              </section>
+            )}
+
 
             {(() => {
               const qt: QuestionType = session?.question_type ?? "mcq";
@@ -1082,6 +1130,16 @@ function StudentFeed() {
           language={activeLanguage}
         />
       )}
+      {session?.session_id && (
+        <TutorChatDrawer
+          open={tutorChatOpen}
+          onClose={() => setTutorChatOpen(false)}
+          studentId={user?.id ?? STUDENT_ID}
+          lessonId={session.lesson_id ?? session.session_id}
+          language={activeLanguage}
+        />
+      )}
+
     </div>
   );
 }

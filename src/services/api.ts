@@ -65,7 +65,7 @@ export async function fetchSubjects(): Promise<SubjectWithTopics[]> {
 }
 
 
-export type QuestionType = "mcq" | "short_answer" | "essay";
+export type QuestionType = "mcq" | "short_answer" | "essay" | "listening";
 
 export interface SessionResponse {
   session_id?: string;
@@ -79,7 +79,11 @@ export interface SessionResponse {
   mnemonic_lyrics?: string[];
   question_type?: QuestionType;
   illustrative_notes?: string;
+  audio_url?: string;
+  passage?: string;
+  lesson_id?: string;
 }
+
 
 export interface AnswerResponse {
   correct: boolean;
@@ -136,7 +140,12 @@ interface StartSessionApiResponse {
     explanation?: string;
     question_type?: QuestionType;
     illustrative_notes?: string;
+    audio_url?: string;
+    passage?: string;
   };
+  audio_url?: string;
+  passage?: string;
+  lesson_id?: string;
   draft?: {
     question?: string;
     options?: string[];
@@ -146,6 +155,7 @@ interface StartSessionApiResponse {
     question_type?: QuestionType;
   };
 }
+
 
 async function postJSON<T>(path: string, body: unknown, bustCache: boolean = false): Promise<T> {
   const url = bustCache ? `${BASE_URL}${path}?t=${Date.now()}` : `${BASE_URL}${path}`;
@@ -214,6 +224,9 @@ function normalizeSessionResponse(
     question_type:
       data.question_type ?? data.question_data?.question_type ?? data.draft?.question_type ?? "mcq",
     illustrative_notes: data.question_data?.illustrative_notes,
+    audio_url: data.audio_url ?? data.question_data?.audio_url,
+    passage: data.passage ?? data.question_data?.passage,
+    lesson_id: data.lesson_id,
   };
 }
 
@@ -226,7 +239,9 @@ export async function startSession(
   mock?: MockBundle,
   isAdaptive: boolean = false,
   questionType: QuestionType = "mcq",
+  formLevel: number = 4,
 ): Promise<SessionResponse> {
+
   const safeStudentId =
     studentId && studentId !== "undefined"
       ? studentId
@@ -239,7 +254,9 @@ export async function startSession(
     subject: subject || "Physics",
     is_adaptive: !!isAdaptive,
     question_type: questionType,
+    form_level: formLevel,
   };
+
   if (!payload.topic || !payload.subject) {
     throw new Error("startSession: missing required fields");
   }
@@ -281,12 +298,13 @@ export async function submitAnswer(
   mock?: MockBundle,
   language: string = "English",
   subject: string = "",
+  sessionId?: string,
 ): Promise<AnswerResponse> {
   const safeStudentId =
     studentId && studentId !== "undefined"
       ? studentId
       : "00000000-0000-0000-0000-000000000001";
-  const payload = {
+  const payload: Record<string, unknown> = {
     student_id: safeStudentId,
     topic: topic || "Kinematics",
     subject: subject || "",
@@ -295,6 +313,7 @@ export async function submitAnswer(
     draft: draft ?? {},
     language: language || "English",
   };
+  if (sessionId) payload.session_id = sessionId;
   try {
     return await postJSON<AnswerResponse>("/submit_answer", payload);
   } catch (err) {
@@ -309,3 +328,54 @@ export async function submitAnswer(
     };
   }
 }
+
+export interface ChatMessage {
+  id?: string;
+  role: "student" | "tutor";
+  content: string;
+  created_at?: string;
+}
+
+export interface ChatReply {
+  reply: string;
+  message?: ChatMessage;
+}
+
+export async function sendChatMessage(
+  studentId: string,
+  lessonId: string,
+  message: string,
+): Promise<ChatReply> {
+  const safeStudentId =
+    studentId && studentId !== "undefined"
+      ? studentId
+      : "00000000-0000-0000-0000-000000000001";
+  const res = await fetch(`${BASE_URL}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ student_id: safeStudentId, lesson_id: lessonId, message }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  const data = (await res.json()) as { reply?: string; message?: ChatMessage; content?: string };
+  return { reply: data.reply ?? data.content ?? data.message?.content ?? "", message: data.message };
+}
+
+export async function fetchChatHistory(
+  lessonId: string,
+  studentId: string,
+): Promise<ChatMessage[]> {
+  const safeStudentId =
+    studentId && studentId !== "undefined"
+      ? studentId
+      : "00000000-0000-0000-0000-000000000001";
+  const res = await fetch(
+    `${BASE_URL}/chat/history/${encodeURIComponent(lessonId)}/${encodeURIComponent(safeStudentId)}`,
+    { method: "GET", cache: "no-store" },
+  );
+  if (!res.ok) throw new ApiResponseError(res.status);
+  const data = (await res.json()) as { messages?: ChatMessage[] } | ChatMessage[];
+  const list = Array.isArray(data) ? data : (data.messages ?? []);
+  return list.filter((m) => m && typeof m.content === "string" && (m.role === "student" || m.role === "tutor"));
+}
+
