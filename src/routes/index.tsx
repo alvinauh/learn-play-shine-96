@@ -498,7 +498,9 @@ function StudentFeed() {
         mock,
         apiLanguage,
         session.subject ?? activeSubject,
+        session.session_id,
       );
+
       setFeedback(res);
       if (res.correct) {
         setStreak((s) => s + 1);
