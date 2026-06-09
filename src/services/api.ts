@@ -254,7 +254,9 @@ export async function startSession(
     subject: subject || "Physics",
     is_adaptive: !!isAdaptive,
     question_type: questionType,
+    form_level: formLevel,
   };
+
   if (!payload.topic || !payload.subject) {
     throw new Error("startSession: missing required fields");
   }
