@@ -224,6 +224,9 @@ function normalizeSessionResponse(
     question_type:
       data.question_type ?? data.question_data?.question_type ?? data.draft?.question_type ?? "mcq",
     illustrative_notes: data.question_data?.illustrative_notes,
+    audio_url: data.audio_url ?? data.question_data?.audio_url,
+    passage: data.passage ?? data.question_data?.passage,
+    lesson_id: data.lesson_id,
   };
 }
 
@@ -236,7 +239,9 @@ export async function startSession(
   mock?: MockBundle,
   isAdaptive: boolean = false,
   questionType: QuestionType = "mcq",
+  formLevel: number = 4,
 ): Promise<SessionResponse> {
+
   const safeStudentId =
     studentId && studentId !== "undefined"
       ? studentId
