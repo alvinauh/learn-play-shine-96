@@ -65,7 +65,7 @@ export async function fetchSubjects(): Promise<SubjectWithTopics[]> {
 }
 
 
-export type QuestionType = "mcq" | "short_answer" | "essay";
+export type QuestionType = "mcq" | "short_answer" | "essay" | "listening";
 
 export interface SessionResponse {
   session_id?: string;
@@ -79,7 +79,11 @@ export interface SessionResponse {
   mnemonic_lyrics?: string[];
   question_type?: QuestionType;
   illustrative_notes?: string;
+  audio_url?: string;
+  passage?: string;
+  lesson_id?: string;
 }
+
 
 export interface AnswerResponse {
   correct: boolean;
