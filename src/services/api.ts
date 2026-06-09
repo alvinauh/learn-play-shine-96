@@ -140,7 +140,12 @@ interface StartSessionApiResponse {
     explanation?: string;
     question_type?: QuestionType;
     illustrative_notes?: string;
+    audio_url?: string;
+    passage?: string;
   };
+  audio_url?: string;
+  passage?: string;
+  lesson_id?: string;
   draft?: {
     question?: string;
     options?: string[];
@@ -150,6 +155,7 @@ interface StartSessionApiResponse {
     question_type?: QuestionType;
   };
 }
+
 
 async function postJSON<T>(path: string, body: unknown, bustCache: boolean = false): Promise<T> {
   const url = bustCache ? `${BASE_URL}${path}?t=${Date.now()}` : `${BASE_URL}${path}`;
