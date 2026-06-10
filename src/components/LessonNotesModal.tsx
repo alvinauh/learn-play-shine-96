@@ -19,6 +19,9 @@ interface Props {
 
 export function LessonNotesModal({ open, onClose, lesson, subject, topic, language, onLessonUpdate }: Props) {
   const [override, setOverride] = useState<Lesson | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
+  const setCurrent = setOverride;
+
 
   useEffect(() => {
     // Reset regen override whenever incoming lesson identity changes
