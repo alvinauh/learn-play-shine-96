@@ -18,15 +18,15 @@ interface Props {
 }
 
 export function LessonNotesModal({ open, onClose, lesson, subject, topic, language, onLessonUpdate }: Props) {
-  const [current, setCurrent] = useState<Lesson | null>(lesson);
-  const [regenerating, setRegenerating] = useState(false);
+  const [override, setOverride] = useState<Lesson | null>(null);
 
-  // Sync prop changes
-  if (lesson !== null && current === null) {
-    // initial set
-  }
+  useEffect(() => {
+    // Reset regen override whenever incoming lesson identity changes
+    setOverride(null);
+  }, [lesson]);
 
-  const active = current ?? lesson;
+  const active = override ?? lesson;
+
 
   const isMs = language?.toLowerCase().startsWith("ms");
   const labels = isMs
