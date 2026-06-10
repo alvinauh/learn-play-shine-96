@@ -67,6 +67,29 @@ export async function fetchSubjects(): Promise<SubjectWithTopics[]> {
 
 export type QuestionType = "mcq" | "short_answer" | "essay" | "listening";
 
+export interface LessonKeyTerm {
+  term: string;
+  definition: string;
+}
+
+export interface LessonMindmapBranch {
+  label: string;
+  children?: string[];
+}
+
+export interface Lesson {
+  id?: string;
+  title?: string;
+  summary?: string;
+  notes_markdown?: string;
+  key_terms?: LessonKeyTerm[];
+  worked_example?: string;
+  mindmap?: {
+    root?: string;
+    branches?: LessonMindmapBranch[];
+  };
+}
+
 export interface SessionResponse {
   session_id?: string;
   question: string;
@@ -82,6 +105,7 @@ export interface SessionResponse {
   audio_url?: string;
   passage?: string;
   lesson_id?: string;
+  lesson?: Lesson | null;
 }
 
 
