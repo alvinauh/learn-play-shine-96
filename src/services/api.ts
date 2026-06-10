@@ -405,3 +405,15 @@ export async function fetchChatHistory(
   return list.filter((m) => m && typeof m.content === "string" && (m.role === "student" || m.role === "tutor"));
 }
 
+export async function generateLesson(
+  topic: string,
+  subject: string,
+  language: string,
+  formLevel?: number,
+): Promise<Lesson> {
+  const payload: Record<string, unknown> = { topic, subject, language };
+  if (typeof formLevel === "number") payload.form_level = formLevel;
+  return postJSON<Lesson>("/generate_lesson", payload, true);
+}
+
+
