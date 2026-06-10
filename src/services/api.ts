@@ -252,6 +252,7 @@ function normalizeSessionResponse(
     audio_url: data.audio_url ?? data.question_data?.audio_url,
     passage: data.passage ?? data.question_data?.passage,
     lesson_id: data.lesson_id,
+    lesson: (data as { lesson?: Lesson | null }).lesson ?? null,
   };
 }
 
