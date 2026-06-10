@@ -170,6 +170,7 @@ interface StartSessionApiResponse {
   audio_url?: string;
   passage?: string;
   lesson_id?: string;
+  lesson?: Lesson | null;
   draft?: {
     question?: string;
     options?: string[];
