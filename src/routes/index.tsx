@@ -1120,11 +1120,10 @@ function StudentFeed() {
         </SheetContent>
       </Sheet>
       {session && (
-        <StudyPackModal
+        <LessonNotesModal
           open={studyPackOpen}
           onClose={() => setStudyPackOpen(false)}
-          question={session.question ?? ""}
-          conceptNote={session.illustrative_notes ?? ""}
+          lesson={session.lesson ?? null}
           subject={session.subject ?? activeSubject}
           topic={session.topic ?? activeTopic}
           language={activeLanguage}
