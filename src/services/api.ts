@@ -409,10 +409,14 @@ export async function generateLesson(
   topic: string,
   subject: string,
   language: string,
-  formLevel?: number,
+  formLevel: number = 4,
 ): Promise<Lesson> {
-  const payload: Record<string, unknown> = { topic, subject, language };
-  if (typeof formLevel === "number") payload.form_level = formLevel;
+  const payload: Record<string, unknown> = {
+    topic,
+    subject,
+    language,
+    form_level: formLevel,
+  };
   return postJSON<Lesson>("/generate_lesson", payload, true);
 }
 
