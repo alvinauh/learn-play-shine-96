@@ -67,6 +67,29 @@ export async function fetchSubjects(): Promise<SubjectWithTopics[]> {
 
 export type QuestionType = "mcq" | "short_answer" | "essay" | "listening";
 
+export interface LessonKeyTerm {
+  term: string;
+  definition: string;
+}
+
+export interface LessonMindmapBranch {
+  label: string;
+  children?: string[];
+}
+
+export interface Lesson {
+  id?: string;
+  title?: string;
+  summary?: string;
+  notes_markdown?: string;
+  key_terms?: LessonKeyTerm[];
+  worked_example?: string;
+  mindmap?: {
+    root?: string;
+    branches?: LessonMindmapBranch[];
+  };
+}
+
 export interface SessionResponse {
   session_id?: string;
   question: string;
@@ -82,6 +105,7 @@ export interface SessionResponse {
   audio_url?: string;
   passage?: string;
   lesson_id?: string;
+  lesson?: Lesson | null;
 }
 
 
@@ -146,6 +170,7 @@ interface StartSessionApiResponse {
   audio_url?: string;
   passage?: string;
   lesson_id?: string;
+  lesson?: Lesson | null;
   draft?: {
     question?: string;
     options?: string[];
@@ -227,6 +252,7 @@ function normalizeSessionResponse(
     audio_url: data.audio_url ?? data.question_data?.audio_url,
     passage: data.passage ?? data.question_data?.passage,
     lesson_id: data.lesson_id,
+    lesson: (data as { lesson?: Lesson | null }).lesson ?? null,
   };
 }
 
@@ -378,4 +404,16 @@ export async function fetchChatHistory(
   const list = Array.isArray(data) ? data : (data.messages ?? []);
   return list.filter((m) => m && typeof m.content === "string" && (m.role === "student" || m.role === "tutor"));
 }
+
+export async function generateLesson(
+  topic: string,
+  subject: string,
+  language: string,
+  formLevel?: number,
+): Promise<Lesson> {
+  const payload: Record<string, unknown> = { topic, subject, language };
+  if (typeof formLevel === "number") payload.form_level = formLevel;
+  return postJSON<Lesson>("/generate_lesson", payload, true);
+}
+
 

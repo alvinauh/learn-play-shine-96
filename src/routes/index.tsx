@@ -41,7 +41,7 @@ import { useI18n, type Lang } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuth } from "@/lib/auth";
 import { LogOut } from "lucide-react";
-import { StudyPackModal } from "@/components/StudyPackModal";
+import { LessonNotesModal } from "@/components/LessonNotesModal";
 import { TutorChatDrawer } from "@/components/TutorChatDrawer";
 
 
@@ -822,26 +822,36 @@ function StudentFeed() {
                 </div>
               ) : (
                 <>
-                  {typeof session.illustrative_notes === "string" && session.illustrative_notes.trim().length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setStudyPackOpen(true)}
-                      className="group mb-3 block w-full rounded-2xl border border-[oklch(0.55_0.1_85/0.35)] bg-[oklch(0.25_0.04_85/0.12)] p-3.5 text-left transition hover:border-[oklch(0.65_0.14_85/0.6)] hover:bg-[oklch(0.28_0.05_85/0.2)]"
-                      aria-label={activeLanguage === "ms" ? "Buka pek pembelajaran" : "Open study pack"}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.82_0.16_85)]">
-                          📖 {activeLanguage === "ms" ? "Nota Konsep" : "Concept Note"}
+                  {(() => {
+                    const previewText =
+                      (typeof session.lesson?.summary === "string" && session.lesson.summary.trim().length > 0
+                        ? session.lesson.summary
+                        : session.illustrative_notes) ?? "";
+                    const hasLesson = !!session.lesson || previewText.trim().length > 0;
+                    if (!hasLesson) return null;
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setStudyPackOpen(true)}
+                        className="group mb-3 block w-full rounded-2xl border border-[oklch(0.55_0.1_85/0.35)] bg-[oklch(0.25_0.04_85/0.12)] p-3.5 text-left transition hover:border-[oklch(0.65_0.14_85/0.6)] hover:bg-[oklch(0.28_0.05_85/0.2)]"
+                        aria-label={activeLanguage === "ms" ? "Buka nota konsep" : "Open concept note"}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.82_0.16_85)]">
+                            📖 {activeLanguage === "ms" ? "Nota Konsep" : "Concept Note"}
+                          </div>
+                          <div className="text-[10px] font-medium uppercase tracking-wider text-[oklch(0.82_0.16_85)] opacity-70 group-hover:opacity-100">
+                            {activeLanguage === "ms" ? "Ketuk untuk belajar →" : "Tap to study →"}
+                          </div>
                         </div>
-                        <div className="text-[10px] font-medium uppercase tracking-wider text-[oklch(0.82_0.16_85)] opacity-70 group-hover:opacity-100">
-                          {activeLanguage === "ms" ? "Ketuk untuk belajar →" : "Tap to study →"}
-                        </div>
-                      </div>
-                      <p className="mt-1 text-sm leading-relaxed text-[oklch(0.88_0.03_85)]">
-                        {session.illustrative_notes}
-                      </p>
-                    </button>
-                  )}
+                        {previewText && (
+                          <p className="mt-1 text-sm leading-relaxed text-[oklch(0.88_0.03_85)] line-clamp-2">
+                            {previewText}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })()}
                   <div className="text-xs uppercase tracking-widest text-primary-glow">
                     {t.question}
                   </div>
@@ -1120,11 +1130,10 @@ function StudentFeed() {
         </SheetContent>
       </Sheet>
       {session && (
-        <StudyPackModal
+        <LessonNotesModal
           open={studyPackOpen}
           onClose={() => setStudyPackOpen(false)}
-          question={session.question ?? ""}
-          conceptNote={session.illustrative_notes ?? ""}
+          lesson={session.lesson ?? null}
           subject={session.subject ?? activeSubject}
           topic={session.topic ?? activeTopic}
           language={activeLanguage}
