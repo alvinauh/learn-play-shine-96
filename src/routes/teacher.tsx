@@ -46,7 +46,7 @@ export const Route = createFileRoute("/teacher")({
 
 function TeacherDashboard() {
   const { t } = useI18n();
-  const { signOut } = useAuth();
+  const { profile, signOut } = useAuth();
   const [tab, setTab] = useState<"insights" | "classrooms">("insights");
 
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
@@ -124,7 +124,16 @@ function TeacherDashboard() {
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
             <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">● {t.live}</span>
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-primary text-sm font-semibold text-primary-foreground">CA</div>
+            {profile?.full_name && (
+              <span className="hidden sm:block text-sm font-medium text-foreground">
+                {profile.full_name}
+              </span>
+            )}
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-primary text-sm font-semibold text-primary-foreground">
+              {profile?.full_name
+                ? profile.full_name.split(" ").slice(0, 2).map((w) => w[0].toUpperCase()).join("")
+                : "?"}
+            </div>
             <button
               onClick={() => void signOut()}
               className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition"

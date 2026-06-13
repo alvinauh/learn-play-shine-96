@@ -326,7 +326,7 @@ function RateLimitWaitingCard({
 
 function StudentFeed() {
   const { t, lang, setLang } = useI18n();
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const STUDENT_ID = "00000000-0000-0000-0000-000000000001";
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [videoBroll, setVideoBroll] = useState<string | null>(null);
@@ -767,7 +767,13 @@ function StudentFeed() {
             <MessageCircle className="h-5 w-5" />
             {activeLanguage === "ms" ? "Tanya Tutor" : "Ask Tutor"}
           </button>
-          <span className="ml-auto text-xs">@cikgu_aisyah</span>
+          <span className="ml-auto text-xs">
+            {profile?.full_name
+              ? `@${profile.full_name.split(" ")[0].toLowerCase()}`
+              : user?.email?.split("@")[0]
+                ? `@${user.email!.split("@")[0]}`
+                : "@you"}
+          </span>
         </div>
 
 
