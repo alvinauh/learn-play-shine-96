@@ -22,11 +22,23 @@ export function LessonNotesModal({ open, onClose, lesson, subject, topic, langua
   const [regenerating, setRegenerating] = useState(false);
   const setCurrent = setOverride;
 
-
   useEffect(() => {
     // Reset regen override whenever incoming lesson identity changes
     setOverride(null);
   }, [lesson]);
+
+  // Auto-fetch when modal opens and no lesson is cached yet
+  useEffect(() => {
+    if (!open || lesson || override || regenerating) return;
+    setRegenerating(true);
+    generateLesson(topic, subject, language?.toLowerCase().startsWith("ms") ? "Bahasa Melayu" : "English")
+      .then((fresh) => {
+        setCurrent(fresh);
+        onLessonUpdate?.(fresh);
+      })
+      .catch((e) => console.error("[LessonNotes] auto-fetch failed:", e))
+      .finally(() => setRegenerating(false));
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = override ?? lesson;
 
@@ -86,7 +98,12 @@ export function LessonNotesModal({ open, onClose, lesson, subject, topic, langua
 
         {!hasNotes ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
-            {labels.empty}
+            {regenerating ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {isMs ? "Menjana nota..." : "Generating notes…"}
+              </span>
+            ) : labels.empty}
           </div>
         ) : (
           <Tabs defaultValue="notes" className="mt-2">

@@ -1137,6 +1137,7 @@ function StudentFeed() {
           subject={session.subject ?? activeSubject}
           topic={session.topic ?? activeTopic}
           language={activeLanguage}
+          onLessonUpdate={(fresh) => setSession((s) => s ? { ...s, lesson: fresh } : s)}
         />
       )}
       {session?.session_id && (
