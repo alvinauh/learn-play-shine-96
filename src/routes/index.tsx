@@ -350,6 +350,7 @@ function StudentFeed() {
   const [textAnswer, setTextAnswer] = useState<string>("");
   const [studyPackOpen, setStudyPackOpen] = useState(false);
   const [tutorChatOpen, setTutorChatOpen] = useState(false);
+  const [formLevel, setFormLevel] = useState<4 | 5>(4);
 
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
