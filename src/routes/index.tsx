@@ -350,6 +350,7 @@ function StudentFeed() {
   const [textAnswer, setTextAnswer] = useState<string>("");
   const [studyPackOpen, setStudyPackOpen] = useState(false);
   const [tutorChatOpen, setTutorChatOpen] = useState(false);
+  const [formLevel, setFormLevel] = useState<4 | 5>(4);
 
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
@@ -416,6 +417,7 @@ function StudentFeed() {
         mock,
         isAdaptive,
         qType,
+        formLevel,
       );
       if (requestId !== latestLoadRequestRef.current) return;
       console.log("[Skor] startSession response:", data);
@@ -454,33 +456,49 @@ function StudentFeed() {
     void loadSession(activeSubject, topic, undefined, false);
   };
 
+  const loadSubjectsForLevel = async (
+    level: number,
+    { autoStart = true }: { autoStart?: boolean } = {},
+  ) => {
+    setSubjectsLoading(true);
+    let list: SubjectWithTopics[] = [];
+    try {
+      list = (await fetchSubjects(level)) ?? [];
+      console.log("[Skor] fetched subjects (form", level, "):", list);
+    } catch (err) {
+      console.error("[Skor] fetchSubjects failed:", err);
+      list = [];
+    }
+    setSubjects(list);
+    setSubjectsLoading(false);
+    if (list.length === 0) {
+      setActiveSubject("");
+      setActiveTopic("");
+      return;
+    }
+    const randomIndex = Math.floor(Math.random() * list.length);
+    const picked = list[randomIndex];
+    const firstSubject = picked.subject;
+    const topics = picked.topics ?? [];
+    const firstTopic = topics.length > 0
+      ? topics[Math.floor(Math.random() * topics.length)]
+      : "";
+    setActiveSubject(firstSubject);
+    setActiveTopic(firstTopic);
+    if (autoStart && firstTopic) void loadSession(firstSubject, firstTopic, undefined, false);
+  };
+
+  const handleFormLevelChange = (level: 4 | 5) => {
+    if (level === formLevel) return;
+    setFormLevel(level);
+    setDynamicTopic(null);
+    void loadSubjectsForLevel(level);
+  };
+
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
-    (async () => {
-      setSubjectsLoading(true);
-      let list: SubjectWithTopics[] = [];
-      try {
-        list = (await fetchSubjects()) ?? [];
-        console.log("[Skor] fetched subjects:", list);
-      } catch (err) {
-        console.error("[Skor] fetchSubjects failed, continuing without dynamic subjects:", err);
-        list = [];
-      }
-      setSubjects(list);
-      setSubjectsLoading(false);
-      if (list.length === 0) return;
-      const randomIndex = Math.floor(Math.random() * list.length);
-      const picked = list[randomIndex];
-      const firstSubject = picked.subject;
-      const topics = picked.topics ?? [];
-      const firstTopic = topics.length > 0
-        ? topics[Math.floor(Math.random() * topics.length)]
-        : "";
-      setActiveSubject(firstSubject);
-      setActiveTopic(firstTopic);
-      if (firstTopic) void loadSession(firstSubject, firstTopic, undefined, false);
-    })();
+    void loadSubjectsForLevel(formLevel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -638,6 +656,30 @@ function StudentFeed() {
 
       {(() => { console.log("[Skor] dropdown render → subjects state:", subjects, "activeSubject:", activeSubject, "activeTopic:", activeTopic, "topics for active:", activeSubject ? topicsForSubject(activeSubject) : []); return null; })()}
       <main className="relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6">
+        {/* Form level segmented control */}
+        <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-1 backdrop-blur">
+          <span className="px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            {activeLanguage === "ms" ? "Tingkatan" : "Form"}
+          </span>
+          {([4, 5] as const).map((lvl) => (
+            <button
+              key={lvl}
+              type="button"
+              onClick={() => handleFormLevelChange(lvl)}
+              disabled={loading || subjectsLoading}
+              aria-pressed={formLevel === lvl}
+              className={cn(
+                "flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition disabled:opacity-50",
+                formLevel === lvl
+                  ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {activeLanguage === "ms" ? `Tingkatan ${lvl}` : `Form ${lvl}`}
+            </button>
+          ))}
+        </div>
+
         {/* Subject + Topic selectors */}
         <div className="grid grid-cols-2 gap-2">
           <Select
@@ -746,7 +788,7 @@ function StudentFeed() {
             </div>
             <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-background/50 px-3 py-1 text-xs font-medium backdrop-blur">
               <span className="h-2 w-2 rounded-full bg-neon-green animate-pulse" />
-              {session?.subject ?? "Physics"} • {session?.topic ?? "Kinematics"}
+              {session?.subject ?? "Physics"} • {session?.topic ?? "Kinematics"} · {activeLanguage === "ms" ? `Tingkatan ${formLevel}` : `Form ${formLevel}`}
             </div>
             <div className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-background/50 backdrop-blur">
               <Volume2 className="h-4 w-4" />
@@ -861,8 +903,11 @@ function StudentFeed() {
                       </button>
                     );
                   })()}
-                  <div className="text-xs uppercase tracking-widest text-primary-glow">
-                    {t.question}
+                  <div className="flex items-center justify-between gap-2 text-xs uppercase tracking-widest text-primary-glow">
+                    <span>{t.question}</span>
+                    <span className="text-muted-foreground">
+                      {(session.subject ?? activeSubject) || ""} · {activeLanguage === "ms" ? `Tingkatan ${formLevel}` : `Form ${formLevel}`}
+                    </span>
                   </div>
                   <h1 className="mt-2 font-display text-2xl font-semibold leading-snug">
                     {session.question}
@@ -1146,6 +1191,7 @@ function StudentFeed() {
           subject={session.subject ?? activeSubject}
           topic={session.topic ?? activeTopic}
           language={activeLanguage}
+          formLevel={formLevel}
           onLessonUpdate={(fresh) => setSession((s) => s ? { ...s, lesson: fresh } : s)}
         />
       )}

@@ -14,10 +14,11 @@ interface Props {
   subject: string;
   topic: string;
   language: string;
+  formLevel?: number;
   onLessonUpdate?: (lesson: Lesson) => void;
 }
 
-export function LessonNotesModal({ open, onClose, lesson, subject, topic, language, onLessonUpdate }: Props) {
+export function LessonNotesModal({ open, onClose, lesson, subject, topic, language, formLevel = 4, onLessonUpdate }: Props) {
   const [override, setOverride] = useState<Lesson | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const setCurrent = setOverride;
@@ -31,7 +32,7 @@ export function LessonNotesModal({ open, onClose, lesson, subject, topic, langua
   useEffect(() => {
     if (!open || lesson?.notes_markdown || override || regenerating) return;
     setRegenerating(true);
-    generateLesson(topic, subject, language?.toLowerCase().startsWith("ms") ? "Bahasa Melayu" : "English")
+    generateLesson(topic, subject, language?.toLowerCase().startsWith("ms") ? "Bahasa Melayu" : "English", formLevel)
       .then((fresh) => {
         setCurrent(fresh);
         onLessonUpdate?.(fresh);
@@ -73,7 +74,7 @@ export function LessonNotesModal({ open, onClose, lesson, subject, topic, langua
   const handleRegenerate = async () => {
     setRegenerating(true);
     try {
-      const fresh = await generateLesson(topic, subject, isMs ? "Bahasa Melayu" : "English");
+      const fresh = await generateLesson(topic, subject, isMs ? "Bahasa Melayu" : "English", formLevel);
       setCurrent(fresh);
       onLessonUpdate?.(fresh);
     } catch (e) {
