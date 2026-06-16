@@ -84,8 +84,17 @@ async function proxyRequest(request: Request) {
   const corsHeaders = buildCorsHeaders(request);
   let bodyText: string | undefined;
 
+  // Short-circuit any request tied to a fallback session id - upstream doesn't know about it.
+  if (url.pathname.includes("/fallback-")) {
+    return new Response(
+      JSON.stringify({ fallback: true, messages: [], history: [], data: [] }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } },
+    );
+  }
+
   try {
     bodyText = method === "GET" || method === "HEAD" ? undefined : await request.text();
+
     const upstreamResponse = await fetch(upstreamUrl, {
       method,
       headers: {
