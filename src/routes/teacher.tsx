@@ -76,6 +76,17 @@ function TeacherDashboard() {
         // Defensive: backend may return partial / malformed payloads.
         setClassMastery(Array.isArray(data?.class_mastery) ? data.class_mastery : []);
         setRecentAlerts(Array.isArray(data?.recent_alerts) ? data.recent_alerts : []);
+        setActiveStudents(
+          typeof data?.active_students === "number" ? String(data.active_students) : "-",
+        );
+        setClassAverageMastery(
+          typeof data?.class_average_mastery === "number" ? `${data.class_average_mastery}%` : "-",
+        );
+        setWeakestTopic(
+          typeof data?.weakest_topic === "string" && data.weakest_topic.trim().length > 0
+            ? data.weakest_topic
+            : "-",
+        );
       })
       .catch((err) => {
         if (cancelled) return;
@@ -89,6 +100,9 @@ function TeacherDashboard() {
         }
         setClassMastery([]);
         setRecentAlerts([]);
+        setActiveStudents("-");
+        setClassAverageMastery("-");
+        setWeakestTopic("-");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
