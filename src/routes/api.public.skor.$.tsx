@@ -28,13 +28,45 @@ function isStartSessionRequest(pathname: string) {
   return pathname.replace(/\/$/, "").endsWith("/start_session");
 }
 
-function startSessionFallbackResponse(request: Request, message = "Quiz service unavailable") {
+function readStringField(source: unknown, key: string, fallback: string) {
+  if (!source || typeof source !== "object") return fallback;
+  const value = (source as Record<string, unknown>)[key];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;
+}
+
+function buildStartSessionFallback(bodyText?: string) {
+  let payload: unknown = null;
+  try {
+    payload = bodyText ? JSON.parse(bodyText) : null;
+  } catch {
+    payload = null;
+  }
+
+  const subject = readStringField(payload, "subject", "General Studies");
+  const topic = readStringField(payload, "topic", "Core Material");
+  const questionType = readStringField(payload, "question_type", "mcq");
+
+  return {
+    session_id: `fallback-${Date.now()}`,
+    fallback: true,
+    subject,
+    topic,
+    question_type: questionType,
+    question: `Which statement best describes ${topic} in ${subject}?`,
+    options: {
+      A: `${topic} is a key area studied in ${subject}.`,
+      B: `${topic} is unrelated to ${subject}.`,
+      C: `${topic} only applies outside the classroom.`,
+      D: `${topic} has no practical examples.`,
+    },
+    correct: "A",
+    explanation: "The quiz service is temporarily unavailable, so this practice question keeps the session usable.",
+  };
+}
+
+function startSessionFallbackResponse(request: Request, bodyText?: string) {
   return new Response(
-    JSON.stringify({
-      error: "SERVICE_UNAVAILABLE",
-      message,
-      fallback: true,
-    }),
+    JSON.stringify(buildStartSessionFallback(bodyText)),
     {
       status: 200,
       headers: {
@@ -50,8 +82,10 @@ async function proxyRequest(request: Request) {
   const upstreamUrl = buildUpstreamUrl(url.pathname, url.search);
   const method = request.method.toUpperCase();
   const corsHeaders = buildCorsHeaders(request);
+  let bodyText: string | undefined;
 
   try {
+    bodyText = method === "GET" || method === "HEAD" ? undefined : await request.text();
     const upstreamResponse = await fetch(upstreamUrl, {
       method,
       headers: {
@@ -60,12 +94,12 @@ async function proxyRequest(request: Request) {
           ? { "Content-Type": request.headers.get("content-type") ?? "application/json" }
           : {}),
       },
-      body: method === "GET" || method === "HEAD" ? undefined : await request.text(),
+      body: bodyText,
     });
 
     if (!upstreamResponse.ok && isStartSessionRequest(url.pathname)) {
       console.warn("[Skor proxy] start_session upstream failed", upstreamResponse.status);
-      return startSessionFallbackResponse(request);
+      return startSessionFallbackResponse(request, bodyText);
     }
 
     const responseHeaders = new Headers(corsHeaders);
@@ -80,7 +114,7 @@ async function proxyRequest(request: Request) {
   } catch (error) {
     if (isStartSessionRequest(url.pathname)) {
       console.warn("[Skor proxy] start_session request failed", error);
-      return startSessionFallbackResponse(request);
+      return startSessionFallbackResponse(request, bodyText);
     }
 
     return new Response(
