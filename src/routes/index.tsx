@@ -1191,6 +1191,7 @@ function StudentFeed() {
           subject={session.subject ?? activeSubject}
           topic={session.topic ?? activeTopic}
           language={activeLanguage}
+          formLevel={formLevel}
           onLessonUpdate={(fresh) => setSession((s) => s ? { ...s, lesson: fresh } : s)}
         />
       )}
