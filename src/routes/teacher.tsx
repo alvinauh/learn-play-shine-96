@@ -228,7 +228,7 @@ function TeacherDashboard() {
           <KpiCard
             icon={<Target className="h-5 w-5" />}
             label={t.classAverageMastery}
-            value="69%"
+            value={classAverageMastery}
             delta={t.weekDelta}
             trend="up"
             accent="success"
