@@ -656,6 +656,30 @@ function StudentFeed() {
 
       {(() => { console.log("[Skor] dropdown render → subjects state:", subjects, "activeSubject:", activeSubject, "activeTopic:", activeTopic, "topics for active:", activeSubject ? topicsForSubject(activeSubject) : []); return null; })()}
       <main className="relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6">
+        {/* Form level segmented control */}
+        <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-1 backdrop-blur">
+          <span className="px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            {activeLanguage === "ms" ? "Tingkatan" : "Form"}
+          </span>
+          {([4, 5] as const).map((lvl) => (
+            <button
+              key={lvl}
+              type="button"
+              onClick={() => handleFormLevelChange(lvl)}
+              disabled={loading || subjectsLoading}
+              aria-pressed={formLevel === lvl}
+              className={cn(
+                "flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition disabled:opacity-50",
+                formLevel === lvl
+                  ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {activeLanguage === "ms" ? `Tingkatan ${lvl}` : `Form ${lvl}`}
+            </button>
+          ))}
+        </div>
+
         {/* Subject + Topic selectors */}
         <div className="grid grid-cols-2 gap-2">
           <Select
