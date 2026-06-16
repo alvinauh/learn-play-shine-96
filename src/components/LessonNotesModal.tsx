@@ -32,7 +32,7 @@ export function LessonNotesModal({ open, onClose, lesson, subject, topic, langua
   useEffect(() => {
     if (!open || lesson?.notes_markdown || override || regenerating) return;
     setRegenerating(true);
-    generateLesson(topic, subject, language?.toLowerCase().startsWith("ms") ? "Bahasa Melayu" : "English")
+    generateLesson(topic, subject, language?.toLowerCase().startsWith("ms") ? "Bahasa Melayu" : "English", formLevel)
       .then((fresh) => {
         setCurrent(fresh);
         onLessonUpdate?.(fresh);
