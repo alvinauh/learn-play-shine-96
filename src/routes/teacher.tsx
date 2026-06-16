@@ -220,7 +220,7 @@ function TeacherDashboard() {
           <KpiCard
             icon={<Users className="h-5 w-5" />}
             label={t.activeStudents}
-            value="248"
+            value={activeStudents}
             delta={t.todayDelta}
             trend="up"
             accent="primary"
