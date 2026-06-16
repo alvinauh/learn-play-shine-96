@@ -4,7 +4,7 @@ import { Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth, type AppRole } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/login")({
@@ -21,7 +21,6 @@ function LoginPage() {
   const { signIn, signUp, user, profile, loading } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [role, setRole] = useState<AppRole>("student");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -53,7 +52,6 @@ function LoginPage() {
           email,
           password,
           full_name: fullName.trim(),
-          role,
           school: school.trim() || undefined,
           grade: grade.trim() || undefined,
         });
@@ -113,26 +111,6 @@ function LoginPage() {
                   required
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label>I am a</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["student", "teacher"] as const).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRole(r)}
-                      className={cn(
-                        "rounded-xl border px-3 py-2.5 text-sm font-medium capitalize transition",
-                        role === r
-                          ? "border-primary bg-primary/10 text-primary-glow"
-                          : "border-border bg-background/40 text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="school">School</Label>
@@ -144,12 +122,12 @@ function LoginPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="grade">{role === "teacher" ? "Class" : "Grade"}</Label>
+                  <Label htmlFor="grade">Grade</Label>
                   <Input
                     id="grade"
                     value={grade}
                     onChange={(e) => setGrade(e.target.value)}
-                    placeholder={role === "teacher" ? "Form 4 Bestari" : "Form 4"}
+                    placeholder="Form 4"
                   />
                 </div>
               </div>

@@ -22,7 +22,6 @@ interface AuthContextValue {
     email: string;
     password: string;
     full_name: string;
-    role: AppRole;
     school?: string;
     grade?: string;
   }) => Promise<{ error: string | null }>;
@@ -83,18 +82,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email,
     password,
     full_name,
-    role,
     school,
     grade,
   }) => {
     const redirectUrl =
       typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
+    // Role is intentionally NOT sent from the client. The backend trigger
+    // always assigns role = 'student'; teacher/admin roles are granted
+    // server-side only.
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
-        data: { full_name, role, school, grade },
+        data: { full_name, school, grade },
       },
     });
     return { error: error?.message ?? null };
