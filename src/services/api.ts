@@ -1,5 +1,5 @@
-// Call the quiz backend through a same-origin proxy so the HTTPS preview can safely reach the VPS on port 8001.
-export const BASE_URL = "https://178.105.130.105.nip.io:8443";
+// Call the quiz backend through a same-origin proxy so topic changes don't fail in the browser and fall back to the static mock question.
+export const BASE_URL = "/api/public/skor";
 
 export interface ClassMasteryItem {
   subject: string;
@@ -292,26 +292,8 @@ export async function startSession(
 
     return normalizeSessionResponse(data, topic, subject);
   } catch (err) {
-    console.warn("[Skor API] startSession failed, using mock:", err);
-    if (!mock || err instanceof ApiResponseError) throw err;
-    return {
-      session_id: "mock-1",
-      question: mock.question,
-      options: { A: mock.optionA, B: mock.optionB, C: mock.optionC, D: mock.optionD },
-      correct: "C",
-      topic: mock.topic,
-      subject: mock.subject,
-      question_type: questionType,
-      mnemonic_lyrics: isAdaptive
-        ? undefined
-        : [
-            `Welcome to ${mock.topic}`,
-            "Let the rhythm guide your mind 🎵",
-            "Feel the beat, feel the flow",
-            "Knowledge grows as concepts show",
-            "Ready? Tap Play and let's go!",
-          ],
-    };
+    console.warn("[Skor API] startSession failed:", err);
+    throw err;
   }
 }
 
