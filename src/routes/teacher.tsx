@@ -51,6 +51,9 @@ function TeacherDashboard() {
   const [tab, setTab] = useState<"insights" | "classrooms">("insights");
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
+  const [activeStudents, setActiveStudents] = useState<string>("-");
+  const [classAverageMastery, setClassAverageMastery] = useState<string>("-");
+  const [weakestTopic, setWeakestTopic] = useState<string>("-");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +76,17 @@ function TeacherDashboard() {
         // Defensive: backend may return partial / malformed payloads.
         setClassMastery(Array.isArray(data?.class_mastery) ? data.class_mastery : []);
         setRecentAlerts(Array.isArray(data?.recent_alerts) ? data.recent_alerts : []);
+        setActiveStudents(
+          typeof data?.active_students === "number" ? String(data.active_students) : "-",
+        );
+        setClassAverageMastery(
+          typeof data?.class_average_mastery === "number" ? `${data.class_average_mastery}%` : "-",
+        );
+        setWeakestTopic(
+          typeof data?.weakest_topic === "string" && data.weakest_topic.trim().length > 0
+            ? data.weakest_topic
+            : "-",
+        );
       })
       .catch((err) => {
         if (cancelled) return;
@@ -86,6 +100,9 @@ function TeacherDashboard() {
         }
         setClassMastery([]);
         setRecentAlerts([]);
+        setActiveStudents("-");
+        setClassAverageMastery("-");
+        setWeakestTopic("-");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -203,7 +220,7 @@ function TeacherDashboard() {
           <KpiCard
             icon={<Users className="h-5 w-5" />}
             label={t.activeStudents}
-            value="248"
+            value={activeStudents}
             delta={t.todayDelta}
             trend="up"
             accent="primary"
@@ -211,7 +228,7 @@ function TeacherDashboard() {
           <KpiCard
             icon={<Target className="h-5 w-5" />}
             label={t.classAverageMastery}
-            value="69%"
+            value={classAverageMastery}
             delta={t.weekDelta}
             trend="up"
             accent="success"
@@ -219,7 +236,7 @@ function TeacherDashboard() {
           <KpiCard
             icon={<AlertTriangle className="h-5 w-5" />}
             label={t.weakestTopic}
-            value={t.subjEM}
+            value={weakestTopic}
             delta={t.masteryShort}
             trend="down"
             accent="destructive"

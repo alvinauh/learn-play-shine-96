@@ -1,5 +1,5 @@
-// Call the quiz backend through a same-origin proxy so topic changes don't fail in the browser and fall back to the static mock question.
-export const BASE_URL = "/api/public/skor";
+// Direct HTTPS endpoint to the quiz backend. CORS is configured upstream to allow lovable preview/published domains.
+export const BASE_URL = "https://178.105.130.105.nip.io:8443";
 
 export interface ClassMasteryItem {
   subject: string;

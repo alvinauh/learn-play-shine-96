@@ -29,7 +29,7 @@ export function LessonNotesModal({ open, onClose, lesson, subject, topic, langua
 
   // Auto-fetch when modal opens and no lesson is cached yet
   useEffect(() => {
-    if (!open || lesson || override || regenerating) return;
+    if (!open || lesson?.notes_markdown || override || regenerating) return;
     setRegenerating(true);
     generateLesson(topic, subject, language?.toLowerCase().startsWith("ms") ? "Bahasa Melayu" : "English")
       .then((fresh) => {

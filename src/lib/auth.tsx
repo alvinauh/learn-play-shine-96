@@ -38,12 +38,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = async (uid: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name, role, school, grade")
-      .eq("id", uid)
-      .maybeSingle();
-    setProfile((data as Profile) ?? null);
+    // Guard: only query profiles when a Supabase session exists, otherwise RLS 403s.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user || session.user.id !== uid) {
+      setProfile(null);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, role, school, grade")
+        .eq("id", uid)
+        .maybeSingle();
+      if (error) {
+        if ((error as { code?: string }).code === "PGRST301" || /permission|denied|forbidden/i.test(error.message)) {
+          console.warn("[Auth] profile read denied by RLS:", error.message);
+        } else {
+          console.error("[Auth] profile load failed:", error);
+        }
+        setProfile(null);
+        return;
+      }
+      setProfile((data as Profile) ?? null);
+    } catch (err) {
+      console.error("[Auth] profile load threw:", err);
+      setProfile(null);
+    }
   };
 
   useEffect(() => {
