@@ -417,6 +417,7 @@ function StudentFeed() {
         mock,
         isAdaptive,
         qType,
+        formLevel,
       );
       if (requestId !== latestLoadRequestRef.current) return;
       console.log("[Skor] startSession response:", data);
