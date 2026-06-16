@@ -51,6 +51,9 @@ function TeacherDashboard() {
   const [tab, setTab] = useState<"insights" | "classrooms">("insights");
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
+  const [activeStudents, setActiveStudents] = useState<string>("-");
+  const [classAverageMastery, setClassAverageMastery] = useState<string>("-");
+  const [weakestTopic, setWeakestTopic] = useState<string>("-");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
