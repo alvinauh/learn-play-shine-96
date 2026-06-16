@@ -126,6 +126,8 @@ function TeacherDashboard() {
     console.log("[Skor] Generate intervention for:", topic);
   };
 
+  if (unauthorized) return null;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border/60 bg-card/40 backdrop-blur">
