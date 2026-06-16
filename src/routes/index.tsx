@@ -470,8 +470,13 @@ function StudentFeed() {
       setSubjects(list);
       setSubjectsLoading(false);
       if (list.length === 0) return;
-      const firstSubject = list[0].subject;
-      const firstTopic = list[0].topics[0] ?? "";
+      const randomIndex = Math.floor(Math.random() * list.length);
+      const picked = list[randomIndex];
+      const firstSubject = picked.subject;
+      const topics = picked.topics ?? [];
+      const firstTopic = topics.length > 0
+        ? topics[Math.floor(Math.random() * topics.length)]
+        : "";
       setActiveSubject(firstSubject);
       setActiveTopic(firstTopic);
       if (firstTopic) void loadSession(firstSubject, firstTopic, undefined, false);
