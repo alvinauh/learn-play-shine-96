@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import {
   Users,
@@ -47,7 +47,19 @@ export const Route = createFileRoute("/teacher")({
 function TeacherDashboard() {
   const { t } = useI18n();
   const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"insights" | "classrooms">("insights");
+
+  // Server-side enforced via RLS; this is a UX guard for non-teachers.
+  useEffect(() => {
+    if (profile && profile.role !== "teacher" && profile.role !== "admin") {
+      void navigate({ to: "/" });
+    }
+  }, [profile, navigate]);
+
+  if (profile && profile.role !== "teacher" && profile.role !== "admin") {
+    return null;
+  }
 
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
@@ -68,7 +80,13 @@ function TeacherDashboard() {
       .catch((err) => {
         if (cancelled) return;
         console.error("[Skor] fetchTeacherInsights failed", err);
-        setError("Couldn't load live insights.");
+        const status = (err && (err.status ?? err.statusCode)) as number | undefined;
+        const msg = String(err?.message ?? "");
+        if (status === 403 || /permission|rls|forbidden/i.test(msg)) {
+          setError("You don't have permission to view this information.");
+        } else {
+          setError("Couldn't load live insights.");
+        }
         setClassMastery([]);
         setRecentAlerts([]);
       })
