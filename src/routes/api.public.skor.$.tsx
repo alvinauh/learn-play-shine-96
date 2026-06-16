@@ -24,6 +24,27 @@ function buildUpstreamUrl(pathname: string, search: string) {
   return upstream.toString();
 }
 
+function isStartSessionRequest(pathname: string) {
+  return pathname.replace(/\/$/, "").endsWith("/start_session");
+}
+
+function startSessionFallbackResponse(request: Request, message = "Quiz service unavailable") {
+  return new Response(
+    JSON.stringify({
+      error: "SERVICE_UNAVAILABLE",
+      message,
+      fallback: true,
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        ...buildCorsHeaders(request),
+      },
+    },
+  );
+}
+
 async function proxyRequest(request: Request) {
   const url = new URL(request.url);
   const upstreamUrl = buildUpstreamUrl(url.pathname, url.search);
@@ -42,6 +63,11 @@ async function proxyRequest(request: Request) {
       body: method === "GET" || method === "HEAD" ? undefined : await request.text(),
     });
 
+    if (!upstreamResponse.ok && isStartSessionRequest(url.pathname)) {
+      console.warn("[Skor proxy] start_session upstream failed", upstreamResponse.status);
+      return startSessionFallbackResponse(request);
+    }
+
     const responseHeaders = new Headers(corsHeaders);
     const contentType = upstreamResponse.headers.get("content-type");
     if (contentType) responseHeaders.set("Content-Type", contentType);
@@ -52,6 +78,11 @@ async function proxyRequest(request: Request) {
       headers: responseHeaders,
     });
   } catch (error) {
+    if (isStartSessionRequest(url.pathname)) {
+      console.warn("[Skor proxy] start_session request failed", error);
+      return startSessionFallbackResponse(request);
+    }
+
     return new Response(
       JSON.stringify({
         error: "Failed to reach quiz backend",
