@@ -788,7 +788,7 @@ function StudentFeed() {
             </div>
             <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-background/50 px-3 py-1 text-xs font-medium backdrop-blur">
               <span className="h-2 w-2 rounded-full bg-neon-green animate-pulse" />
-              {session?.subject ?? "Physics"} • {session?.topic ?? "Kinematics"}
+              {session?.subject ?? "Physics"} • {session?.topic ?? "Kinematics"} · {activeLanguage === "ms" ? `Tingkatan ${formLevel}` : `Form ${formLevel}`}
             </div>
             <div className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-background/50 backdrop-blur">
               <Volume2 className="h-4 w-4" />
