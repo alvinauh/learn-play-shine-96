@@ -74,7 +74,7 @@ export function LessonNotesModal({ open, onClose, lesson, subject, topic, langua
   const handleRegenerate = async () => {
     setRegenerating(true);
     try {
-      const fresh = await generateLesson(topic, subject, isMs ? "Bahasa Melayu" : "English");
+      const fresh = await generateLesson(topic, subject, isMs ? "Bahasa Melayu" : "English", formLevel);
       setCurrent(fresh);
       onLessonUpdate?.(fresh);
     } catch (e) {
