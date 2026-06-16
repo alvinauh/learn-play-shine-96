@@ -38,8 +38,9 @@ export interface SubjectWithTopics {
  * Fetch the catalog of subjects and their topics from the backend.
  * GET /subjects → { subjects: [{ subject, topics: [] }] }
  */
-export async function fetchSubjects(): Promise<SubjectWithTopics[]> {
-  const url = `${BASE_URL}/subjects`;
+export async function fetchSubjects(formLevel?: number): Promise<SubjectWithTopics[]> {
+  const qs = typeof formLevel === "number" ? `?form_level=${formLevel}` : "";
+  const url = `${BASE_URL}/subjects${qs}`;
   console.log("[Skor API] GET subjects → resolved URL:", url, "(origin:", typeof window !== "undefined" ? window.location.origin : "ssr", ")");
   const res = await fetch(url, { method: "GET" });
   console.log("[Skor API] /subjects status:", res.status, res.statusText);
