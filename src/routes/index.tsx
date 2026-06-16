@@ -903,8 +903,11 @@ function StudentFeed() {
                       </button>
                     );
                   })()}
-                  <div className="text-xs uppercase tracking-widest text-primary-glow">
-                    {t.question}
+                  <div className="flex items-center justify-between gap-2 text-xs uppercase tracking-widest text-primary-glow">
+                    <span>{t.question}</span>
+                    <span className="text-muted-foreground">
+                      {(session.subject ?? activeSubject) || ""} · {activeLanguage === "ms" ? `Tingkatan ${formLevel}` : `Form ${formLevel}`}
+                    </span>
                   </div>
                   <h1 className="mt-2 font-display text-2xl font-semibold leading-snug">
                     {session.question}
