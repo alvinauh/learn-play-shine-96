@@ -49,22 +49,19 @@ function TeacherDashboard() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"insights" | "classrooms">("insights");
-
-  // Server-side enforced via RLS; this is a UX guard for non-teachers.
-  useEffect(() => {
-    if (profile && profile.role !== "teacher" && profile.role !== "admin") {
-      void navigate({ to: "/" });
-    }
-  }, [profile, navigate]);
-
-  if (profile && profile.role !== "teacher" && profile.role !== "admin") {
-    return null;
-  }
-
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const unauthorized = !!profile && profile.role !== "teacher" && profile.role !== "admin";
+
+  // Server-side enforced via RLS; this is a UX guard for non-teachers.
+  useEffect(() => {
+    if (unauthorized) {
+      void navigate({ to: "/" });
+    }
+  }, [unauthorized, navigate]);
 
   useEffect(() => {
     let cancelled = false;
