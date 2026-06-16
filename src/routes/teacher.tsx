@@ -236,7 +236,7 @@ function TeacherDashboard() {
           <KpiCard
             icon={<AlertTriangle className="h-5 w-5" />}
             label={t.weakestTopic}
-            value={t.subjEM}
+            value={weakestTopic}
             delta={t.masteryShort}
             trend="down"
             accent="destructive"
