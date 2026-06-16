@@ -456,33 +456,49 @@ function StudentFeed() {
     void loadSession(activeSubject, topic, undefined, false);
   };
 
+  const loadSubjectsForLevel = async (
+    level: number,
+    { autoStart = true }: { autoStart?: boolean } = {},
+  ) => {
+    setSubjectsLoading(true);
+    let list: SubjectWithTopics[] = [];
+    try {
+      list = (await fetchSubjects(level)) ?? [];
+      console.log("[Skor] fetched subjects (form", level, "):", list);
+    } catch (err) {
+      console.error("[Skor] fetchSubjects failed:", err);
+      list = [];
+    }
+    setSubjects(list);
+    setSubjectsLoading(false);
+    if (list.length === 0) {
+      setActiveSubject("");
+      setActiveTopic("");
+      return;
+    }
+    const randomIndex = Math.floor(Math.random() * list.length);
+    const picked = list[randomIndex];
+    const firstSubject = picked.subject;
+    const topics = picked.topics ?? [];
+    const firstTopic = topics.length > 0
+      ? topics[Math.floor(Math.random() * topics.length)]
+      : "";
+    setActiveSubject(firstSubject);
+    setActiveTopic(firstTopic);
+    if (autoStart && firstTopic) void loadSession(firstSubject, firstTopic, undefined, false);
+  };
+
+  const handleFormLevelChange = (level: 4 | 5) => {
+    if (level === formLevel) return;
+    setFormLevel(level);
+    setDynamicTopic(null);
+    void loadSubjectsForLevel(level);
+  };
+
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
-    (async () => {
-      setSubjectsLoading(true);
-      let list: SubjectWithTopics[] = [];
-      try {
-        list = (await fetchSubjects()) ?? [];
-        console.log("[Skor] fetched subjects:", list);
-      } catch (err) {
-        console.error("[Skor] fetchSubjects failed, continuing without dynamic subjects:", err);
-        list = [];
-      }
-      setSubjects(list);
-      setSubjectsLoading(false);
-      if (list.length === 0) return;
-      const randomIndex = Math.floor(Math.random() * list.length);
-      const picked = list[randomIndex];
-      const firstSubject = picked.subject;
-      const topics = picked.topics ?? [];
-      const firstTopic = topics.length > 0
-        ? topics[Math.floor(Math.random() * topics.length)]
-        : "";
-      setActiveSubject(firstSubject);
-      setActiveTopic(firstTopic);
-      if (firstTopic) void loadSession(firstSubject, firstTopic, undefined, false);
-    })();
+    void loadSubjectsForLevel(formLevel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
