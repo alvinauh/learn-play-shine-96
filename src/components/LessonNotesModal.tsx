@@ -14,10 +14,11 @@ interface Props {
   subject: string;
   topic: string;
   language: string;
+  formLevel?: number;
   onLessonUpdate?: (lesson: Lesson) => void;
 }
 
-export function LessonNotesModal({ open, onClose, lesson, subject, topic, language, onLessonUpdate }: Props) {
+export function LessonNotesModal({ open, onClose, lesson, subject, topic, language, formLevel = 4, onLessonUpdate }: Props) {
   const [override, setOverride] = useState<Lesson | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const setCurrent = setOverride;
