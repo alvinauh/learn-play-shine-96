@@ -833,8 +833,6 @@ function StudentFeed() {
                       (typeof session.lesson?.summary === "string" && session.lesson.summary.trim().length > 0
                         ? session.lesson.summary
                         : session.illustrative_notes) ?? "";
-                    const hasLesson = !!session.lesson || previewText.trim().length > 0;
-                    if (!hasLesson) return null;
                     return (
                       <button
                         type="button"
