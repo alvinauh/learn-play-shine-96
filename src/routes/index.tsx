@@ -405,7 +405,7 @@ function StudentFeed() {
     setMediaUrl(null);
     setMnemonicLyrics(null);
     setTextAnswer("");
-    setSession((current) => (current ? { ...current, video_broll: undefined, media_url: undefined, mnemonic_lyrics: undefined } : current));
+    setSession(null);
     try {
       const data = await startSession(
         user?.id ?? STUDENT_ID,
@@ -431,7 +431,7 @@ function StudentFeed() {
           ? "System maintenance — questions are temporarily unavailable."
           : "Couldn't load the next question. Please try again.",
       );
-      setSession((current) => current);
+      setSession(null);
     } finally {
       if (requestId === latestLoadRequestRef.current) {
         setLoading(false);
