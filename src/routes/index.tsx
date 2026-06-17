@@ -760,8 +760,8 @@ function StudentFeed() {
           />
         </div>
 
-        {/* Media / Mnemonic Hook */}
-        {session && (
+        {/* Media / Mnemonic Hook — hidden when H5P interactive video is shown */}
+        {session && !session.h5p_content && (
           (Array.isArray(mnemonicLyrics) && mnemonicLyrics.some((l) => typeof l === "string" && l.trim().length > 0)) ||
           isValidUrl(videoBroll) ||
           isValidUrl(mediaUrl)
@@ -771,7 +771,7 @@ function StudentFeed() {
             videoBroll={videoBroll}
             voiceoverUrl={mediaUrl}
           />
-        ) : (
+        ) : session && session.h5p_content ? null : (
           <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
             <div className="absolute inset-0 grid place-items-center">
@@ -800,6 +800,7 @@ function StudentFeed() {
             </div>
           </div>
         )}
+
 
         {/* Side actions row (TikTok-style) */}
         <div className="flex items-center gap-3 px-1 text-sm text-muted-foreground">
