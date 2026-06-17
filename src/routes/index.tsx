@@ -43,6 +43,7 @@ import { useAuth } from "@/lib/auth";
 import { LogOut } from "lucide-react";
 import { LessonNotesModal } from "@/components/LessonNotesModal";
 import { TutorChatDrawer } from "@/components/TutorChatDrawer";
+import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
 
 
 export const Route = createFileRoute("/")({
