@@ -107,7 +107,11 @@ export interface SessionResponse {
   passage?: string;
   lesson_id?: string;
   lesson?: Lesson | null;
+  h5p_content?: Record<string, unknown> | null;
+  question_data?: Record<string, unknown> | null;
 }
+
+
 
 
 export interface AnswerResponse {
@@ -172,6 +176,7 @@ interface StartSessionApiResponse {
   passage?: string;
   lesson_id?: string;
   lesson?: Lesson | null;
+  h5p_content?: Record<string, unknown> | null;
   draft?: {
     question?: string;
     options?: string[];
@@ -181,6 +186,7 @@ interface StartSessionApiResponse {
     question_type?: QuestionType;
   };
 }
+
 
 
 async function postJSON<T>(path: string, body: unknown, bustCache: boolean = false): Promise<T> {
@@ -254,6 +260,9 @@ function normalizeSessionResponse(
     passage: data.passage ?? data.question_data?.passage,
     lesson_id: data.lesson_id,
     lesson: (data as { lesson?: Lesson | null }).lesson ?? null,
+    h5p_content: (data as { h5p_content?: Record<string, unknown> | null }).h5p_content ?? null,
+    question_data: (data.question_data ?? null) as Record<string, unknown> | null,
+
   };
 }
 
