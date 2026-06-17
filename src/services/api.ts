@@ -107,7 +107,11 @@ export interface SessionResponse {
   passage?: string;
   lesson_id?: string;
   lesson?: Lesson | null;
+  h5p_content?: Record<string, unknown> | null;
+  question_data?: Record<string, unknown> | null;
 }
+
+
 
 
 export interface AnswerResponse {
