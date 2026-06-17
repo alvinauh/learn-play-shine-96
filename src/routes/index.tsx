@@ -865,8 +865,28 @@ function StudentFeed() {
             lang={activeLanguage}
             onRetry={() => void loadSession(activeSubject, activeTopic, activeLanguage, false)}
           />
+        ) : session && session.h5p_content ? (
+          <InteractiveVideoPlayer
+            h5pContent={session.h5p_content as Parameters<typeof InteractiveVideoPlayer>[0]["h5pContent"]}
+            questionData={(session.question_data ?? {}) as Record<string, unknown>}
+            sessionId={session.session_id ?? ""}
+            studentId={user?.id ?? STUDENT_ID}
+            topic={session.topic ?? activeTopic}
+            subject={session.subject ?? activeSubject}
+            language={langToApi(activeLanguage)}
+            mnemonicLyrics={mnemonicLyrics}
+            onAnswerSubmit={(res) => {
+              if (res.correct) {
+                setStreak((s) => s + 1);
+                setXp((x) => x + 25);
+              }
+              void loadSession(activeSubject, activeTopic, activeLanguage, false);
+            }}
+          />
         ) : (
           <>
+
+
 
             <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
               {loading || !session ? (
