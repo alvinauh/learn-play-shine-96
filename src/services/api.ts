@@ -260,6 +260,9 @@ function normalizeSessionResponse(
     passage: data.passage ?? data.question_data?.passage,
     lesson_id: data.lesson_id,
     lesson: (data as { lesson?: Lesson | null }).lesson ?? null,
+    h5p_content: (data as { h5p_content?: Record<string, unknown> | null }).h5p_content ?? null,
+    question_data: (data.question_data ?? null) as Record<string, unknown> | null,
+
   };
 }
 
