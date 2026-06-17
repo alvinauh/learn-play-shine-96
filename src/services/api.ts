@@ -176,6 +176,7 @@ interface StartSessionApiResponse {
   passage?: string;
   lesson_id?: string;
   lesson?: Lesson | null;
+  h5p_content?: Record<string, unknown> | null;
   draft?: {
     question?: string;
     options?: string[];
@@ -185,6 +186,7 @@ interface StartSessionApiResponse {
     question_type?: QuestionType;
   };
 }
+
 
 
 async function postJSON<T>(path: string, body: unknown, bustCache: boolean = false): Promise<T> {
