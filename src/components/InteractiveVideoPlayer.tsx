@@ -15,7 +15,11 @@ export interface H5PContent {
           params?: {
             files?: Array<{ path?: string; mime?: string }>;
             question?: string;
-            answers?: Array<{ text?: string }>;
+            answers?: Array<{
+              text?: string;
+              correct?: boolean;
+              tipsAndFeedback?: { chosenFeedback?: string; tip?: string };
+            }>;
           };
         };
       }>;
@@ -31,6 +35,7 @@ interface InteractiveVideoPlayerProps {
   topic: string;
   subject: string;
   language: string;
+  correctAnswer?: string;
   mnemonicLyrics?: string[] | null;
   onAnswerSubmit: (result: AnswerResponse) => void;
 }
@@ -47,6 +52,7 @@ export function InteractiveVideoPlayer({
   topic,
   subject,
   language,
+  correctAnswer,
   mnemonicLyrics,
   onAnswerSubmit,
 }: InteractiveVideoPlayerProps) {
@@ -62,12 +68,20 @@ export function InteractiveVideoPlayer({
     const rawQuestion = interactions[1]?.action?.params?.question ?? "";
     const answers = interactions[1]?.action?.params?.answers ?? [];
     const options = answers.map((a) => a?.text ?? "").filter((t) => t.length > 0);
+    const answerMeta = answers
+      .map((a) => ({
+        text: a?.text ?? "",
+        correct: a?.correct === true,
+        feedback: a?.tipsAndFeedback?.chosenFeedback || a?.tipsAndFeedback?.tip || "",
+      }))
+      .filter((a) => a.text.length > 0);
     return {
       videoUrl,
       audioUrl,
       pauseAt,
       questionText: stripHtml(rawQuestion),
       options,
+      answerMeta,
     };
   }, [h5pContent]);
 
@@ -114,9 +128,35 @@ export function InteractiveVideoPlayer({
     };
   }, []);
 
+  const buildLocalResult = (answer: string): AnswerResponse => {
+    const selectedMeta = parsed.answerMeta.find((a) => a.text === answer);
+    const questionCorrect =
+      correctAnswer ||
+      (typeof questionData?.correct_answer === "string" ? questionData.correct_answer : "") ||
+      (typeof questionData?.answer === "string" ? questionData.answer : "") ||
+      (typeof questionData?.correct === "string" ? questionData.correct : "") ||
+      parsed.answerMeta.find((a) => a.correct)?.text ||
+      "";
+    const isCorrect = questionCorrect
+      ? answer.trim().toLowerCase() === questionCorrect.trim().toLowerCase()
+      : selectedMeta?.correct === true;
+    const fallbackFeedback = isCorrect
+      ? "Correct — great work."
+      : questionCorrect
+        ? `Not quite. The correct answer is ${questionCorrect}.`
+        : "Answer recorded. Continue to the next question.";
+
+    return {
+      correct: isCorrect,
+      correct_answer: questionCorrect,
+      feedback: selectedMeta?.feedback || fallbackFeedback,
+    };
+  };
+
   const handleSubmit = async () => {
     if (!selected || submitting || result) return;
     setSubmitting(true);
+    const localResult = buildLocalResult(selected);
     try {
       const res = await submitAnswer(
         studentId,
@@ -129,10 +169,12 @@ export function InteractiveVideoPlayer({
         subject,
         sessionId,
       );
-      setResult(res);
+      setResult({ ...res, feedback: res.feedback || localResult.feedback });
       setTimeout(() => setCanAdvance(true), 1200);
     } catch (err) {
       console.error("[InteractiveVideoPlayer] submit failed:", err);
+      setResult(localResult);
+      setTimeout(() => setCanAdvance(true), 1200);
     } finally {
       setSubmitting(false);
     }

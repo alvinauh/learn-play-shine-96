@@ -874,13 +874,14 @@ function StudentFeed() {
             topic={session.topic ?? activeTopic}
             subject={session.subject ?? activeSubject}
             language={langToApi(activeLanguage)}
+            correctAnswer={session.correct}
             mnemonicLyrics={mnemonicLyrics}
             onAnswerSubmit={(res) => {
               if (res.correct) {
                 setStreak((s) => s + 1);
                 setXp((x) => x + 25);
               }
-              void loadSession(activeSubject, activeTopic, activeLanguage, false);
+              void loadSession(activeSubject, activeTopic, activeLanguage, true);
             }}
           />
         ) : (
