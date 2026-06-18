@@ -115,24 +115,25 @@ export function InteractiveVideoPlayer({
   }, []);
 
   const handleSubmit = async () => {
-    if (!selected || submitting) return;
+    if (!selected || submitting || result) return;
     setSubmitting(true);
     try {
       const res = await submitAnswer(
         studentId,
         topic,
-        "KSSM",
+        "",
         selected,
-        questionData ?? {},
+        {},
         undefined,
         language,
         subject,
         sessionId,
       );
       setResult(res);
-      setTimeout(() => setCanAdvance(true), 1500);
+      setTimeout(() => setCanAdvance(true), 1200);
     } catch (err) {
       console.error("[InteractiveVideoPlayer] submit failed:", err);
+    } finally {
       setSubmitting(false);
     }
   };
