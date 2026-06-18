@@ -874,6 +874,7 @@ function StudentFeed() {
             topic={session.topic ?? activeTopic}
             subject={session.subject ?? activeSubject}
             language={langToApi(activeLanguage)}
+            correctAnswer={session.correct}
             mnemonicLyrics={mnemonicLyrics}
             onAnswerSubmit={(res) => {
               if (res.correct) {
