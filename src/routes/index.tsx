@@ -881,7 +881,7 @@ function StudentFeed() {
                 setStreak((s) => s + 1);
                 setXp((x) => x + 25);
               }
-              void loadSession(activeSubject, activeTopic, activeLanguage, false);
+              void loadSession(activeSubject, activeTopic, activeLanguage, true);
             }}
           />
         ) : (
