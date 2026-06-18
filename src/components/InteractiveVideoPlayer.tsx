@@ -233,7 +233,7 @@ export function InteractiveVideoPlayer({
               )}
             </div>
 
-            {submitting && (
+            {submitting && !result && (
               <div className="absolute inset-0 grid place-items-center bg-black/40">
                 <Loader2 className="h-10 w-10 animate-spin text-white" />
               </div>
