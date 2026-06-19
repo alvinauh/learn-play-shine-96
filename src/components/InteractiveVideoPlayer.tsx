@@ -283,6 +283,39 @@ export function InteractiveVideoPlayer({
           </div>
         )}
       </div>
+
+      {/* Feedback debug panel */}
+      <details className="border-t border-border/40 bg-black/60 px-3 py-2 text-[11px] text-white/80">
+        <summary className="cursor-pointer select-none font-mono uppercase tracking-widest text-white/60">
+          🔧 Feedback debug
+        </summary>
+        <div className="mt-2 space-y-1 font-mono leading-snug">
+          <div><span className="text-white/50">session:</span> {sessionId || "—"}</div>
+          <div><span className="text-white/50">selected:</span> {selected ?? "—"}</div>
+          <div>
+            <span className="text-white/50">correct_answer:</span>{" "}
+            {correctAnswer || (parsed.answerMeta.find((a) => a.correct)?.text ?? "—")}
+          </div>
+          <div><span className="text-white/50">submitting:</span> {String(submitting)}</div>
+          <div>
+            <span className="text-white/50">result.correct:</span>{" "}
+            {result ? String(result.correct) : "—"}
+          </div>
+          {result?.feedback && (
+            <div className="whitespace-pre-wrap break-words">
+              <span className="text-white/50">feedback:</span> {result.feedback}
+            </div>
+          )}
+          {result?.misconception && (
+            <div className="whitespace-pre-wrap break-words">
+              <span className="text-white/50">misconception:</span> {result.misconception}
+            </div>
+          )}
+          <div className="pt-1 text-white/50">
+            options: {parsed.options.length} · pauseAt: {parsed.pauseAt}s
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

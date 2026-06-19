@@ -68,47 +68,52 @@ function TeacherDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetchTeacherInsights()
-      .then((data) => {
-        if (cancelled) return;
-        // Defensive: backend may return partial / malformed payloads.
-        setClassMastery(Array.isArray(data?.class_mastery) ? data.class_mastery : []);
-        setRecentAlerts(Array.isArray(data?.recent_alerts) ? data.recent_alerts : []);
-        setActiveStudents(
-          typeof data?.active_students === "number" ? String(data.active_students) : "-",
-        );
-        setClassAverageMastery(
-          typeof data?.class_average_mastery === "number" ? `${data.class_average_mastery}%` : "-",
-        );
-        setWeakestTopic(
-          typeof data?.weakest_topic === "string" && data.weakest_topic.trim().length > 0
-            ? data.weakest_topic
-            : "-",
-        );
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error("[Skor] fetchTeacherInsights failed", err);
-        const status = (err && (err.status ?? err.statusCode)) as number | undefined;
-        const msg = String(err?.message ?? "");
-        if (status === 403 || /permission|rls|forbidden/i.test(msg)) {
-          setError("You don't have permission to view this information.");
-        } else {
-          setError("Couldn't load live insights.");
-        }
-        setClassMastery([]);
-        setRecentAlerts([]);
-        setActiveStudents("-");
-        setClassAverageMastery("-");
-        setWeakestTopic("-");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const load = (initial: boolean) => {
+      if (initial) setLoading(true);
+      fetchTeacherInsights()
+        .then((data) => {
+          if (cancelled) return;
+          setError(null);
+          setClassMastery(Array.isArray(data?.class_mastery) ? data.class_mastery : []);
+          setRecentAlerts(Array.isArray(data?.recent_alerts) ? data.recent_alerts : []);
+          setActiveStudents(
+            typeof data?.active_students === "number" ? String(data.active_students) : "-",
+          );
+          setClassAverageMastery(
+            typeof data?.class_average_mastery === "number"
+              ? `${data.class_average_mastery}%`
+              : "-",
+          );
+          setWeakestTopic(
+            typeof data?.weakest_topic === "string" && data.weakest_topic.trim().length > 0
+              ? data.weakest_topic
+              : "-",
+          );
+        })
+        .catch((err) => {
+          if (cancelled || !initial) return;
+          console.error("[Skor] fetchTeacherInsights failed", err);
+          const status = (err && (err.status ?? err.statusCode)) as number | undefined;
+          const msg = String(err?.message ?? "");
+          if (status === 403 || /permission|rls|forbidden/i.test(msg)) {
+            setError("You don't have permission to view this information.");
+          } else {
+            setError("Couldn't load live insights.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled && initial) setLoading(false);
+        });
+    };
+
+    load(true);
+    // Auto-refresh every 10s so newly answered questions appear live.
+    timer = setInterval(() => load(false), 10000);
     return () => {
       cancelled = true;
+      if (timer) clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

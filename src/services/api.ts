@@ -4,6 +4,8 @@ export const BASE_URL = "https://178.105.130.105.nip.io:8443";
 export interface ClassMasteryItem {
   subject: string;
   mastery: number;
+  class_average?: number;
+  topics_mastered?: string[];
 }
 
 export interface RecentAlert {
@@ -24,9 +26,60 @@ export interface TeacherInsightsResponse {
 }
 
 export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
-  const res = await fetch(`${BASE_URL}/teacher_insights`, { method: "GET" });
+  const res = await fetch(`${BASE_URL}/teacher_insights?t=${Date.now()}`, {
+    method: "GET",
+    cache: "no-store",
+  });
   if (!res.ok) throw new ApiResponseError(res.status);
-  return res.json() as Promise<TeacherInsightsResponse>;
+  const raw = (await res.json()) as {
+    class_mastery?: Array<{
+      subject?: string;
+      mastery?: number;
+      progress?: number;
+      class_average?: number;
+      topics_mastered?: string[];
+    }>;
+    recent_alerts?: RecentAlert[];
+    active_students?: number;
+    class_average_mastery?: number;
+    weakest_topic?: string;
+  };
+
+  const class_mastery: ClassMasteryItem[] = (raw.class_mastery ?? [])
+    .map((m) => ({
+      subject: (m?.subject ?? "").trim(),
+      mastery:
+        typeof m?.mastery === "number"
+          ? m.mastery
+          : typeof m?.progress === "number"
+            ? m.progress
+            : 0,
+      class_average: typeof m?.class_average === "number" ? m.class_average : undefined,
+      topics_mastered: Array.isArray(m?.topics_mastered) ? m.topics_mastered : undefined,
+    }))
+    .filter((m) => m.subject.length > 0);
+
+  // Derive KPIs locally when the backend omits them.
+  const nonZero = class_mastery.filter((m) => m.mastery > 0);
+  const derivedAvg =
+    nonZero.length > 0
+      ? Math.round(nonZero.reduce((s, m) => s + m.mastery, 0) / nonZero.length)
+      : undefined;
+  const weakest = nonZero.length > 0
+    ? nonZero.reduce((min, m) => (m.mastery < min.mastery ? m : min), nonZero[0])
+    : undefined;
+
+  return {
+    class_mastery,
+    recent_alerts: Array.isArray(raw.recent_alerts) ? raw.recent_alerts : [],
+    active_students: raw.active_students,
+    class_average_mastery:
+      typeof raw.class_average_mastery === "number" ? raw.class_average_mastery : derivedAvg,
+    weakest_topic:
+      typeof raw.weakest_topic === "string" && raw.weakest_topic.trim().length > 0
+        ? raw.weakest_topic
+        : weakest?.subject,
+  };
 }
 
 export interface SubjectWithTopics {
