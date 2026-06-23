@@ -841,6 +841,19 @@ function StudentFeed() {
     (rawQuestion.includes("API Rate Limit Hit") || rawQuestion.trim().length === 0);
 
 
+  // Study Mode selection screen — show before any question loads
+  if (studyMode === null) {
+    return (
+      <StudyModeSelect
+        studentId={effectiveStudentId}
+        formLevel={formLevel}
+        onStart={handleStudyModeStart}
+      />
+    );
+  }
+
+  const inDiagnostic = studyMode === "diagnostic";
+
   return (
     <div className="relative min-h-[100dvh] bg-[linear-gradient(180deg,#1a0533_0%,#2d0a6e_100%)] text-foreground overflow-hidden">
       {/* Ambient glow */}
