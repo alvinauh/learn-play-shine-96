@@ -376,6 +376,12 @@ function StudentFeed() {
   const [tutorChatOpen, setTutorChatOpen] = useState(false);
   const [formLevel, setFormLevel] = useState<4 | 5>(4);
 
+  // ===== Study Mode =====
+  const [studyMode, setStudyMode] = useState<StudyMode | null>(null);
+  const [diagAnswered, setDiagAnswered] = useState(0);
+  const [diagTotal, setDiagTotal] = useState(10);
+  const [diagnosticComplete, setDiagnosticComplete] = useState(false);
+
   // ===== Study Coach =====
   const [diagStatus, setDiagStatus] = useState<DiagnosticStatus | null>(null);
   const [coachOpen, setCoachOpen] = useState(false);
