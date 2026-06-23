@@ -406,6 +406,87 @@ export async function submitAnswer(
   }
 }
 
+// ===== Study Coach =====
+
+export interface DiagnosticStatus {
+  student_id: string;
+  questions_answered: number;
+  threshold: number;
+  diagnostic_complete: boolean;
+  report_available: boolean;
+}
+
+export interface CoachFocusArea {
+  topic: string;
+  subject: string;
+  why: string;
+  tip: string;
+}
+
+export interface CoachNarrative {
+  greeting: string;
+  strengths: string[];
+  focus_areas: CoachFocusArea[];
+  next_step: string;
+}
+
+export type StudentCoachResponse =
+  | {
+      ready: true;
+      student_id: string;
+      questions_answered: number;
+      narrative: CoachNarrative;
+      focus_areas?: unknown;
+    }
+  | {
+      ready: false;
+      questions_answered: number;
+      threshold: number;
+      message: string;
+    };
+
+export async function fetchDiagnosticStatus(studentId: string): Promise<DiagnosticStatus | null> {
+  const safe = studentId && studentId !== "undefined" ? studentId : "00000000-0000-0000-0000-000000000001";
+  try {
+    const res = await fetch(`${BASE_URL}/diagnostic_status/${encodeURIComponent(safe)}?t=${Date.now()}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as DiagnosticStatus;
+  } catch (err) {
+    console.warn("[Skor API] fetchDiagnosticStatus failed:", err);
+    return null;
+  }
+}
+
+export async function requestStudentCoach(studentId: string): Promise<StudentCoachResponse> {
+  const safe = studentId && studentId !== "undefined" ? studentId : "00000000-0000-0000-0000-000000000001";
+  const res = await fetch(`${BASE_URL}/student_coach/${encodeURIComponent(safe)}?t=${Date.now()}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return (await res.json()) as StudentCoachResponse;
+}
+
+export async function fetchStudentCoach(studentId: string): Promise<StudentCoachResponse | null> {
+  const safe = studentId && studentId !== "undefined" ? studentId : "00000000-0000-0000-0000-000000000001";
+  try {
+    const res = await fetch(`${BASE_URL}/student_coach/${encodeURIComponent(safe)}?t=${Date.now()}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as StudentCoachResponse;
+  } catch (err) {
+    console.warn("[Skor API] fetchStudentCoach failed:", err);
+    return null;
+  }
+}
+
 export interface ChatMessage {
   id?: string;
   role: "student" | "tutor";

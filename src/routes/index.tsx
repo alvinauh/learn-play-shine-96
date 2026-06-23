@@ -28,11 +28,16 @@ import {
   startSession,
   submitAnswer,
   fetchSubjects,
+  fetchDiagnosticStatus,
+  requestStudentCoach,
+  fetchStudentCoach,
   type SessionResponse,
   type AnswerResponse,
   type MockBundle,
   type QuestionType,
   type SubjectWithTopics,
+  type DiagnosticStatus,
+  type CoachNarrative,
 } from "@/services/api";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,6 +52,9 @@ import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
 import { GameTopBar } from "@/components/GameTopBar";
 import { PraiseOverlay } from "@/components/PraiseOverlay";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
+import { StudyCoachModal } from "@/components/StudyCoachModal";
+import { toast } from "sonner";
+
 
 
 export const Route = createFileRoute("/")({
@@ -364,6 +372,76 @@ function StudentFeed() {
   const [tutorChatOpen, setTutorChatOpen] = useState(false);
   const [formLevel, setFormLevel] = useState<4 | 5>(4);
 
+  // ===== Study Coach =====
+  const [diagStatus, setDiagStatus] = useState<DiagnosticStatus | null>(null);
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [coachNarrative, setCoachNarrative] = useState<CoachNarrative | null>(null);
+  const [coachError, setCoachError] = useState<string | null>(null);
+  const [coachBannerDismissed, setCoachBannerDismissed] = useState(false);
+
+  const effectiveStudentId = user?.id ?? "00000000-0000-0000-0000-000000000001";
+
+  const refreshDiagnosticStatus = async () => {
+    const s = await fetchDiagnosticStatus(effectiveStudentId);
+    if (s) setDiagStatus(s);
+  };
+
+  useEffect(() => {
+    void refreshDiagnosticStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveStudentId]);
+
+  const handleOpenCoach = async () => {
+    setCoachOpen(true);
+    setCoachLoading(true);
+    setCoachError(null);
+    setCoachNarrative(null);
+    try {
+      const res = await requestStudentCoach(effectiveStudentId);
+      if (res.ready) {
+        setCoachNarrative(res.narrative);
+        setCoachBannerDismissed(true);
+      } else {
+        setCoachOpen(false);
+        toast.message(res.message);
+      }
+    } catch (err) {
+      console.error("[Skor] requestStudentCoach failed", err);
+      setCoachError("Couldn't generate your report. Please try again in a moment.");
+    } finally {
+      setCoachLoading(false);
+    }
+  };
+
+  const handleViewLastCoach = async () => {
+    setCoachOpen(true);
+    setCoachLoading(true);
+    setCoachError(null);
+    setCoachNarrative(null);
+    try {
+      const res = await fetchStudentCoach(effectiveStudentId);
+      if (res && res.ready) {
+        setCoachNarrative(res.narrative);
+        setCoachBannerDismissed(true);
+      } else {
+        setCoachError("No previous report found.");
+      }
+    } finally {
+      setCoachLoading(false);
+    }
+  };
+
+  const handleCoachStartPractice = (topic: string, subject: string) => {
+    setCoachOpen(false);
+    const subjectExists = subjects.some((s) => s.subject === subject);
+    const targetSubject = subjectExists ? subject : activeSubject;
+    if (!subjectExists) setDynamicTopic(topic);
+    setActiveSubject(targetSubject);
+    setActiveTopic(topic);
+    void loadSession(targetSubject, topic, activeLanguage, false);
+  };
+
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
 
@@ -593,6 +671,7 @@ function StudentFeed() {
 
       const enriched: AnswerResponse = { ...res, correct: isCorrect };
       setFeedback(enriched);
+      void refreshDiagnosticStatus();
 
       if (isCorrect) {
         if (letter) setCorrectFlash(letter);
@@ -720,6 +799,75 @@ function StudentFeed() {
           questionNumber={questionNumber}
           pointsAwarded={lastPoints}
         />
+
+        {/* Study Coach banner — diagnostic complete */}
+        {diagStatus?.diagnostic_complete && !coachBannerDismissed && (
+          <section className="rounded-2xl border border-[oklch(0.65_0.22_300/0.55)] bg-[linear-gradient(135deg,oklch(0.35_0.18_300/0.5),oklch(0.3_0.18_260/0.5))] p-4 backdrop-blur shadow-glow">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-primary text-lg">
+                🎯
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-display text-base font-bold leading-snug">
+                  Your Study Coach report is ready!
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  A personalised study plan based on your answers.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Button
+                    onClick={handleOpenCoach}
+                    size="sm"
+                    className="h-9 rounded-xl bg-gradient-primary px-4 text-sm font-bold shadow-glow"
+                  >
+                    Get My Study Report
+                  </Button>
+                  {diagStatus.report_available && (
+                    <button
+                      onClick={handleViewLastCoach}
+                      className="text-xs font-semibold text-primary-glow underline-offset-2 hover:underline"
+                    >
+                      View last report
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setCoachBannerDismissed(true)}
+                    className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                    aria-label="Dismiss"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Diagnostic progress — only when incomplete and started */}
+        {diagStatus && !diagStatus.diagnostic_complete && diagStatus.questions_answered > 0 && (
+          <section className="rounded-2xl border border-border/60 bg-card/60 px-4 py-3 backdrop-blur">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="font-semibold uppercase tracking-widest text-primary-glow">
+                Diagnostic progress
+              </span>
+              <span>
+                {diagStatus.questions_answered} / {diagStatus.threshold} answered
+              </span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-background/50">
+              <div
+                className="h-full rounded-full bg-gradient-primary transition-all"
+                style={{
+                  width: `${Math.min(100, (diagStatus.questions_answered / Math.max(1, diagStatus.threshold)) * 100)}%`,
+                }}
+              />
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              {Math.max(0, diagStatus.threshold - diagStatus.questions_answered)} more to unlock your Study Coach report
+            </p>
+          </section>
+        )}
+
         {/* Form level segmented control */}
         <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-1 backdrop-blur">
           <span className="px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -945,6 +1093,7 @@ function StudentFeed() {
                 setScore((x) => x + 100);
               }
               setQuestionNumber((q) => q + 1);
+              void refreshDiagnosticStatus();
               void loadSession(activeSubject, activeTopic, activeLanguage, true);
             }}
           />
@@ -1285,6 +1434,15 @@ function StudentFeed() {
         onFire={streak >= 3}
       />
       <PenaltyGameModal open={penaltyOpen} onComplete={handlePenaltyComplete} />
+      <StudyCoachModal
+        open={coachOpen}
+        loading={coachLoading}
+        narrative={coachNarrative}
+        errorMessage={coachError}
+        onClose={() => setCoachOpen(false)}
+        onStartPractice={handleCoachStartPractice}
+      />
+
     </div>
   );
 }
