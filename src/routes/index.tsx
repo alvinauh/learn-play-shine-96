@@ -674,9 +674,9 @@ function StudentFeed() {
 
 
   return (
-    <div className="relative min-h-[100dvh] bg-gradient-feed text-foreground overflow-hidden">
+    <div className="relative min-h-[100dvh] bg-[linear-gradient(180deg,#1a0533_0%,#2d0a6e_100%)] text-foreground overflow-hidden">
       {/* Ambient glow */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,oklch(0.65_0.24_295/0.25),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,oklch(0.65_0.24_295/0.35),transparent_60%)]" />
 
       {/* Top bar */}
       <header className="relative z-10 flex items-center justify-between px-5 pt-5">
