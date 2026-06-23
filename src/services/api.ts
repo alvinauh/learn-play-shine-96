@@ -472,6 +472,92 @@ export async function requestStudentCoach(studentId: string): Promise<StudentCoa
   return (await res.json()) as StudentCoachResponse;
 }
 
+// ===== Diagnostic Test =====
+
+export interface DiagnosticProgress {
+  student_id: string;
+  form_level: number;
+  questions_answered: number;
+  total: number;
+  diagnostic_complete: boolean;
+  completed_topics?: Array<{ subject: string; topic: string }>;
+  next_topic?: { subject: string; topic: string } | null;
+}
+
+export interface DiagnosticStartProgress {
+  questions_answered: number;
+  total: number;
+  topic_index?: number;
+  completed_subjects?: string[];
+}
+
+export type StartDiagnosticResponse =
+  | ({
+      diagnostic_complete: false;
+      diagnostic_progress: DiagnosticStartProgress;
+    } & SessionResponse)
+  | {
+      diagnostic_complete: true;
+      questions_answered: number;
+      total: number;
+      message?: string;
+    };
+
+export async function fetchDiagnosticProgress(
+  studentId: string,
+  formLevel: number = 4,
+): Promise<DiagnosticProgress | null> {
+  const safe = studentId && studentId !== "undefined" ? studentId : "00000000-0000-0000-0000-000000000001";
+  try {
+    const res = await fetch(
+      `${BASE_URL}/diagnostic_progress/${encodeURIComponent(safe)}?form_level=${formLevel}&t=${Date.now()}`,
+      { method: "GET", cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as DiagnosticProgress;
+  } catch (err) {
+    console.warn("[Skor API] fetchDiagnosticProgress failed:", err);
+    return null;
+  }
+}
+
+export async function startDiagnosticSession(
+  studentId: string,
+  language: string,
+  formLevel: number = 4,
+): Promise<StartDiagnosticResponse> {
+  const safe = studentId && studentId !== "undefined" ? studentId : "00000000-0000-0000-0000-000000000001";
+  const payload = { student_id: safe, language: language || "English", form_level: formLevel };
+  const raw = await postJSON<Record<string, unknown>>("/start_diagnostic_session", payload, true);
+  console.log("[Skor API] /start_diagnostic_session response:", raw);
+  if (raw && raw.diagnostic_complete === true) {
+    return {
+      diagnostic_complete: true,
+      questions_answered: Number(raw.questions_answered ?? 0),
+      total: Number(raw.total ?? 10),
+      message: typeof raw.message === "string" ? raw.message : undefined,
+    };
+  }
+  const session = normalizeSessionResponse(
+    raw as StartSessionApiResponse,
+    (raw.topic as string) ?? "",
+    (raw.subject as string) ?? "",
+  );
+  const progressRaw = (raw.diagnostic_progress ?? {}) as Record<string, unknown>;
+  return {
+    diagnostic_complete: false,
+    diagnostic_progress: {
+      questions_answered: Number(progressRaw.questions_answered ?? 0),
+      total: Number(progressRaw.total ?? 10),
+      topic_index: typeof progressRaw.topic_index === "number" ? progressRaw.topic_index : undefined,
+      completed_subjects: Array.isArray(progressRaw.completed_subjects)
+        ? (progressRaw.completed_subjects as string[])
+        : undefined,
+    },
+    ...session,
+  };
+}
+
 export async function fetchStudentCoach(studentId: string): Promise<StudentCoachResponse | null> {
   const safe = studentId && studentId !== "undefined" ? studentId : "00000000-0000-0000-0000-000000000001";
   try {
