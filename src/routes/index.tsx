@@ -1102,62 +1102,49 @@ function StudentFeed() {
                   </div>
                 );
               }
+              const COLORS: Record<Letter, string> = {
+                A: "bg-red-500 hover:bg-red-400",
+                B: "bg-blue-500 hover:bg-blue-400",
+                C: "bg-yellow-500 hover:bg-yellow-400",
+                D: "bg-green-500 hover:bg-green-400",
+              };
               return (
                 <div className="grid gap-3">
                   {LETTERS.map((letter) => {
-                    const optionText = session.options[letter];
                     const isChecking = checking === letter;
                     const isSelected = selected === letter;
-                    const showResult = feedback && isSelected;
-                    const isCorrectChoice =
-                      feedback &&
-                      (letter === feedback.correct_answer ||
-                        optionText === feedback.correct_answer);
+                    const isFlashCorrect = correctFlash === letter;
+                    const isFlashWrong = wrongFlash === letter;
                     return (
                       <button
                         key={letter}
                         onClick={() => handleAnswer(letter)}
                         disabled={!!checking || !!feedback || !session}
                         className={cn(
-                          "group flex items-center gap-4 rounded-2xl border-2 border-border bg-card/60 p-4 text-left transition-all",
-                          "hover:border-primary/60 hover:bg-card hover:-translate-y-0.5 hover:shadow-glow",
+                          "group flex items-center gap-4 rounded-xl px-4 py-4 text-left text-white font-bold text-lg transition-all shadow-lg",
+                          COLORS[letter],
                           "disabled:cursor-not-allowed",
-                          isSelected && !feedback && "border-primary",
-                          showResult &&
-                            feedback?.correct &&
-                            "border-neon-green bg-[oklch(0.78_0.24_145/0.12)] shadow-glow-success",
-                          showResult &&
-                            !feedback?.correct &&
-                            "border-destructive bg-destructive/10",
-                          feedback &&
-                            !isSelected &&
-                            isCorrectChoice &&
-                            "border-neon-green bg-[oklch(0.78_0.24_145/0.08)]",
+                          isSelected && !feedback && "ring-4 ring-white scale-105",
+                          isFlashCorrect && "animate-pulse ring-4 ring-white",
+                          isFlashWrong && "animate-[shake_0.4s_ease-in-out] ring-4 ring-red-200",
                         )}
                       >
-                        <span
-                          className={cn(
-                            "grid h-12 w-12 shrink-0 place-items-center rounded-xl border-2 border-border bg-background font-display text-xl font-bold transition",
-                            "group-hover:border-primary group-hover:text-primary-glow",
-                            isSelected &&
-                              !feedback &&
-                              "border-primary bg-primary/20 text-primary-glow",
-                            showResult &&
-                              feedback?.correct &&
-                              "border-neon-green bg-[oklch(0.78_0.24_145/0.2)] text-neon-green",
-                            showResult &&
-                              !feedback?.correct &&
-                              "border-destructive bg-destructive/20 text-destructive",
-                          )}
-                        >
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/25 text-xl font-extrabold">
                           {isChecking ? <Loader2 className="h-5 w-5 animate-spin" /> : letter}
                         </span>
-                        <span className="flex-1 text-base font-medium leading-snug">
+                        <span className="flex-1 leading-snug">
                           {session?.options[letter]}
                         </span>
                       </button>
                     );
                   })}
+                  <style>{`
+                    @keyframes shake {
+                      0%, 100% { transform: translateX(0); }
+                      25% { transform: translateX(-8px); }
+                      75% { transform: translateX(8px); }
+                    }
+                  `}</style>
                 </div>
               );
             })()}
