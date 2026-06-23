@@ -44,6 +44,9 @@ import { LogOut } from "lucide-react";
 import { LessonNotesModal } from "@/components/LessonNotesModal";
 import { TutorChatDrawer } from "@/components/TutorChatDrawer";
 import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
+import { GameTopBar } from "@/components/GameTopBar";
+import { PraiseOverlay } from "@/components/PraiseOverlay";
+import { PenaltyGameModal } from "@/components/PenaltyGameModal";
 
 
 export const Route = createFileRoute("/")({
