@@ -169,6 +169,7 @@ export interface SessionResponse {
 
 export interface AnswerResponse {
   correct: boolean;
+  is_correct?: boolean;
   correct_answer: string;
   feedback: string;
   misconception?: string;
@@ -178,6 +179,11 @@ export interface AnswerResponse {
   partial_credit?: number;
   marks_awarded?: number;
   max_marks?: number;
+  streak?: number;
+  wrong_count?: number;
+  score?: number;
+  points_awarded?: number;
+  trigger_penalty_game?: boolean;
 }
 
 export interface MockBundle {
