@@ -979,6 +979,7 @@ function StudentFeed() {
           </section>
         )}
 
+        {!inDiagnostic && (<>
         {/* Form level segmented control */}
         <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-1 backdrop-blur">
           <span className="px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
