@@ -372,6 +372,76 @@ function StudentFeed() {
   const [tutorChatOpen, setTutorChatOpen] = useState(false);
   const [formLevel, setFormLevel] = useState<4 | 5>(4);
 
+  // ===== Study Coach =====
+  const [diagStatus, setDiagStatus] = useState<DiagnosticStatus | null>(null);
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [coachNarrative, setCoachNarrative] = useState<CoachNarrative | null>(null);
+  const [coachError, setCoachError] = useState<string | null>(null);
+  const [coachBannerDismissed, setCoachBannerDismissed] = useState(false);
+
+  const effectiveStudentId = user?.id ?? "00000000-0000-0000-0000-000000000001";
+
+  const refreshDiagnosticStatus = async () => {
+    const s = await fetchDiagnosticStatus(effectiveStudentId);
+    if (s) setDiagStatus(s);
+  };
+
+  useEffect(() => {
+    void refreshDiagnosticStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveStudentId]);
+
+  const handleOpenCoach = async () => {
+    setCoachOpen(true);
+    setCoachLoading(true);
+    setCoachError(null);
+    setCoachNarrative(null);
+    try {
+      const res = await requestStudentCoach(effectiveStudentId);
+      if (res.ready) {
+        setCoachNarrative(res.narrative);
+        setCoachBannerDismissed(true);
+      } else {
+        setCoachOpen(false);
+        toast.message(res.message);
+      }
+    } catch (err) {
+      console.error("[Skor] requestStudentCoach failed", err);
+      setCoachError("Couldn't generate your report. Please try again in a moment.");
+    } finally {
+      setCoachLoading(false);
+    }
+  };
+
+  const handleViewLastCoach = async () => {
+    setCoachOpen(true);
+    setCoachLoading(true);
+    setCoachError(null);
+    setCoachNarrative(null);
+    try {
+      const res = await fetchStudentCoach(effectiveStudentId);
+      if (res && res.ready) {
+        setCoachNarrative(res.narrative);
+        setCoachBannerDismissed(true);
+      } else {
+        setCoachError("No previous report found.");
+      }
+    } finally {
+      setCoachLoading(false);
+    }
+  };
+
+  const handleCoachStartPractice = (topic: string, subject: string) => {
+    setCoachOpen(false);
+    const subjectExists = subjects.some((s) => s.subject === subject);
+    const targetSubject = subjectExists ? subject : activeSubject;
+    if (!subjectExists) setDynamicTopic(topic);
+    setActiveSubject(targetSubject);
+    setActiveTopic(topic);
+    void loadSession(targetSubject, topic, activeLanguage, false);
+  };
+
   const initialLoadAttempted = useRef(false);
   const latestLoadRequestRef = useRef(0);
 
