@@ -690,6 +690,10 @@ function StudentFeed() {
     setWrongFlash(null);
     setLastPoints(0);
     setQuestionNumber((q) => q + 1);
+    if (studyMode === "diagnostic") {
+      await loadDiagnosticSession();
+      return;
+    }
     if (nextTopic) {
       let targetSubject: string = activeSubject;
       let found = false;
