@@ -519,7 +519,35 @@ function StudentFeed() {
     setActiveLanguage(lang);
   }, [lang]);
 
-  const submitToBackend = async (answerText: string) => {
+  const advanceToNext = async (completedFeedback: AnswerResponse | null) => {
+    const nextTopic = completedFeedback?.topic_complete ? completedFeedback.next_topic : null;
+    setFeedback(null);
+    setSelected(null);
+    setCorrectFlash(null);
+    setWrongFlash(null);
+    setLastPoints(0);
+    setQuestionNumber((q) => q + 1);
+    if (nextTopic) {
+      let targetSubject: string = activeSubject;
+      let found = false;
+      for (const s of subjects) {
+        if (s.topics.includes(nextTopic)) {
+          targetSubject = s.subject;
+          found = true;
+          break;
+        }
+      }
+      if (!found) setDynamicTopic(nextTopic);
+      else setDynamicTopic(null);
+      setActiveSubject(targetSubject);
+      setActiveTopic(nextTopic);
+      await loadSession(targetSubject, nextTopic, activeLanguage, false);
+    } else {
+      await loadSession(activeSubject, activeTopic, undefined, true);
+    }
+  };
+
+  const submitToBackend = async (answerText: string, letter?: Letter) => {
     if (!session) return;
     setError(null);
     try {
@@ -536,10 +564,50 @@ function StudentFeed() {
         session.session_id,
       );
 
-      setFeedback(res);
-      if (res.correct) {
-        setStreak((s) => s + 1);
-        setXp((x) => x + 25);
+      const isCorrect = res.is_correct ?? res.correct;
+      const points =
+        typeof res.points_awarded === "number"
+          ? res.points_awarded
+          : isCorrect
+            ? 100 + streak * 20
+            : 0;
+      const nextStreak =
+        typeof res.streak === "number" ? res.streak : isCorrect ? streak + 1 : 0;
+      const nextWrongStreak =
+        typeof res.wrong_count === "number"
+          ? res.wrong_count
+          : isCorrect
+            ? 0
+            : wrongStreak + 1;
+      const nextScore =
+        typeof res.score === "number" ? res.score : score + points;
+      const trigger =
+        typeof res.trigger_penalty_game === "boolean"
+          ? res.trigger_penalty_game
+          : nextWrongStreak > 0 && nextWrongStreak % 3 === 0;
+
+      setStreak(nextStreak);
+      setWrongStreak(nextWrongStreak);
+      setScore(nextScore);
+      setLastPoints(points);
+
+      const enriched: AnswerResponse = { ...res, correct: isCorrect };
+      setFeedback(enriched);
+
+      if (isCorrect) {
+        if (letter) setCorrectFlash(letter);
+        setPraiseOn(true);
+        setTimeout(() => {
+          setPraiseOn(false);
+          void advanceToNext(enriched);
+        }, 1500);
+      } else {
+        if (letter) setWrongFlash(letter);
+        if (trigger) {
+          setTimeout(() => setPenaltyOpen(true), 1000);
+        } else {
+          setTimeout(() => void advanceToNext(enriched), 2000);
+        }
       }
     } catch (err) {
       console.error("[Skor] submitAnswer error:", err);
@@ -557,7 +625,7 @@ function StudentFeed() {
     setChecking(letter);
     setSelected(letter);
     try {
-      await submitToBackend(session.options[letter]);
+      await submitToBackend(session.options[letter], letter);
     } finally {
       setChecking(null);
     }
@@ -583,28 +651,12 @@ function StudentFeed() {
   };
 
   const handleNext = async () => {
-    const nextTopic = feedback?.topic_complete ? feedback.next_topic : null;
-    setFeedback(null);
-    setSelected(null);
-    if (nextTopic) {
-      // Find subject containing this topic; if not found, attach to current subject as dynamic
-      let targetSubject: string = activeSubject;
-      let found = false;
-      for (const s of subjects) {
-        if (s.topics.includes(nextTopic)) {
-          targetSubject = s.subject;
-          found = true;
-          break;
-        }
-      }
-      if (!found) setDynamicTopic(nextTopic);
-      else setDynamicTopic(null);
-      setActiveSubject(targetSubject);
-      setActiveTopic(nextTopic);
-      await loadSession(targetSubject, nextTopic, activeLanguage, false);
-    } else {
-      await loadSession(activeSubject, activeTopic, undefined, true);
-    }
+    await advanceToNext(feedback);
+  };
+
+  const handlePenaltyComplete = () => {
+    setPenaltyOpen(false);
+    void advanceToNext(feedback);
   };
 
   const showMaintenanceState = !loading && !session && !!error;
