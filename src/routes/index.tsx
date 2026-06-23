@@ -799,6 +799,75 @@ function StudentFeed() {
           questionNumber={questionNumber}
           pointsAwarded={lastPoints}
         />
+
+        {/* Study Coach banner — diagnostic complete */}
+        {diagStatus?.diagnostic_complete && !coachBannerDismissed && (
+          <section className="rounded-2xl border border-[oklch(0.65_0.22_300/0.55)] bg-[linear-gradient(135deg,oklch(0.35_0.18_300/0.5),oklch(0.3_0.18_260/0.5))] p-4 backdrop-blur shadow-glow">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-primary text-lg">
+                🎯
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-display text-base font-bold leading-snug">
+                  Your Study Coach report is ready!
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  A personalised study plan based on your answers.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Button
+                    onClick={handleOpenCoach}
+                    size="sm"
+                    className="h-9 rounded-xl bg-gradient-primary px-4 text-sm font-bold shadow-glow"
+                  >
+                    Get My Study Report
+                  </Button>
+                  {diagStatus.report_available && (
+                    <button
+                      onClick={handleViewLastCoach}
+                      className="text-xs font-semibold text-primary-glow underline-offset-2 hover:underline"
+                    >
+                      View last report
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setCoachBannerDismissed(true)}
+                    className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                    aria-label="Dismiss"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Diagnostic progress — only when incomplete and started */}
+        {diagStatus && !diagStatus.diagnostic_complete && diagStatus.questions_answered > 0 && (
+          <section className="rounded-2xl border border-border/60 bg-card/60 px-4 py-3 backdrop-blur">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="font-semibold uppercase tracking-widest text-primary-glow">
+                Diagnostic progress
+              </span>
+              <span>
+                {diagStatus.questions_answered} / {diagStatus.threshold} answered
+              </span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-background/50">
+              <div
+                className="h-full rounded-full bg-gradient-primary transition-all"
+                style={{
+                  width: `${Math.min(100, (diagStatus.questions_answered / Math.max(1, diagStatus.threshold)) * 100)}%`,
+                }}
+              />
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              {Math.max(0, diagStatus.threshold - diagStatus.questions_answered)} more to unlock your Study Coach report
+            </p>
+          </section>
+        )}
+
         {/* Form level segmented control */}
         <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-1 backdrop-blur">
           <span className="px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
