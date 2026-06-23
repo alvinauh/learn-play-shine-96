@@ -1434,6 +1434,15 @@ function StudentFeed() {
         onFire={streak >= 3}
       />
       <PenaltyGameModal open={penaltyOpen} onComplete={handlePenaltyComplete} />
+      <StudyCoachModal
+        open={coachOpen}
+        loading={coachLoading}
+        narrative={coachNarrative}
+        errorMessage={coachError}
+        onClose={() => setCoachOpen(false)}
+        onStartPractice={handleCoachStartPractice}
+      />
+
     </div>
   );
 }
