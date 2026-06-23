@@ -1153,7 +1153,7 @@ function StudentFeed() {
       </main>
 
       {/* Feedback bottom sheet — only dismissable via Next Question button */}
-      <Sheet open={!!feedback}>
+      <Sheet open={!!feedback && !feedback.correct && !penaltyOpen}>
         <SheetContent
           side="bottom"
           onPointerDownOutside={(e) => e.preventDefault()}
