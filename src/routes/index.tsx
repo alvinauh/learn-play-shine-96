@@ -44,6 +44,9 @@ import { LogOut } from "lucide-react";
 import { LessonNotesModal } from "@/components/LessonNotesModal";
 import { TutorChatDrawer } from "@/components/TutorChatDrawer";
 import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
+import { GameTopBar } from "@/components/GameTopBar";
+import { PraiseOverlay } from "@/components/PraiseOverlay";
+import { PenaltyGameModal } from "@/components/PenaltyGameModal";
 
 
 export const Route = createFileRoute("/")({
@@ -338,8 +341,16 @@ function StudentFeed() {
   const [selected, setSelected] = useState<Letter | null>(null);
   const [checking, setChecking] = useState<Letter | null>(null);
   const [feedback, setFeedback] = useState<AnswerResponse | null>(null);
-  const [streak, setStreak] = useState(7);
-  const [xp, setXp] = useState(1240);
+  const [streak, setStreak] = useState(0);
+  const [score, setScore] = useState(0);
+  const [wrongStreak, setWrongStreak] = useState(0);
+  const [questionNumber, setQuestionNumber] = useState(1);
+  const [lastPoints, setLastPoints] = useState(0);
+  const [praiseOn, setPraiseOn] = useState(false);
+  const [penaltyOpen, setPenaltyOpen] = useState(false);
+  const [wrongFlash, setWrongFlash] = useState<Letter | null>(null);
+  const [correctFlash, setCorrectFlash] = useState<Letter | null>(null);
+  
   const [error, setError] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<SubjectWithTopics[]>([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
@@ -508,7 +519,35 @@ function StudentFeed() {
     setActiveLanguage(lang);
   }, [lang]);
 
-  const submitToBackend = async (answerText: string) => {
+  const advanceToNext = async (completedFeedback: AnswerResponse | null) => {
+    const nextTopic = completedFeedback?.topic_complete ? completedFeedback.next_topic : null;
+    setFeedback(null);
+    setSelected(null);
+    setCorrectFlash(null);
+    setWrongFlash(null);
+    setLastPoints(0);
+    setQuestionNumber((q) => q + 1);
+    if (nextTopic) {
+      let targetSubject: string = activeSubject;
+      let found = false;
+      for (const s of subjects) {
+        if (s.topics.includes(nextTopic)) {
+          targetSubject = s.subject;
+          found = true;
+          break;
+        }
+      }
+      if (!found) setDynamicTopic(nextTopic);
+      else setDynamicTopic(null);
+      setActiveSubject(targetSubject);
+      setActiveTopic(nextTopic);
+      await loadSession(targetSubject, nextTopic, activeLanguage, false);
+    } else {
+      await loadSession(activeSubject, activeTopic, undefined, true);
+    }
+  };
+
+  const submitToBackend = async (answerText: string, letter?: Letter) => {
     if (!session) return;
     setError(null);
     try {
@@ -525,10 +564,50 @@ function StudentFeed() {
         session.session_id,
       );
 
-      setFeedback(res);
-      if (res.correct) {
-        setStreak((s) => s + 1);
-        setXp((x) => x + 25);
+      const isCorrect = res.is_correct ?? res.correct;
+      const points =
+        typeof res.points_awarded === "number"
+          ? res.points_awarded
+          : isCorrect
+            ? 100 + streak * 20
+            : 0;
+      const nextStreak =
+        typeof res.streak === "number" ? res.streak : isCorrect ? streak + 1 : 0;
+      const nextWrongStreak =
+        typeof res.wrong_count === "number"
+          ? res.wrong_count
+          : isCorrect
+            ? 0
+            : wrongStreak + 1;
+      const nextScore =
+        typeof res.score === "number" ? res.score : score + points;
+      const trigger =
+        typeof res.trigger_penalty_game === "boolean"
+          ? res.trigger_penalty_game
+          : nextWrongStreak > 0 && nextWrongStreak % 3 === 0;
+
+      setStreak(nextStreak);
+      setWrongStreak(nextWrongStreak);
+      setScore(nextScore);
+      setLastPoints(points);
+
+      const enriched: AnswerResponse = { ...res, correct: isCorrect };
+      setFeedback(enriched);
+
+      if (isCorrect) {
+        if (letter) setCorrectFlash(letter);
+        setPraiseOn(true);
+        setTimeout(() => {
+          setPraiseOn(false);
+          void advanceToNext(enriched);
+        }, 1500);
+      } else {
+        if (letter) setWrongFlash(letter);
+        if (trigger) {
+          setTimeout(() => setPenaltyOpen(true), 1000);
+        } else {
+          setTimeout(() => void advanceToNext(enriched), 2000);
+        }
       }
     } catch (err) {
       console.error("[Skor] submitAnswer error:", err);
@@ -546,7 +625,7 @@ function StudentFeed() {
     setChecking(letter);
     setSelected(letter);
     try {
-      await submitToBackend(session.options[letter]);
+      await submitToBackend(session.options[letter], letter);
     } finally {
       setChecking(null);
     }
@@ -572,28 +651,12 @@ function StudentFeed() {
   };
 
   const handleNext = async () => {
-    const nextTopic = feedback?.topic_complete ? feedback.next_topic : null;
-    setFeedback(null);
-    setSelected(null);
-    if (nextTopic) {
-      // Find subject containing this topic; if not found, attach to current subject as dynamic
-      let targetSubject: string = activeSubject;
-      let found = false;
-      for (const s of subjects) {
-        if (s.topics.includes(nextTopic)) {
-          targetSubject = s.subject;
-          found = true;
-          break;
-        }
-      }
-      if (!found) setDynamicTopic(nextTopic);
-      else setDynamicTopic(null);
-      setActiveSubject(targetSubject);
-      setActiveTopic(nextTopic);
-      await loadSession(targetSubject, nextTopic, activeLanguage, false);
-    } else {
-      await loadSession(activeSubject, activeTopic, undefined, true);
-    }
+    await advanceToNext(feedback);
+  };
+
+  const handlePenaltyComplete = () => {
+    setPenaltyOpen(false);
+    void advanceToNext(feedback);
   };
 
   const showMaintenanceState = !loading && !session && !!error;
@@ -611,9 +674,9 @@ function StudentFeed() {
 
 
   return (
-    <div className="relative min-h-[100dvh] bg-gradient-feed text-foreground overflow-hidden">
+    <div className="relative min-h-[100dvh] bg-[linear-gradient(180deg,#1a0533_0%,#2d0a6e_100%)] text-foreground overflow-hidden">
       {/* Ambient glow */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,oklch(0.65_0.24_295/0.25),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,oklch(0.65_0.24_295/0.35),transparent_60%)]" />
 
       {/* Top bar */}
       <header className="relative z-10 flex items-center justify-between px-5 pt-5">
@@ -633,12 +696,6 @@ function StudentFeed() {
               void loadSession(activeSubject, activeTopic, next, false);
             }}
           />
-          <span className="rounded-full border border-border/60 bg-card/60 px-3 py-1 backdrop-blur">
-            🔥 <span className="font-semibold">{streak}</span>
-          </span>
-          <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-primary-glow">
-            ⚡ <span className="font-semibold">{xp}</span>
-          </span>
           <Link
             to="/teacher"
             className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground transition"
@@ -657,6 +714,12 @@ function StudentFeed() {
 
       {(() => { console.log("[Skor] dropdown render → subjects state:", subjects, "activeSubject:", activeSubject, "activeTopic:", activeTopic, "topics for active:", activeSubject ? topicsForSubject(activeSubject) : []); return null; })()}
       <main className="relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6">
+        <GameTopBar
+          streak={streak}
+          score={score}
+          questionNumber={questionNumber}
+          pointsAwarded={lastPoints}
+        />
         {/* Form level segmented control */}
         <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-1 backdrop-blur">
           <span className="px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -879,8 +942,9 @@ function StudentFeed() {
             onAnswerSubmit={(res) => {
               if (res.correct) {
                 setStreak((s) => s + 1);
-                setXp((x) => x + 25);
+                setScore((x) => x + 100);
               }
+              setQuestionNumber((q) => q + 1);
               void loadSession(activeSubject, activeTopic, activeLanguage, true);
             }}
           />
@@ -1038,62 +1102,49 @@ function StudentFeed() {
                   </div>
                 );
               }
+              const COLORS: Record<Letter, string> = {
+                A: "bg-red-500 hover:bg-red-400",
+                B: "bg-blue-500 hover:bg-blue-400",
+                C: "bg-yellow-500 hover:bg-yellow-400",
+                D: "bg-green-500 hover:bg-green-400",
+              };
               return (
                 <div className="grid gap-3">
                   {LETTERS.map((letter) => {
-                    const optionText = session.options[letter];
                     const isChecking = checking === letter;
                     const isSelected = selected === letter;
-                    const showResult = feedback && isSelected;
-                    const isCorrectChoice =
-                      feedback &&
-                      (letter === feedback.correct_answer ||
-                        optionText === feedback.correct_answer);
+                    const isFlashCorrect = correctFlash === letter;
+                    const isFlashWrong = wrongFlash === letter;
                     return (
                       <button
                         key={letter}
                         onClick={() => handleAnswer(letter)}
                         disabled={!!checking || !!feedback || !session}
                         className={cn(
-                          "group flex items-center gap-4 rounded-2xl border-2 border-border bg-card/60 p-4 text-left transition-all",
-                          "hover:border-primary/60 hover:bg-card hover:-translate-y-0.5 hover:shadow-glow",
+                          "group flex items-center gap-4 rounded-xl px-4 py-4 text-left text-white font-bold text-lg transition-all shadow-lg",
+                          COLORS[letter],
                           "disabled:cursor-not-allowed",
-                          isSelected && !feedback && "border-primary",
-                          showResult &&
-                            feedback?.correct &&
-                            "border-neon-green bg-[oklch(0.78_0.24_145/0.12)] shadow-glow-success",
-                          showResult &&
-                            !feedback?.correct &&
-                            "border-destructive bg-destructive/10",
-                          feedback &&
-                            !isSelected &&
-                            isCorrectChoice &&
-                            "border-neon-green bg-[oklch(0.78_0.24_145/0.08)]",
+                          isSelected && !feedback && "ring-4 ring-white scale-105",
+                          isFlashCorrect && "animate-pulse ring-4 ring-white",
+                          isFlashWrong && "animate-[shake_0.4s_ease-in-out] ring-4 ring-red-200",
                         )}
                       >
-                        <span
-                          className={cn(
-                            "grid h-12 w-12 shrink-0 place-items-center rounded-xl border-2 border-border bg-background font-display text-xl font-bold transition",
-                            "group-hover:border-primary group-hover:text-primary-glow",
-                            isSelected &&
-                              !feedback &&
-                              "border-primary bg-primary/20 text-primary-glow",
-                            showResult &&
-                              feedback?.correct &&
-                              "border-neon-green bg-[oklch(0.78_0.24_145/0.2)] text-neon-green",
-                            showResult &&
-                              !feedback?.correct &&
-                              "border-destructive bg-destructive/20 text-destructive",
-                          )}
-                        >
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/25 text-xl font-extrabold">
                           {isChecking ? <Loader2 className="h-5 w-5 animate-spin" /> : letter}
                         </span>
-                        <span className="flex-1 text-base font-medium leading-snug">
+                        <span className="flex-1 leading-snug">
                           {session?.options[letter]}
                         </span>
                       </button>
                     );
                   })}
+                  <style>{`
+                    @keyframes shake {
+                      0%, 100% { transform: translateX(0); }
+                      25% { transform: translateX(-8px); }
+                      75% { transform: translateX(8px); }
+                    }
+                  `}</style>
                 </div>
               );
             })()}
@@ -1102,7 +1153,7 @@ function StudentFeed() {
       </main>
 
       {/* Feedback bottom sheet — only dismissable via Next Question button */}
-      <Sheet open={!!feedback}>
+      <Sheet open={!!feedback && !feedback.correct && !penaltyOpen}>
         <SheetContent
           side="bottom"
           onPointerDownOutside={(e) => e.preventDefault()}
@@ -1228,6 +1279,12 @@ function StudentFeed() {
         />
       )}
 
+      <PraiseOverlay
+        show={praiseOn}
+        pointsAwarded={lastPoints}
+        onFire={streak >= 3}
+      />
+      <PenaltyGameModal open={penaltyOpen} onComplete={handlePenaltyComplete} />
     </div>
   );
 }
