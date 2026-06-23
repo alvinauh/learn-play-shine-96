@@ -31,6 +31,7 @@ import {
   fetchDiagnosticStatus,
   requestStudentCoach,
   fetchStudentCoach,
+  startDiagnosticSession,
   type SessionResponse,
   type AnswerResponse,
   type MockBundle,
