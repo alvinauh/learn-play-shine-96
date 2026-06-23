@@ -1279,6 +1279,12 @@ function StudentFeed() {
         />
       )}
 
+      <PraiseOverlay
+        show={praiseOn}
+        pointsAwarded={lastPoints}
+        onFire={streak >= 3}
+      />
+      <PenaltyGameModal open={penaltyOpen} onComplete={handlePenaltyComplete} />
     </div>
   );
 }
