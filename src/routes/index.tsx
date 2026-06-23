@@ -1024,6 +1024,7 @@ function StudentFeed() {
                 setScore((x) => x + 100);
               }
               setQuestionNumber((q) => q + 1);
+              void refreshDiagnosticStatus();
               void loadSession(activeSubject, activeTopic, activeLanguage, true);
             }}
           />
