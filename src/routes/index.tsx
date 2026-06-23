@@ -31,6 +31,7 @@ import {
   fetchDiagnosticStatus,
   requestStudentCoach,
   fetchStudentCoach,
+  startDiagnosticSession,
   type SessionResponse,
   type AnswerResponse,
   type MockBundle,
@@ -53,6 +54,9 @@ import { GameTopBar } from "@/components/GameTopBar";
 import { PraiseOverlay } from "@/components/PraiseOverlay";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
 import { StudyCoachModal } from "@/components/StudyCoachModal";
+import { StudyModeSelect, type StudyMode } from "@/components/StudyModeSelect";
+import { DiagnosticHeaderBar } from "@/components/DiagnosticHeaderBar";
+import { DiagnosticCompleteScreen } from "@/components/DiagnosticCompleteScreen";
 import { toast } from "sonner";
 
 
@@ -372,6 +376,12 @@ function StudentFeed() {
   const [tutorChatOpen, setTutorChatOpen] = useState(false);
   const [formLevel, setFormLevel] = useState<4 | 5>(4);
 
+  // ===== Study Mode =====
+  const [studyMode, setStudyMode] = useState<StudyMode | null>(null);
+  const [diagAnswered, setDiagAnswered] = useState(0);
+  const [diagTotal, setDiagTotal] = useState(10);
+  const [diagnosticComplete, setDiagnosticComplete] = useState(false);
+
   // ===== Study Coach =====
   const [diagStatus, setDiagStatus] = useState<DiagnosticStatus | null>(null);
   const [coachOpen, setCoachOpen] = useState(false);
@@ -582,13 +592,88 @@ function StudentFeed() {
     if (level === formLevel) return;
     setFormLevel(level);
     setDynamicTopic(null);
-    void loadSubjectsForLevel(level);
+    void loadSubjectsForLevel(level, { autoStart: false });
+  };
+
+  // Load diagnostic question (or detect completion).
+  const loadDiagnosticSession = async () => {
+    const requestId = ++latestLoadRequestRef.current;
+    setLoading(true);
+    setError(null);
+    setFeedback(null);
+    setSelected(null);
+    setVideoBroll(null);
+    setMediaUrl(null);
+    setMnemonicLyrics(null);
+    setTextAnswer("");
+    setSession(null);
+    try {
+      const res = await startDiagnosticSession(
+        effectiveStudentId,
+        langToApi(activeLanguage),
+        formLevel,
+      );
+      if (requestId !== latestLoadRequestRef.current) return;
+      if (res.diagnostic_complete) {
+        setDiagnosticComplete(true);
+        setDiagAnswered(res.questions_answered ?? diagTotal);
+        setDiagTotal(res.total ?? diagTotal);
+        setSession(null);
+        return;
+      }
+      setDiagnosticComplete(false);
+      setDiagAnswered(res.diagnostic_progress.questions_answered);
+      setDiagTotal(res.diagnostic_progress.total);
+      setVideoBroll(res.video_broll ?? null);
+      setMediaUrl(res.media_url ?? null);
+      setMnemonicLyrics(res.mnemonic_lyrics ?? null);
+      setActiveSubject(res.subject ?? "");
+      setActiveTopic(res.topic ?? "");
+      setSession(res);
+    } catch (err) {
+      if (requestId !== latestLoadRequestRef.current) return;
+      console.error("[Skor] startDiagnosticSession error:", err);
+      setError(
+        err instanceof ApiResponseError
+          ? "System maintenance — diagnostic is temporarily unavailable."
+          : "Couldn't load the next diagnostic question. Please try again.",
+      );
+      setSession(null);
+    } finally {
+      if (requestId === latestLoadRequestRef.current) setLoading(false);
+    }
+  };
+
+  const handleStudyModeStart = (mode: StudyMode) => {
+    setStudyMode(mode);
+    setDiagnosticComplete(false);
+    setQuestionNumber(1);
+    if (mode === "diagnostic") {
+      void loadDiagnosticSession();
+    } else {
+      // Free practice — make sure we have subjects and start session
+      if (subjects.length === 0) {
+        void loadSubjectsForLevel(formLevel, { autoStart: true });
+      } else if (activeSubject && activeTopic) {
+        void loadSession(activeSubject, activeTopic, activeLanguage, false);
+      } else {
+        void loadSubjectsForLevel(formLevel, { autoStart: true });
+      }
+    }
+  };
+
+  const handleExitToModeSelect = () => {
+    setStudyMode(null);
+    setSession(null);
+    setFeedback(null);
+    setDiagnosticComplete(false);
   };
 
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
-    void loadSubjectsForLevel(formLevel);
+    // Preload subjects in the background (no autostart) — used by Free Practice.
+    void loadSubjectsForLevel(formLevel, { autoStart: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -605,6 +690,10 @@ function StudentFeed() {
     setWrongFlash(null);
     setLastPoints(0);
     setQuestionNumber((q) => q + 1);
+    if (studyMode === "diagnostic") {
+      await loadDiagnosticSession();
+      return;
+    }
     if (nextTopic) {
       let targetSubject: string = activeSubject;
       let found = false;
@@ -752,6 +841,19 @@ function StudentFeed() {
     (rawQuestion.includes("API Rate Limit Hit") || rawQuestion.trim().length === 0);
 
 
+  // Study Mode selection screen — show before any question loads
+  if (studyMode === null) {
+    return (
+      <StudyModeSelect
+        studentId={effectiveStudentId}
+        formLevel={formLevel}
+        onStart={handleStudyModeStart}
+      />
+    );
+  }
+
+  const inDiagnostic = studyMode === "diagnostic";
+
   return (
     <div className="relative min-h-[100dvh] bg-[linear-gradient(180deg,#1a0533_0%,#2d0a6e_100%)] text-foreground overflow-hidden">
       {/* Ambient glow */}
@@ -799,6 +901,15 @@ function StudentFeed() {
           questionNumber={questionNumber}
           pointsAwarded={lastPoints}
         />
+
+        {inDiagnostic && (
+          <DiagnosticHeaderBar
+            answered={diagAnswered}
+            total={diagTotal}
+            subject={session?.subject ?? activeSubject}
+            onExit={handleExitToModeSelect}
+          />
+        )}
 
         {/* Study Coach banner — diagnostic complete */}
         {diagStatus?.diagnostic_complete && !coachBannerDismissed && (
@@ -868,6 +979,7 @@ function StudentFeed() {
           </section>
         )}
 
+        {!inDiagnostic && (<>
         {/* Form level segmented control */}
         <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-1 backdrop-blur">
           <span className="px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -952,6 +1064,7 @@ function StudentFeed() {
 
           </SelectContent>
         </Select>
+        </>)}
 
         {/* Language toggle */}
         <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/60 px-4 py-2.5 backdrop-blur">
@@ -965,7 +1078,8 @@ function StudentFeed() {
             onCheckedChange={(checked) => {
               const next: Lang = checked ? "ms" : "en";
               handleLanguageChange(next);
-              void loadSession(activeSubject, activeTopic, next, false);
+              if (inDiagnostic) void loadDiagnosticSession();
+              else void loadSession(activeSubject, activeTopic, next, false);
             }}
             aria-label="Toggle language"
           />
@@ -1052,7 +1166,19 @@ function StudentFeed() {
           </div>
         )}
 
-        {showMaintenanceState ? (
+        {inDiagnostic && diagnosticComplete ? (
+          <DiagnosticCompleteScreen
+            total={diagTotal}
+            onGetReport={handleOpenCoach}
+            onContinueFreePractice={() => {
+              setStudyMode("free_practice");
+              setDiagnosticComplete(false);
+              if (subjects.length === 0) void loadSubjectsForLevel(formLevel, { autoStart: true });
+              else if (activeSubject && activeTopic) void loadSession(activeSubject, activeTopic, activeLanguage, false);
+              else void loadSubjectsForLevel(formLevel, { autoStart: true });
+            }}
+          />
+        ) : showMaintenanceState ? (
           <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
             <div className="text-xs uppercase tracking-widest text-primary-glow">
               System Maintenance
