@@ -592,13 +592,88 @@ function StudentFeed() {
     if (level === formLevel) return;
     setFormLevel(level);
     setDynamicTopic(null);
-    void loadSubjectsForLevel(level);
+    void loadSubjectsForLevel(level, { autoStart: false });
+  };
+
+  // Load diagnostic question (or detect completion).
+  const loadDiagnosticSession = async () => {
+    const requestId = ++latestLoadRequestRef.current;
+    setLoading(true);
+    setError(null);
+    setFeedback(null);
+    setSelected(null);
+    setVideoBroll(null);
+    setMediaUrl(null);
+    setMnemonicLyrics(null);
+    setTextAnswer("");
+    setSession(null);
+    try {
+      const res = await startDiagnosticSession(
+        effectiveStudentId,
+        langToApi(activeLanguage),
+        formLevel,
+      );
+      if (requestId !== latestLoadRequestRef.current) return;
+      if (res.diagnostic_complete) {
+        setDiagnosticComplete(true);
+        setDiagAnswered(res.questions_answered ?? diagTotal);
+        setDiagTotal(res.total ?? diagTotal);
+        setSession(null);
+        return;
+      }
+      setDiagnosticComplete(false);
+      setDiagAnswered(res.diagnostic_progress.questions_answered);
+      setDiagTotal(res.diagnostic_progress.total);
+      setVideoBroll(res.video_broll ?? null);
+      setMediaUrl(res.media_url ?? null);
+      setMnemonicLyrics(res.mnemonic_lyrics ?? null);
+      setActiveSubject(res.subject ?? "");
+      setActiveTopic(res.topic ?? "");
+      setSession(res);
+    } catch (err) {
+      if (requestId !== latestLoadRequestRef.current) return;
+      console.error("[Skor] startDiagnosticSession error:", err);
+      setError(
+        err instanceof ApiResponseError
+          ? "System maintenance — diagnostic is temporarily unavailable."
+          : "Couldn't load the next diagnostic question. Please try again.",
+      );
+      setSession(null);
+    } finally {
+      if (requestId === latestLoadRequestRef.current) setLoading(false);
+    }
+  };
+
+  const handleStudyModeStart = (mode: StudyMode) => {
+    setStudyMode(mode);
+    setDiagnosticComplete(false);
+    setQuestionNumber(1);
+    if (mode === "diagnostic") {
+      void loadDiagnosticSession();
+    } else {
+      // Free practice — make sure we have subjects and start session
+      if (subjects.length === 0) {
+        void loadSubjectsForLevel(formLevel, { autoStart: true });
+      } else if (activeSubject && activeTopic) {
+        void loadSession(activeSubject, activeTopic, activeLanguage, false);
+      } else {
+        void loadSubjectsForLevel(formLevel, { autoStart: true });
+      }
+    }
+  };
+
+  const handleExitToModeSelect = () => {
+    setStudyMode(null);
+    setSession(null);
+    setFeedback(null);
+    setDiagnosticComplete(false);
   };
 
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
-    void loadSubjectsForLevel(formLevel);
+    // Preload subjects in the background (no autostart) — used by Free Practice.
+    void loadSubjectsForLevel(formLevel, { autoStart: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
