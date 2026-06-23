@@ -714,6 +714,12 @@ function StudentFeed() {
 
       {(() => { console.log("[Skor] dropdown render → subjects state:", subjects, "activeSubject:", activeSubject, "activeTopic:", activeTopic, "topics for active:", activeSubject ? topicsForSubject(activeSubject) : []); return null; })()}
       <main className="relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6">
+        <GameTopBar
+          streak={streak}
+          score={score}
+          questionNumber={questionNumber}
+          pointsAwarded={lastPoints}
+        />
         {/* Form level segmented control */}
         <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-1 backdrop-blur">
           <span className="px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
