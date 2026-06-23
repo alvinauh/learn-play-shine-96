@@ -1078,7 +1078,8 @@ function StudentFeed() {
             onCheckedChange={(checked) => {
               const next: Lang = checked ? "ms" : "en";
               handleLanguageChange(next);
-              void loadSession(activeSubject, activeTopic, next, false);
+              if (inDiagnostic) void loadDiagnosticSession();
+              else void loadSession(activeSubject, activeTopic, next, false);
             }}
             aria-label="Toggle language"
           />
