@@ -902,6 +902,15 @@ function StudentFeed() {
           pointsAwarded={lastPoints}
         />
 
+        {inDiagnostic && (
+          <DiagnosticHeaderBar
+            answered={diagAnswered}
+            total={diagTotal}
+            subject={session?.subject ?? activeSubject}
+            onExit={handleExitToModeSelect}
+          />
+        )}
+
         {/* Study Coach banner — diagnostic complete */}
         {diagStatus?.diagnostic_complete && !coachBannerDismissed && (
           <section className="rounded-2xl border border-[oklch(0.65_0.22_300/0.55)] bg-[linear-gradient(135deg,oklch(0.35_0.18_300/0.5),oklch(0.3_0.18_260/0.5))] p-4 backdrop-blur shadow-glow">
