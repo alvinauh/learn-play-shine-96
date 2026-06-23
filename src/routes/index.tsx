@@ -942,8 +942,9 @@ function StudentFeed() {
             onAnswerSubmit={(res) => {
               if (res.correct) {
                 setStreak((s) => s + 1);
-                setXp((x) => x + 25);
+                setScore((x) => x + 100);
               }
+              setQuestionNumber((q) => q + 1);
               void loadSession(activeSubject, activeTopic, activeLanguage, true);
             }}
           />
