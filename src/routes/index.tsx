@@ -1165,7 +1165,19 @@ function StudentFeed() {
           </div>
         )}
 
-        {showMaintenanceState ? (
+        {inDiagnostic && diagnosticComplete ? (
+          <DiagnosticCompleteScreen
+            total={diagTotal}
+            onGetReport={handleOpenCoach}
+            onContinueFreePractice={() => {
+              setStudyMode("free_practice");
+              setDiagnosticComplete(false);
+              if (subjects.length === 0) void loadSubjectsForLevel(formLevel, { autoStart: true });
+              else if (activeSubject && activeTopic) void loadSession(activeSubject, activeTopic, activeLanguage, false);
+              else void loadSubjectsForLevel(formLevel, { autoStart: true });
+            }}
+          />
+        ) : showMaintenanceState ? (
           <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
             <div className="text-xs uppercase tracking-widest text-primary-glow">
               System Maintenance
