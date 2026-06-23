@@ -671,6 +671,7 @@ function StudentFeed() {
 
       const enriched: AnswerResponse = { ...res, correct: isCorrect };
       setFeedback(enriched);
+      void refreshDiagnosticStatus();
 
       if (isCorrect) {
         if (letter) setCorrectFlash(letter);
