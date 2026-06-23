@@ -54,6 +54,9 @@ import { GameTopBar } from "@/components/GameTopBar";
 import { PraiseOverlay } from "@/components/PraiseOverlay";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
 import { StudyCoachModal } from "@/components/StudyCoachModal";
+import { StudyModeSelect, type StudyMode } from "@/components/StudyModeSelect";
+import { DiagnosticHeaderBar } from "@/components/DiagnosticHeaderBar";
+import { DiagnosticCompleteScreen } from "@/components/DiagnosticCompleteScreen";
 import { toast } from "sonner";
 
 
