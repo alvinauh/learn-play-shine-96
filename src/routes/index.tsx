@@ -350,7 +350,7 @@ function StudentFeed() {
   const [penaltyOpen, setPenaltyOpen] = useState(false);
   const [wrongFlash, setWrongFlash] = useState<Letter | null>(null);
   const [correctFlash, setCorrectFlash] = useState<Letter | null>(null);
-  const xp = score;
+  
   const [error, setError] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<SubjectWithTopics[]>([]);
   const [subjectsLoading, setSubjectsLoading] = useState(true);
