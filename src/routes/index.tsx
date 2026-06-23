@@ -52,6 +52,9 @@ import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
 import { GameTopBar } from "@/components/GameTopBar";
 import { PraiseOverlay } from "@/components/PraiseOverlay";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
+import { StudyCoachModal } from "@/components/StudyCoachModal";
+import { toast } from "sonner";
+
 
 
 export const Route = createFileRoute("/")({
