@@ -696,12 +696,6 @@ function StudentFeed() {
               void loadSession(activeSubject, activeTopic, next, false);
             }}
           />
-          <span className="rounded-full border border-border/60 bg-card/60 px-3 py-1 backdrop-blur">
-            🔥 <span className="font-semibold">{streak}</span>
-          </span>
-          <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-primary-glow">
-            ⚡ <span className="font-semibold">{xp}</span>
-          </span>
           <Link
             to="/teacher"
             className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground transition"
