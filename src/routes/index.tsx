@@ -720,7 +720,7 @@ function StudentFeed() {
     try {
       const apiLanguage = langToApi(activeLanguage);
       const res = await submitAnswer(
-        STUDENT_ID,
+        effectiveStudentId,
         session.topic ?? activeTopic,
         "",
         answerText,
