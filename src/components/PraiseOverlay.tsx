@@ -14,19 +14,22 @@ interface Props {
   show: boolean;
   pointsAwarded: number;
   onFire: boolean;
+  mastered?: boolean;
 }
 
-export function PraiseOverlay({ show, pointsAwarded, onFire }: Props) {
+export function PraiseOverlay({ show, pointsAwarded, onFire, mastered }: Props) {
   useEffect(() => {
-    if (show && onFire) {
+    if (show && (onFire || mastered)) {
       confetti({
-        particleCount: 120,
-        spread: 90,
+        particleCount: mastered ? 220 : 120,
+        spread: mastered ? 120 : 90,
         origin: { y: 0.6 },
-        colors: ["#f43f5e", "#3b82f6", "#facc15", "#22c55e", "#a855f7"],
+        colors: mastered
+          ? ["#facc15", "#fde047", "#f59e0b", "#fbbf24", "#fff7ad"]
+          : ["#f43f5e", "#3b82f6", "#facc15", "#22c55e", "#a855f7"],
       });
     }
-  }, [show, onFire]);
+  }, [show, onFire, mastered]);
 
   if (!show) return null;
   const praise = PRAISES[Math.floor(Math.random() * PRAISES.length)];
@@ -43,6 +46,11 @@ export function PraiseOverlay({ show, pointsAwarded, onFire }: Props) {
         {pointsAwarded > 0 && (
           <div className="animate-[pointsRise_1.5s_ease-out_forwards] text-3xl font-extrabold text-yellow-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
             +{pointsAwarded} pts
+          </div>
+        )}
+        {mastered && (
+          <div className="mt-1 text-2xl font-extrabold tracking-wide text-yellow-300 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+            🏆 Topic Mastered!
           </div>
         )}
       </div>
