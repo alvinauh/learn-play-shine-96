@@ -360,6 +360,10 @@ function StudentFeed() {
   const [questionNumber, setQuestionNumber] = useState(1);
   const [lastPoints, setLastPoints] = useState(0);
   const [praiseOn, setPraiseOn] = useState(false);
+  const [praiseMastered, setPraiseMastered] = useState(false);
+  const [isBossMode, setIsBossMode] = useState(false);
+  const [bossIntroOpen, setBossIntroOpen] = useState(false);
+  const [bossIntroMastery, setBossIntroMastery] = useState(0);
   const [penaltyOpen, setPenaltyOpen] = useState(false);
   const [wrongFlash, setWrongFlash] = useState<Letter | null>(null);
   const [correctFlash, setCorrectFlash] = useState<Letter | null>(null);
