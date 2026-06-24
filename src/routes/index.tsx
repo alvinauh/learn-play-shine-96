@@ -52,6 +52,7 @@ import { TutorChatDrawer } from "@/components/TutorChatDrawer";
 import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
 import { GameTopBar } from "@/components/GameTopBar";
 import { PraiseOverlay } from "@/components/PraiseOverlay";
+import { BossBattleIntro } from "@/components/BossBattleIntro";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
 import { StudyCoachModal } from "@/components/StudyCoachModal";
 import { StudyModeSelect, type StudyMode } from "@/components/StudyModeSelect";
@@ -359,6 +360,10 @@ function StudentFeed() {
   const [questionNumber, setQuestionNumber] = useState(1);
   const [lastPoints, setLastPoints] = useState(0);
   const [praiseOn, setPraiseOn] = useState(false);
+  const [praiseMastered, setPraiseMastered] = useState(false);
+  const [isBossMode, setIsBossMode] = useState(false);
+  const [bossIntroOpen, setBossIntroOpen] = useState(false);
+  const [bossIntroMastery, setBossIntroMastery] = useState(0);
   const [penaltyOpen, setPenaltyOpen] = useState(false);
   const [wrongFlash, setWrongFlash] = useState<Letter | null>(null);
   const [correctFlash, setCorrectFlash] = useState<Letter | null>(null);
@@ -762,15 +767,37 @@ function StudentFeed() {
       setFeedback(enriched);
       void refreshDiagnosticStatus();
 
+      const mastery = typeof res.mastery_score === "number" ? res.mastery_score : null;
+      const wasBoss = isBossMode;
+      const enterBoss =
+        !!isCorrect &&
+        mastery !== null &&
+        mastery >= 0.7 &&
+        !res.topic_complete &&
+        !wasBoss;
+      const masteredNow = !!isCorrect && wasBoss;
+
       if (isCorrect) {
         if (letter) setCorrectFlash(letter);
+        setPraiseMastered(masteredNow);
         setPraiseOn(true);
+        // Fire next-question load in parallel with the praise overlay so the
+        // student doesn't wait the full 3–5s after the overlay dismisses.
+        const nextLoad = advanceToNext(enriched);
         setTimeout(() => {
           setPraiseOn(false);
-          void advanceToNext(enriched);
+          setPraiseMastered(false);
+          if (wasBoss) setIsBossMode(false);
+          if (enterBoss) {
+            setBossIntroMastery((mastery ?? 0) * 100);
+            setBossIntroOpen(true);
+          }
+          // Make sure any rejection on the parallel load doesn't get swallowed.
+          void nextLoad.catch((e) => console.error("[Skor] advanceToNext error:", e));
         }, 1500);
       } else {
         if (letter) setWrongFlash(letter);
+        if (wasBoss) setIsBossMode(false);
         if (trigger) {
           setTimeout(() => setPenaltyOpen(true), 1000);
         } else {
@@ -1228,7 +1255,12 @@ function StudentFeed() {
 
 
 
-            <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
+            <section className={cn("rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur transition", isBossMode && "ring-2 ring-red-500 border-red-500/60 shadow-[0_0_24px_rgba(239,68,68,0.35)]") }>
+              {isBossMode && (
+                <div className="-mt-1 mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-red-300">
+                  ⚔️ Boss Mode
+                </div>
+              )}
               {loading || !session ? (
                 <div className="space-y-3">
                   <Skeleton className="h-4 w-24" />
@@ -1558,6 +1590,15 @@ function StudentFeed() {
         show={praiseOn}
         pointsAwarded={lastPoints}
         onFire={streak >= 3}
+        mastered={praiseMastered}
+      />
+      <BossBattleIntro
+        show={bossIntroOpen}
+        masteryPct={bossIntroMastery}
+        onDone={() => {
+          setBossIntroOpen(false);
+          setIsBossMode(true);
+        }}
       />
       <PenaltyGameModal open={penaltyOpen} onComplete={handlePenaltyComplete} />
       <StudyCoachModal

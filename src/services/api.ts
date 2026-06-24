@@ -184,6 +184,7 @@ export interface AnswerResponse {
   score?: number;
   points_awarded?: number;
   trigger_penalty_game?: boolean;
+  mastery_score?: number;
 }
 
 export interface MockBundle {
