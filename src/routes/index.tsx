@@ -733,21 +733,21 @@ function StudentFeed() {
 
       const isCorrect = res.is_correct ?? res.correct;
       const points =
-        typeof res.points_awarded === "number"
+        res.points_awarded != null
           ? res.points_awarded
           : isCorrect
             ? 100 + streak * 20
             : 0;
       const nextStreak =
-        typeof res.streak === "number" ? res.streak : isCorrect ? streak + 1 : 0;
+        res.streak != null ? res.streak : isCorrect ? streak + 1 : 0;
       const nextWrongStreak =
-        typeof res.wrong_count === "number"
+        res.wrong_count != null
           ? res.wrong_count
           : isCorrect
             ? 0
             : wrongStreak + 1;
       const nextScore =
-        typeof res.score === "number" ? res.score : score + points;
+        res.score != null ? res.score : score + points;
       const trigger =
         typeof res.trigger_penalty_game === "boolean"
           ? res.trigger_penalty_game
