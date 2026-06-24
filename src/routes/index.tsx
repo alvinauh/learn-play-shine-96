@@ -767,15 +767,37 @@ function StudentFeed() {
       setFeedback(enriched);
       void refreshDiagnosticStatus();
 
+      const mastery = typeof res.mastery_score === "number" ? res.mastery_score : null;
+      const wasBoss = isBossMode;
+      const enterBoss =
+        !!isCorrect &&
+        mastery !== null &&
+        mastery >= 0.7 &&
+        !res.topic_complete &&
+        !wasBoss;
+      const masteredNow = !!isCorrect && wasBoss;
+
       if (isCorrect) {
         if (letter) setCorrectFlash(letter);
+        setPraiseMastered(masteredNow);
         setPraiseOn(true);
+        // Fire next-question load in parallel with the praise overlay so the
+        // student doesn't wait the full 3–5s after the overlay dismisses.
+        const nextLoad = advanceToNext(enriched);
         setTimeout(() => {
           setPraiseOn(false);
-          void advanceToNext(enriched);
+          setPraiseMastered(false);
+          if (wasBoss) setIsBossMode(false);
+          if (enterBoss) {
+            setBossIntroMastery((mastery ?? 0) * 100);
+            setBossIntroOpen(true);
+          }
+          // Make sure any rejection on the parallel load doesn't get swallowed.
+          void nextLoad.catch((e) => console.error("[Skor] advanceToNext error:", e));
         }, 1500);
       } else {
         if (letter) setWrongFlash(letter);
+        if (wasBoss) setIsBossMode(false);
         if (trigger) {
           setTimeout(() => setPenaltyOpen(true), 1000);
         } else {
