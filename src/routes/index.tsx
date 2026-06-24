@@ -52,6 +52,7 @@ import { TutorChatDrawer } from "@/components/TutorChatDrawer";
 import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
 import { GameTopBar } from "@/components/GameTopBar";
 import { PraiseOverlay } from "@/components/PraiseOverlay";
+import { BossBattleIntro } from "@/components/BossBattleIntro";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
 import { StudyCoachModal } from "@/components/StudyCoachModal";
 import { StudyModeSelect, type StudyMode } from "@/components/StudyModeSelect";
