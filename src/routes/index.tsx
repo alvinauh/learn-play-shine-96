@@ -1255,7 +1255,12 @@ function StudentFeed() {
 
 
 
-            <section className="rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur">
+            <section className={cn("rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur transition", isBossMode && "ring-2 ring-red-500 border-red-500/60 shadow-[0_0_24px_rgba(239,68,68,0.35)]") }>
+              {isBossMode && (
+                <div className="-mt-1 mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-red-300">
+                  ⚔️ Boss Mode
+                </div>
+              )}
               {loading || !session ? (
                 <div className="space-y-3">
                   <Skeleton className="h-4 w-24" />
