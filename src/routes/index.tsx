@@ -1590,6 +1590,15 @@ function StudentFeed() {
         show={praiseOn}
         pointsAwarded={lastPoints}
         onFire={streak >= 3}
+        mastered={praiseMastered}
+      />
+      <BossBattleIntro
+        show={bossIntroOpen}
+        masteryPct={bossIntroMastery}
+        onDone={() => {
+          setBossIntroOpen(false);
+          setIsBossMode(true);
+        }}
       />
       <PenaltyGameModal open={penaltyOpen} onComplete={handlePenaltyComplete} />
       <StudyCoachModal
