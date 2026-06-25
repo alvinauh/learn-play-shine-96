@@ -284,7 +284,7 @@ function normalizeSessionResponse(
   topic: string,
   subject: string,
 ): SessionResponse {
-  const question = data.question ?? data.question_data?.question ?? data.draft?.question;
+  const question = data.question_data?.question ?? data.question ?? data.draft?.question;
 
   if (!question) {
     throw new Error("Invalid start_session payload");
