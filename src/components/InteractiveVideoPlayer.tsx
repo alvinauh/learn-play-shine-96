@@ -1,29 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { submitAnswer, type AnswerResponse } from "@/services/api";
 
+export interface H5PInteraction {
+  duration?: { from?: number; to?: number };
+  pause?: boolean;
+  action?: {
+    library?: string;
+    params?: {
+      files?: Array<{ path?: string; mime?: string }>;
+      question?: string;
+      answers?: Array<{
+        text?: string;
+        correct?: boolean;
+        tipsAndFeedback?: { chosenFeedback?: string; tip?: string };
+      }>;
+      textField?: string;
+      distractors?: string;
+    };
+  };
+}
+
 export interface H5PContent {
   interactiveVideo?: {
     video?: { files?: Array<{ path?: string; mime?: string }> };
-    assets?: {
-      interactions?: Array<{
-        duration?: { from?: number; to?: number };
-        pause?: boolean;
-        action?: {
-          params?: {
-            files?: Array<{ path?: string; mime?: string }>;
-            question?: string;
-            answers?: Array<{
-              text?: string;
-              correct?: boolean;
-              tipsAndFeedback?: { chosenFeedback?: string; tip?: string };
-            }>;
-          };
-        };
-      }>;
-    };
+    assets?: { interactions?: H5PInteraction[] };
   };
 }
 
@@ -42,6 +45,42 @@ interface InteractiveVideoPlayerProps {
 
 function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, "").trim();
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+interface DragTextParsed {
+  segments: Array<{ type: "text"; value: string } | { type: "blank"; correct: string }>;
+  bank: string[];
+  correctOrder: string[];
+}
+
+function parseDragText(textField: string, distractors: string): DragTextParsed {
+  const segments: DragTextParsed["segments"] = [];
+  const correctOrder: string[] = [];
+  const re = /\*([^*]+)\*/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(textField)) !== null) {
+    if (m.index > last) segments.push({ type: "text", value: textField.slice(last, m.index) });
+    const word = m[1].split(":")[0].trim();
+    segments.push({ type: "blank", correct: word });
+    correctOrder.push(word);
+    last = re.lastIndex;
+  }
+  if (last < textField.length) segments.push({ type: "text", value: textField.slice(last) });
+  const extras = (distractors || "")
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return { segments, correctOrder, bank: shuffle([...correctOrder, ...extras]) };
 }
 
 export function InteractiveVideoPlayer({
@@ -63,10 +102,23 @@ export function InteractiveVideoPlayer({
     const iv = h5pContent?.interactiveVideo;
     const videoUrl = iv?.video?.files?.[0]?.path ?? "";
     const interactions = iv?.assets?.interactions ?? [];
-    const audioUrl = interactions[0]?.action?.params?.files?.[0]?.path ?? "";
-    const pauseAt = interactions[1]?.duration?.from ?? 8;
-    const rawQuestion = interactions[1]?.action?.params?.question ?? "";
-    const answers = interactions[1]?.action?.params?.answers ?? [];
+    const audioInteraction = interactions.find((i) => i.action?.library?.startsWith("H5P.Audio"));
+    const dragInteraction = interactions.find((i) =>
+      i.action?.library?.startsWith("H5P.DragText"),
+    );
+    const mcqInteraction = interactions.find((i) =>
+      i.action?.library?.startsWith("H5P.MultiChoice"),
+    );
+    // Backward compatibility: fall back to positional indices
+    const audio = audioInteraction ?? interactions[0];
+    const mcq = mcqInteraction ?? (dragInteraction ? interactions[2] : interactions[1]);
+
+    const audioUrl = audio?.action?.params?.files?.[0]?.path ?? "";
+    const dragAt = dragInteraction?.duration?.from ?? 0;
+    const mcqAt = mcq?.duration?.from ?? 8;
+
+    const rawQuestion = mcq?.action?.params?.question ?? "";
+    const answers = mcq?.action?.params?.answers ?? [];
     const options = answers.map((a) => a?.text ?? "").filter((t) => t.length > 0);
     const answerMeta = answers
       .map((a) => ({
@@ -75,28 +127,51 @@ export function InteractiveVideoPlayer({
         feedback: a?.tipsAndFeedback?.chosenFeedback || a?.tipsAndFeedback?.tip || "",
       }))
       .filter((a) => a.text.length > 0);
+
+    const drag =
+      dragInteraction && dragInteraction.action?.params?.textField
+        ? parseDragText(
+            dragInteraction.action.params.textField,
+            dragInteraction.action.params.distractors ?? "",
+          )
+        : null;
+
     return {
       videoUrl,
       audioUrl,
-      pauseAt,
+      dragAt,
+      mcqAt,
       questionText: stripHtml(rawQuestion),
       options,
       answerMeta,
+      drag,
     };
   }, [h5pContent]);
 
-  const [showQuestion, setShowQuestion] = useState(false);
+  const [phase, setPhase] = useState<"intro" | "drag" | "mcq">("intro");
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<AnswerResponse | null>(null);
   const [canAdvance, setCanAdvance] = useState(false);
   const [lyricIdx, setLyricIdx] = useState(0);
 
+  // DragText state
+  const [placed, setPlaced] = useState<Array<string | null>>([]);
+  const [usedBankIdx, setUsedBankIdx] = useState<Set<number>>(new Set());
+  const [dragResult, setDragResult] = useState<boolean[] | null>(null);
+
+  useEffect(() => {
+    if (parsed.drag) {
+      setPlaced(new Array(parsed.drag.correctOrder.length).fill(null));
+      setUsedBankIdx(new Set());
+      setDragResult(null);
+    }
+  }, [parsed.drag]);
+
   const safeLyrics = Array.isArray(mnemonicLyrics)
     ? mnemonicLyrics.filter((l): l is string => typeof l === "string" && l.trim().length > 0)
     : [];
 
-  // Sync audio with video
   const handleCanPlay = () => {
     const a = audioRef.current;
     if (a && parsed.audioUrl) {
@@ -108,14 +183,20 @@ export function InteractiveVideoPlayer({
   const handleTimeUpdate = () => {
     const v = videoRef.current;
     if (!v) return;
-    if (!showQuestion && v.currentTime >= parsed.pauseAt) {
-      v.pause();
-      const a = audioRef.current;
-      if (a) a.pause();
-      setShowQuestion(true);
+    if (phase === "intro") {
+      // If DragText exists, pause for it first; otherwise pause directly at MCQ.
+      if (parsed.drag && v.currentTime >= parsed.dragAt) {
+        v.pause();
+        audioRef.current?.pause();
+        setPhase("drag");
+      } else if (!parsed.drag && v.currentTime >= parsed.mcqAt) {
+        v.pause();
+        audioRef.current?.pause();
+        setPhase("mcq");
+      }
     }
     if (safeLyrics.length > 0) {
-      const total = parsed.pauseAt || 8;
+      const total = (parsed.drag ? parsed.dragAt : parsed.mcqAt) || 8;
       const ratio = Math.min(1, v.currentTime / total);
       setLyricIdx(Math.min(safeLyrics.length - 1, Math.floor(ratio * safeLyrics.length)));
     }
@@ -127,6 +208,55 @@ export function InteractiveVideoPlayer({
       videoRef.current?.pause();
     };
   }, []);
+
+  const resumeToMcq = () => {
+    setPhase("mcq");
+    // Resume video to MCQ timestamp
+    const v = videoRef.current;
+    if (v && parsed.mcqAt > v.currentTime) {
+      v.currentTime = parsed.mcqAt;
+    }
+  };
+
+  const handleDragChipTap = (bankIdx: number, word: string) => {
+    if (dragResult) return;
+    if (usedBankIdx.has(bankIdx)) return;
+    const nextSlot = placed.findIndex((p) => p === null);
+    if (nextSlot === -1) return;
+    const np = [...placed];
+    np[nextSlot] = word;
+    setPlaced(np);
+    const used = new Set(usedBankIdx);
+    used.add(bankIdx);
+    setUsedBankIdx(used);
+  };
+
+  const handleSlotTap = (slotIdx: number) => {
+    if (dragResult) return;
+    const word = placed[slotIdx];
+    if (!word || !parsed.drag) return;
+    const np = [...placed];
+    np[slotIdx] = null;
+    setPlaced(np);
+    // Free first matching used bank chip
+    const bankIdx = parsed.drag.bank.findIndex(
+      (w, i) => w === word && usedBankIdx.has(i),
+    );
+    if (bankIdx >= 0) {
+      const used = new Set(usedBankIdx);
+      used.delete(bankIdx);
+      setUsedBankIdx(used);
+    }
+  };
+
+  const handleDragCheck = () => {
+    if (!parsed.drag) return;
+    const results = parsed.drag.correctOrder.map(
+      (w, i) => (placed[i] ?? "").trim().toLowerCase() === w.trim().toLowerCase(),
+    );
+    setDragResult(results);
+    setTimeout(resumeToMcq, 1500);
+  };
 
   const buildLocalResult = (answer: string): AnswerResponse => {
     const selectedMeta = parsed.answerMeta.find((a) => a.text === answer);
@@ -201,7 +331,7 @@ export function InteractiveVideoPlayer({
         {parsed.audioUrl && <audio ref={audioRef} src={parsed.audioUrl} preload="auto" />}
 
         {/* Mnemonic subtitle */}
-        {!showQuestion && safeLyrics.length > 0 && (
+        {phase === "intro" && safeLyrics.length > 0 && (
           <div className="absolute inset-x-0 bottom-6 px-4">
             <div className="rounded-2xl bg-black/60 px-4 py-3 text-center text-base font-semibold text-white backdrop-blur-md">
               {safeLyrics[lyricIdx]}
@@ -209,8 +339,87 @@ export function InteractiveVideoPlayer({
           </div>
         )}
 
+        {/* DragText overlay */}
+        {phase === "drag" && parsed.drag && (
+          <div className="absolute inset-0 flex flex-col gap-3 bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-lg font-bold text-white">Fill in the Blanks 📝</h3>
+              <button
+                onClick={resumeToMcq}
+                className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white hover:bg-white/25"
+                aria-label="Skip"
+              >
+                Skip <X className="h-3 w-3" />
+              </button>
+            </div>
+
+            <div className="rounded-2xl bg-card/95 p-4 text-foreground shadow-lg">
+              <p className="text-base leading-relaxed">
+                {parsed.drag.segments.map((seg, i) => {
+                  if (seg.type === "text") return <span key={i}>{seg.value}</span>;
+                  const blankIdx = parsed.drag!.segments
+                    .slice(0, i + 1)
+                    .filter((s) => s.type === "blank").length - 1;
+                  const word = placed[blankIdx];
+                  const r = dragResult?.[blankIdx];
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleSlotTap(blankIdx)}
+                      className={cn(
+                        "inline-block min-w-[80px] border-b-2 border-primary mx-1 text-center font-semibold align-baseline",
+                        word ? "px-2" : "px-1",
+                        r === true && "text-green-600 border-green-500",
+                        r === false && "text-red-600 border-red-500",
+                      )}
+                    >
+                      {word ?? "___"}
+                      {r === true && " ✓"}
+                      {r === false && " ✗"}
+                    </button>
+                  );
+                })}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {parsed.drag.bank.map((w, i) => {
+                const used = usedBankIdx.has(i);
+                return (
+                  <button
+                    key={`${w}-${i}`}
+                    type="button"
+                    onClick={() => handleDragChipTap(i, w)}
+                    disabled={used || !!dragResult}
+                    className={cn(
+                      "min-h-[48px] rounded-full px-4 py-2 font-medium shadow transition",
+                      used
+                        ? "bg-green-500/30 text-white/40 line-through"
+                        : "bg-primary text-white hover:scale-105",
+                    )}
+                  >
+                    {w}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-auto">
+              <Button
+                onClick={handleDragCheck}
+                disabled={placed.some((p) => p === null) || !!dragResult}
+                size="lg"
+                className="h-12 w-full rounded-xl bg-white text-base font-bold text-black hover:bg-white/90"
+              >
+                Semak / Check
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* MCQ overlay */}
-        {showQuestion && (
+        {phase === "mcq" && (
           <div
             className={cn(
               "absolute inset-0 flex flex-col gap-3 p-4 backdrop-blur-sm transition-colors",
@@ -291,6 +500,7 @@ export function InteractiveVideoPlayer({
         </summary>
         <div className="mt-2 space-y-1 font-mono leading-snug">
           <div><span className="text-white/50">session:</span> {sessionId || "—"}</div>
+          <div><span className="text-white/50">phase:</span> {phase}</div>
           <div><span className="text-white/50">selected:</span> {selected ?? "—"}</div>
           <div>
             <span className="text-white/50">correct_answer:</span>{" "}
@@ -312,7 +522,7 @@ export function InteractiveVideoPlayer({
             </div>
           )}
           <div className="pt-1 text-white/50">
-            options: {parsed.options.length} · pauseAt: {parsed.pauseAt}s
+            options: {parsed.options.length} · dragAt: {parsed.dragAt}s · mcqAt: {parsed.mcqAt}s · drag: {parsed.drag ? "yes" : "no"}
           </div>
         </div>
       </details>
