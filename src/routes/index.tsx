@@ -906,6 +906,13 @@ function StudentFeed() {
             }}
           />
           <Link
+            to="/leaderboard"
+            className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-yellow-400 hover:text-yellow-300 transition"
+            aria-label="Leaderboard"
+          >
+            <Trophy className="h-4 w-4" />
+          </Link>
+          <Link
             to="/teacher"
             className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground transition"
           >
