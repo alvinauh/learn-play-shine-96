@@ -171,6 +171,13 @@ function TeacherDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
+            <Link
+              to="/leaderboard"
+              className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-yellow-500 hover:text-yellow-400 transition"
+              aria-label="Leaderboard"
+            >
+              <Trophy className="h-4 w-4" />
+            </Link>
             <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">● {t.live}</span>
             {profile?.full_name && (
               <span className="hidden sm:block text-sm font-medium text-foreground">
