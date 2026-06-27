@@ -371,6 +371,48 @@ function TeacherDashboard() {
             </ul>
           </div>
         </section>
+
+        <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-500" />
+              <h2 className="font-display text-lg font-semibold">Top 5 Students</h2>
+            </div>
+            <Link
+              to="/leaderboard"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              View full leaderboard →
+            </Link>
+          </div>
+          {topStudents.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">No leaderboard data yet.</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-border/60">
+              {topStudents.map((s, i) => {
+                const tail = (s.student_id || "").replace(/-/g, "").slice(-4).toUpperCase();
+                return (
+                  <li key={s.student_id || i} className="flex items-center gap-3 py-2.5">
+                    <span className="w-5 text-center font-display text-sm font-bold text-muted-foreground">
+                      {s.rank}
+                    </span>
+                    <span className="flex-1 truncate text-sm font-medium">
+                      Student #{tail || (i + 1)}
+                    </span>
+                    {s.game_wins > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-600">
+                        <Gamepad2 className="h-3 w-3" /> {s.game_wins}
+                      </span>
+                    )}
+                    <span className="font-display text-sm font-bold tabular-nums">
+                      {s.total_score}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
         </>
         )}
       </main>
