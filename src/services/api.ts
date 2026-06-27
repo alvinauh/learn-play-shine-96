@@ -639,4 +639,88 @@ export async function generateLesson(
   return postJSON<Lesson>("/generate_lesson", payload, true);
 }
 
+// ===== Penalty Game =====
+
+export interface PenaltyGameResultResponse {
+  points_awarded?: number;
+  total_score?: number;
+  game_wins?: number;
+}
+
+export async function recordPenaltyGameResult(params: {
+  studentId: string;
+  sessionId?: string;
+  gameType: "catch_stars" | "dino_runner" | "flappy_bird";
+  result: "win" | "loss";
+  durationMs?: number;
+}): Promise<PenaltyGameResultResponse | null> {
+  try {
+    const res = await fetch(`${BASE_URL}/penalty_game_result`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        student_id: params.studentId,
+        quiz_session_id: params.sessionId,
+        game_type: params.gameType,
+        result: params.result,
+        duration_ms: params.durationMs,
+      }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as PenaltyGameResultResponse;
+  } catch (err) {
+    console.warn("[Skor API] recordPenaltyGameResult failed:", err);
+    return null;
+  }
+}
+
+// ===== Leaderboard =====
+
+export interface LeaderboardEntry {
+  rank: number;
+  student_id: string;
+  total_score: number;
+  quiz_sessions: number;
+  game_wins: number;
+}
+
+export interface LeaderboardResponse {
+  subject: string | null;
+  leaderboard: LeaderboardEntry[];
+}
+
+export async function fetchLeaderboard(
+  subject?: string,
+  limit: number = 10,
+): Promise<LeaderboardResponse> {
+  const params = new URLSearchParams();
+  if (subject) params.set("subject", subject);
+  params.set("limit", String(limit));
+  params.set("t", String(Date.now()));
+  try {
+    const res = await fetch(`${BASE_URL}/leaderboard?${params.toString()}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (!res.ok) return { subject: subject ?? null, leaderboard: [] };
+    const raw = (await res.json()) as Partial<LeaderboardResponse>;
+    return {
+      subject: raw.subject ?? subject ?? null,
+      leaderboard: Array.isArray(raw.leaderboard)
+        ? raw.leaderboard.map((e, i) => ({
+            rank: typeof e?.rank === "number" ? e.rank : i + 1,
+            student_id: String(e?.student_id ?? ""),
+            total_score: Number(e?.total_score ?? 0),
+            quiz_sessions: Number(e?.quiz_sessions ?? 0),
+            game_wins: Number(e?.game_wins ?? 0),
+          }))
+        : [],
+    };
+  } catch (err) {
+    console.warn("[Skor API] fetchLeaderboard failed:", err);
+    return { subject: subject ?? null, leaderboard: [] };
+  }
+}
+
+
 

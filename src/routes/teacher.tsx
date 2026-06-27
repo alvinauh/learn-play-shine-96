@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import {
   Users,
@@ -11,6 +11,8 @@ import {
   LogOut,
   LayoutDashboard,
   School,
+  Trophy,
+  Gamepad2,
 } from "lucide-react";
 import {
   Radar,
@@ -25,8 +27,10 @@ import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   fetchTeacherInsights,
+  fetchLeaderboard,
   type ClassMasteryItem,
   type RecentAlert,
+  type LeaderboardEntry,
 } from "@/services/api";
 import { ClassroomsPanel } from "@/components/teacher/ClassroomsPanel";
 import { useAuth } from "@/lib/auth";
@@ -56,8 +60,13 @@ function TeacherDashboard() {
   const [weakestTopic, setWeakestTopic] = useState<string>("-");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [topStudents, setTopStudents] = useState<LeaderboardEntry[]>([]);
 
   const unauthorized = !!profile && profile.role !== "teacher" && profile.role !== "admin";
+
+  useEffect(() => {
+    void fetchLeaderboard(undefined, 5).then((r) => setTopStudents(r.leaderboard)).catch(() => undefined);
+  }, []);
 
   // Server-side enforced via RLS; this is a UX guard for non-teachers.
   useEffect(() => {
@@ -162,6 +171,13 @@ function TeacherDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
+            <Link
+              to="/leaderboard"
+              className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-yellow-500 hover:text-yellow-400 transition"
+              aria-label="Leaderboard"
+            >
+              <Trophy className="h-4 w-4" />
+            </Link>
             <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">● {t.live}</span>
             {profile?.full_name && (
               <span className="hidden sm:block text-sm font-medium text-foreground">
@@ -354,6 +370,48 @@ function TeacherDashboard() {
               ))}
             </ul>
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-500" />
+              <h2 className="font-display text-lg font-semibold">Top 5 Students</h2>
+            </div>
+            <Link
+              to="/leaderboard"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              View full leaderboard →
+            </Link>
+          </div>
+          {topStudents.length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">No leaderboard data yet.</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-border/60">
+              {topStudents.map((s, i) => {
+                const tail = (s.student_id || "").replace(/-/g, "").slice(-4).toUpperCase();
+                return (
+                  <li key={s.student_id || i} className="flex items-center gap-3 py-2.5">
+                    <span className="w-5 text-center font-display text-sm font-bold text-muted-foreground">
+                      {s.rank}
+                    </span>
+                    <span className="flex-1 truncate text-sm font-medium">
+                      Student #{tail || (i + 1)}
+                    </span>
+                    {s.game_wins > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-600">
+                        <Gamepad2 className="h-3 w-3" /> {s.game_wins}
+                      </span>
+                    )}
+                    <span className="font-display text-sm font-bold tabular-nums">
+                      {s.total_score}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
         </>
         )}

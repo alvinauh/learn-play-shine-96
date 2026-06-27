@@ -11,6 +11,7 @@ import {
   Sparkles,
   X,
   AlertTriangle,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -905,6 +906,13 @@ function StudentFeed() {
             }}
           />
           <Link
+            to="/leaderboard"
+            className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-yellow-400 hover:text-yellow-300 transition"
+            aria-label="Leaderboard"
+          >
+            <Trophy className="h-4 w-4" />
+          </Link>
+          <Link
             to="/teacher"
             className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground transition"
           >
@@ -1600,7 +1608,12 @@ function StudentFeed() {
           setIsBossMode(true);
         }}
       />
-      <PenaltyGameModal open={penaltyOpen} onComplete={handlePenaltyComplete} />
+      <PenaltyGameModal
+        open={penaltyOpen}
+        studentId={effectiveStudentId}
+        sessionId={session?.session_id}
+        onComplete={handlePenaltyComplete}
+      />
       <StudyCoachModal
         open={coachOpen}
         loading={coachLoading}
