@@ -11,6 +11,7 @@ import {
   Sparkles,
   X,
   AlertTriangle,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";

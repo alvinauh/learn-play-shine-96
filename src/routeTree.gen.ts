@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TeacherRouteImport } from './routes/teacher'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LessonLessonIdRouteImport } from './routes/lesson.$lessonId'
 import { Route as ApiPublicSkorSplatRouteImport } from './routes/api.public.skor.$'
@@ -23,6 +24,11 @@ const TeacherRoute = TeacherRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaderboardRoute = LeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -43,6 +49,7 @@ const ApiPublicSkorSplatRoute = ApiPublicSkorSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/login': typeof LoginRoute
   '/teacher': typeof TeacherRoute
   '/lesson/$lessonId': typeof LessonLessonIdRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/login': typeof LoginRoute
   '/teacher': typeof TeacherRoute
   '/lesson/$lessonId': typeof LessonLessonIdRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/login': typeof LoginRoute
   '/teacher': typeof TeacherRoute
   '/lesson/$lessonId': typeof LessonLessonIdRoute
@@ -67,15 +76,23 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/leaderboard'
     | '/login'
     | '/teacher'
     | '/lesson/$lessonId'
     | '/api/public/skor/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/teacher' | '/lesson/$lessonId' | '/api/public/skor/$'
+  to:
+    | '/'
+    | '/leaderboard'
+    | '/login'
+    | '/teacher'
+    | '/lesson/$lessonId'
+    | '/api/public/skor/$'
   id:
     | '__root__'
     | '/'
+    | '/leaderboard'
     | '/login'
     | '/teacher'
     | '/lesson/$lessonId'
@@ -84,6 +101,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LeaderboardRoute: typeof LeaderboardRoute
   LoginRoute: typeof LoginRoute
   TeacherRoute: typeof TeacherRoute
   LessonLessonIdRoute: typeof LessonLessonIdRoute
@@ -104,6 +122,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leaderboard': {
+      id: '/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof LeaderboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -132,6 +157,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LeaderboardRoute: LeaderboardRoute,
   LoginRoute: LoginRoute,
   TeacherRoute: TeacherRoute,
   LessonLessonIdRoute: LessonLessonIdRoute,
