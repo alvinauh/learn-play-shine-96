@@ -1600,7 +1600,12 @@ function StudentFeed() {
           setIsBossMode(true);
         }}
       />
-      <PenaltyGameModal open={penaltyOpen} onComplete={handlePenaltyComplete} />
+      <PenaltyGameModal
+        open={penaltyOpen}
+        studentId={effectiveStudentId}
+        sessionId={session?.session_id}
+        onComplete={handlePenaltyComplete}
+      />
       <StudyCoachModal
         open={coachOpen}
         loading={coachLoading}
