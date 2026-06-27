@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import {
   Users,
@@ -11,6 +11,8 @@ import {
   LogOut,
   LayoutDashboard,
   School,
+  Trophy,
+  Gamepad2,
 } from "lucide-react";
 import {
   Radar,
@@ -25,8 +27,10 @@ import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   fetchTeacherInsights,
+  fetchLeaderboard,
   type ClassMasteryItem,
   type RecentAlert,
+  type LeaderboardEntry,
 } from "@/services/api";
 import { ClassroomsPanel } from "@/components/teacher/ClassroomsPanel";
 import { useAuth } from "@/lib/auth";
