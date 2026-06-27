@@ -60,8 +60,13 @@ function TeacherDashboard() {
   const [weakestTopic, setWeakestTopic] = useState<string>("-");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [topStudents, setTopStudents] = useState<LeaderboardEntry[]>([]);
 
   const unauthorized = !!profile && profile.role !== "teacher" && profile.role !== "admin";
+
+  useEffect(() => {
+    void fetchLeaderboard(undefined, 5).then((r) => setTopStudents(r.leaderboard)).catch(() => undefined);
+  }, []);
 
   // Server-side enforced via RLS; this is a UX guard for non-teachers.
   useEffect(() => {
