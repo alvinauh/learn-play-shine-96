@@ -23,6 +23,8 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
   const pipesRef = useRef<Pipe[]>([{ x: W + 40, gapY: 200, passed: false }]);
   const scoreRef = useRef(0);
   const endedRef = useRef(false);
+  const gameActive = useRef(false);
+  const framesRef = useRef(0);
   const [score, setScore] = useState(0);
 
   useEffect(() => {
@@ -52,8 +54,10 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
     let prev = performance.now();
 
     const end = (won: boolean) => {
+      if (!gameActive.current) return;
       if (endedRef.current) return;
       endedRef.current = true;
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       onGameEnd(won);
     };
@@ -61,6 +65,7 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - prev) / 1000);
       prev = now;
+      framesRef.current += 1;
 
       birdVyRef.current += 500 * dt;
       birdYRef.current += birdVyRef.current * dt;
@@ -77,7 +82,8 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
         if (hitX && (birdYRef.current - r < topH || birdYRef.current + r > botY)) {
           return end(false);
         }
-        if (!p.passed && p.x + PIPE_W < bx - r) {
+        // Only count a pass on an active frame after the bird's x has crossed the pipe's right edge
+        if (framesRef.current > 1 && !p.passed && p.x + PIPE_W < bx - r) {
           p.passed = true;
           scoreRef.current += 1;
           setScore(scoreRef.current);
@@ -120,9 +126,11 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
       if (scoreRef.current >= GOAL) return end(true);
       raf = requestAnimationFrame(loop);
     };
+    gameActive.current = true;
     raf = requestAnimationFrame(loop);
 
     return () => {
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
       canvas.removeEventListener("mousedown", onTap);

@@ -23,6 +23,7 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
   const speedRef = useRef(200);
   const clearedRef = useRef(0);
   const endedRef = useRef(false);
+  const gameActive = useRef(false);
   const [cleared, setCleared] = useState(0);
 
   useEffect(() => {
@@ -53,8 +54,10 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
     let elapsed = 0;
 
     const end = (won: boolean) => {
+      if (!gameActive.current) return;
       if (endedRef.current) return;
       endedRef.current = true;
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       onGameEnd(won);
     };
@@ -80,26 +83,28 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
         nextSpawnRef.current = 1500 + Math.random() * 1000;
       }
 
-      // move + collide
-      const dinoBox = { x: 60, y: dinoYRef.current, w: 30, h: 40 };
-      for (const c of cactiRef.current) {
-        c.x -= speedRef.current * dt;
-        const cBox = { x: c.x, y: GROUND - 40, w: 20, h: 40 };
-        if (
-          dinoBox.x < cBox.x + cBox.w &&
-          dinoBox.x + dinoBox.w > cBox.x &&
-          dinoBox.y < cBox.y + cBox.h &&
-          dinoBox.y + dinoBox.h > cBox.y
-        ) {
-          return end(false);
+      // move + collide (only when at least one cactus exists)
+      if (cactiRef.current.length > 0) {
+        const dinoBox = { x: 60, y: dinoYRef.current, w: 30, h: 40 };
+        for (const c of cactiRef.current) {
+          c.x -= speedRef.current * dt;
+          const cBox = { x: c.x, y: GROUND - 40, w: 20, h: 40 };
+          if (
+            dinoBox.x < cBox.x + cBox.w &&
+            dinoBox.x + dinoBox.w > cBox.x &&
+            dinoBox.y < cBox.y + cBox.h &&
+            dinoBox.y + dinoBox.h > cBox.y
+          ) {
+            return end(false);
+          }
+          if (!c.passed && c.x + 20 < 60) {
+            c.passed = true;
+            clearedRef.current += 1;
+            setCleared(clearedRef.current);
+          }
         }
-        if (!c.passed && c.x + 20 < 60) {
-          c.passed = true;
-          clearedRef.current += 1;
-          setCleared(clearedRef.current);
-        }
+        cactiRef.current = cactiRef.current.filter((c) => c.x > -40);
       }
-      cactiRef.current = cactiRef.current.filter((c) => c.x > -40);
 
       // draw
       ctx.fillStyle = "#1e1b4b";
@@ -124,9 +129,11 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
       if (clearedRef.current >= GOAL) return end(true);
       raf = requestAnimationFrame(loop);
     };
+    gameActive.current = true;
     raf = requestAnimationFrame(loop);
 
     return () => {
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
       canvas.removeEventListener("mousedown", onTap);

@@ -25,6 +25,7 @@ export function CatchStarsGame({ onGameEnd }: Props) {
   const lastSpawnRef = useRef(0);
   const startRef = useRef(0);
   const endedRef = useRef(false);
+  const gameActive = useRef(false);
   const [caught, setCaught] = useState(0);
   const [timeLeft, setTimeLeft] = useState(DURATION);
 
@@ -53,8 +54,10 @@ export function CatchStarsGame({ onGameEnd }: Props) {
     startRef.current = prev;
 
     const end = (won: boolean) => {
+      if (!gameActive.current) return;
       if (endedRef.current) return;
       endedRef.current = true;
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       onGameEnd(won);
     };
@@ -118,9 +121,11 @@ export function CatchStarsGame({ onGameEnd }: Props) {
       if (left <= 0) return end(false);
       raf = requestAnimationFrame(loop);
     };
+    gameActive.current = true;
     raf = requestAnimationFrame(loop);
 
     return () => {
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       canvas.removeEventListener("mousemove", mm);
       canvas.removeEventListener("touchmove", tm);
