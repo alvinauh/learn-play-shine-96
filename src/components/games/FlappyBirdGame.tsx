@@ -54,8 +54,10 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
     let prev = performance.now();
 
     const end = (won: boolean) => {
+      if (!gameActive.current) return;
       if (endedRef.current) return;
       endedRef.current = true;
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       onGameEnd(won);
     };
