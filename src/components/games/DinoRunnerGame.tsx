@@ -54,8 +54,10 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
     let elapsed = 0;
 
     const end = (won: boolean) => {
+      if (!gameActive.current) return;
       if (endedRef.current) return;
       endedRef.current = true;
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       onGameEnd(won);
     };
