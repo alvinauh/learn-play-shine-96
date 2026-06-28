@@ -65,6 +65,7 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - prev) / 1000);
       prev = now;
+      framesRef.current += 1;
 
       birdVyRef.current += 500 * dt;
       birdYRef.current += birdVyRef.current * dt;
@@ -81,7 +82,8 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
         if (hitX && (birdYRef.current - r < topH || birdYRef.current + r > botY)) {
           return end(false);
         }
-        if (!p.passed && p.x + PIPE_W < bx - r) {
+        // Only count a pass on an active frame after the bird's x has crossed the pipe's right edge
+        if (framesRef.current > 1 && !p.passed && p.x + PIPE_W < bx - r) {
           p.passed = true;
           scoreRef.current += 1;
           setScore(scoreRef.current);
