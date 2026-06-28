@@ -121,9 +121,11 @@ export function CatchStarsGame({ onGameEnd }: Props) {
       if (left <= 0) return end(false);
       raf = requestAnimationFrame(loop);
     };
+    gameActive.current = true;
     raf = requestAnimationFrame(loop);
 
     return () => {
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       canvas.removeEventListener("mousemove", mm);
       canvas.removeEventListener("touchmove", tm);
