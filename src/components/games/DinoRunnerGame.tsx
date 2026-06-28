@@ -23,6 +23,7 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
   const speedRef = useRef(200);
   const clearedRef = useRef(0);
   const endedRef = useRef(false);
+  const gameActive = useRef(false);
   const [cleared, setCleared] = useState(0);
 
   useEffect(() => {
