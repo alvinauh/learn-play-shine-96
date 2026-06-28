@@ -54,8 +54,10 @@ export function CatchStarsGame({ onGameEnd }: Props) {
     startRef.current = prev;
 
     const end = (won: boolean) => {
+      if (!gameActive.current) return;
       if (endedRef.current) return;
       endedRef.current = true;
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       onGameEnd(won);
     };
