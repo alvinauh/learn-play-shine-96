@@ -23,6 +23,8 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
   const pipesRef = useRef<Pipe[]>([{ x: W + 40, gapY: 200, passed: false }]);
   const scoreRef = useRef(0);
   const endedRef = useRef(false);
+  const gameActive = useRef(false);
+  const framesRef = useRef(0);
   const [score, setScore] = useState(0);
 
   useEffect(() => {
