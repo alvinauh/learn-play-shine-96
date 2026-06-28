@@ -126,9 +126,11 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
       if (scoreRef.current >= GOAL) return end(true);
       raf = requestAnimationFrame(loop);
     };
+    gameActive.current = true;
     raf = requestAnimationFrame(loop);
 
     return () => {
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
       canvas.removeEventListener("mousedown", onTap);
