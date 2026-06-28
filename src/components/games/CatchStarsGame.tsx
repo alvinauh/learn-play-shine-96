@@ -25,6 +25,7 @@ export function CatchStarsGame({ onGameEnd }: Props) {
   const lastSpawnRef = useRef(0);
   const startRef = useRef(0);
   const endedRef = useRef(false);
+  const gameActive = useRef(false);
   const [caught, setCaught] = useState(0);
   const [timeLeft, setTimeLeft] = useState(DURATION);
 
