@@ -129,9 +129,11 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
       if (clearedRef.current >= GOAL) return end(true);
       raf = requestAnimationFrame(loop);
     };
+    gameActive.current = true;
     raf = requestAnimationFrame(loop);
 
     return () => {
+      gameActive.current = false;
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
       canvas.removeEventListener("mousedown", onTap);
