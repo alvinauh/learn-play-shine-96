@@ -913,7 +913,7 @@ function StudentFeed() {
             <Trophy className="h-4 w-4" />
           </Link>
           <Link
-            to="/teacher"
+            to={profile?.role === "teacher" || profile?.role === "admin" ? "/teacher" : "/dashboard"}
             className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground transition"
           >
             <BarChart3 className="h-4 w-4" />
