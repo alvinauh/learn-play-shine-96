@@ -16,6 +16,8 @@ import appCss from "../styles.css?url";
 import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { installGlobalErrorLogger } from "@/lib/log-app-error";
+
 
 function NotFoundComponent() {
   return (
@@ -127,6 +129,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    installGlobalErrorLogger();
+  }, []);
+
 
   return (
     <QueryClientProvider client={queryClient}>
