@@ -887,6 +887,7 @@ function StudentFeed() {
         studentId={effectiveStudentId}
         formLevel={formLevel}
         onStart={handleStudyModeStart}
+        onJoinClass={handleJoinClass}
       />
     );
   }
