@@ -50,6 +50,59 @@ export type Database = {
         }
         Relationships: []
       }
+      assignments: {
+        Row: {
+          classroom_id: string
+          created_at: string
+          due_at: string | null
+          form_level: number | null
+          id: string
+          instructions: string | null
+          question_type: string | null
+          subject: string | null
+          teacher_id: string
+          title: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          classroom_id: string
+          created_at?: string
+          due_at?: string | null
+          form_level?: number | null
+          id?: string
+          instructions?: string | null
+          question_type?: string | null
+          subject?: string | null
+          teacher_id: string
+          title: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          classroom_id?: string
+          created_at?: string
+          due_at?: string | null
+          form_level?: number | null
+          id?: string
+          instructions?: string | null
+          question_type?: string | null
+          subject?: string | null
+          teacher_id?: string
+          title?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: false
+            referencedRelation: "classrooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classroom_members: {
         Row: {
           classroom_id: string
@@ -179,6 +232,14 @@ export type Database = {
       is_classroom_teacher: {
         Args: { _classroom_id: string; _user_id: string }
         Returns: boolean
+      }
+      join_classroom_by_code: {
+        Args: { _code: string }
+        Returns: {
+          already_member: boolean
+          classroom_id: string
+          classroom_name: string
+        }[]
       }
     }
     Enums: {
