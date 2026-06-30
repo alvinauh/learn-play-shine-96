@@ -148,7 +148,7 @@ function RootComponent() {
   );
 }
 
-const PUBLIC_PATHS = new Set(["/login"]);
+const PUBLIC_PATHS = new Set(["/login", "/reset-password"]);
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
@@ -188,6 +188,9 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
     }
     // Signed in: enforce role-based home
     if (!profile) return;
+    // Never redirect away from the password recovery page — Supabase
+    // establishes a temporary session here so the user can update their password.
+    if (path === "/reset-password") return;
     if (path === "/login") {
       void navigate({ to: profile.role === "teacher" ? "/teacher" : "/" });
       return;
