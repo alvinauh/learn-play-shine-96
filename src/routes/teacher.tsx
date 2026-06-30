@@ -217,6 +217,7 @@ function TeacherDashboard() {
           {([
             { key: "insights", label: "Insights", icon: LayoutDashboard },
             { key: "classrooms", label: "My Classrooms", icon: School },
+            { key: "assignments", label: "Assigned Tasks", icon: ClipboardList },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -236,6 +237,8 @@ function TeacherDashboard() {
 
         {tab === "classrooms" ? (
           <ClassroomsPanel />
+        ) : tab === "assignments" ? (
+          <AssignmentsPanel />
         ) : (
         <>
         {loading && (
