@@ -148,7 +148,7 @@ function RootComponent() {
   );
 }
 
-const PUBLIC_PATHS = new Set(["/login"]);
+const PUBLIC_PATHS = new Set(["/login", "/reset-password"]);
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
