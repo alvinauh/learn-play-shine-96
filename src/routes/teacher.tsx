@@ -65,6 +65,9 @@ function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [topStudents, setTopStudents] = useState<LeaderboardEntry[]>([]);
+  const [flaggedStudents, setFlaggedStudents] = useState<FlaggedStudent[]>([]);
+  const [misconceptionClusters, setMisconceptionClusters] = useState<MisconceptionCluster[]>([]);
+
 
   const unauthorized = !!profile && profile.role !== "teacher" && profile.role !== "admin";
 
