@@ -31,8 +31,12 @@ import {
   type ClassMasteryItem,
   type RecentAlert,
   type LeaderboardEntry,
+  type FlaggedStudent,
+  type MisconceptionCluster,
 } from "@/services/api";
 import { ClassroomsPanel } from "@/components/teacher/ClassroomsPanel";
+import { FlaggedStudentCard } from "@/components/FlaggedStudentCard";
+
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
