@@ -13,6 +13,7 @@ import {
   School,
   Trophy,
   Gamepad2,
+  ClipboardList,
 } from "lucide-react";
 import {
   Radar,
