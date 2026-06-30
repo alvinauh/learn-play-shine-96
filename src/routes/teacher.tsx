@@ -274,7 +274,63 @@ function TeacherDashboard() {
           />
         </section>
 
+        {flaggedStudents.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-amber-600 text-lg">⚠️</span>
+              <h3 className="font-semibold text-amber-900 text-base">
+                Students Needing Your Attention ({flaggedStudents.length})
+              </h3>
+            </div>
+            <p className="text-amber-700 text-sm mb-4">
+              These students have made the same type of error multiple times. The AI has attempted
+              to help but the misconception persists — direct teacher engagement is recommended.
+            </p>
+            <div className="space-y-3">
+              {flaggedStudents.map((student, idx) => (
+                <FlaggedStudentCard key={student.student_id || idx} student={student} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {misconceptionClusters.length > 0 && (
+          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+            <h3 className="font-semibold text-purple-900 text-base mb-1">
+              Class-Wide Misconception Patterns
+            </h3>
+            <p className="text-purple-700 text-sm mb-3">
+              When multiple students share the same error type, a whole-class reteach
+              may be more efficient than individual conversations.
+            </p>
+            <div className="space-y-2">
+              {misconceptionClusters.map((cluster, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-purple-100"
+                >
+                  <div>
+                    <span className="text-sm font-medium text-gray-900">
+                      {cluster.error_category}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-2">
+                      ({cluster.topics_affected.slice(0, 2).join(", ")}
+                      {cluster.topics_affected.length > 2
+                        ? ` +${cluster.topics_affected.length - 2} more`
+                        : ""})
+                    </span>
+                  </div>
+                  <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {cluster.student_count} student{cluster.student_count !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <section className="grid gap-6 lg:grid-cols-5">
+
           <div className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-card">
             <div className="flex items-start justify-between">
               <div>
