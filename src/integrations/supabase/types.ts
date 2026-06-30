@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_errors: {
+        Row: {
+          context: Json | null
+          created_at: string
+          id: string
+          level: string
+          message: string
+          source: string | null
+          stack: string | null
+          url: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          level?: string
+          message: string
+          source?: string | null
+          stack?: string | null
+          url?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          source?: string | null
+          stack?: string | null
+          url?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       classroom_members: {
         Row: {
           classroom_id: string
@@ -126,6 +162,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_set_user_role: {
+        Args: {
+          _new_role: Database["public"]["Enums"]["app_role"]
+          _target_user: string
+        }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
