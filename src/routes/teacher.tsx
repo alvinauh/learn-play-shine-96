@@ -13,6 +13,7 @@ import {
   School,
   Trophy,
   Gamepad2,
+  ClipboardList,
 } from "lucide-react";
 import {
   Radar,
@@ -35,6 +36,7 @@ import {
   type MisconceptionCluster,
 } from "@/services/api";
 import { ClassroomsPanel } from "@/components/teacher/ClassroomsPanel";
+import { AssignmentsPanel } from "@/components/teacher/AssignmentsPanel";
 import { FlaggedStudentCard } from "@/components/FlaggedStudentCard";
 
 import { useAuth } from "@/lib/auth";
@@ -56,7 +58,7 @@ function TeacherDashboard() {
   const { t } = useI18n();
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"insights" | "classrooms">("insights");
+  const [tab, setTab] = useState<"insights" | "classrooms" | "assignments">("insights");
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
   const [activeStudents, setActiveStudents] = useState<string>("-");
@@ -215,6 +217,7 @@ function TeacherDashboard() {
           {([
             { key: "insights", label: "Insights", icon: LayoutDashboard },
             { key: "classrooms", label: "My Classrooms", icon: School },
+            { key: "assignments", label: "Assigned Tasks", icon: ClipboardList },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -234,6 +237,8 @@ function TeacherDashboard() {
 
         {tab === "classrooms" ? (
           <ClassroomsPanel />
+        ) : tab === "assignments" ? (
+          <AssignmentsPanel />
         ) : (
         <>
         {loading && (

@@ -771,33 +771,98 @@ export async function fetchLeaderboard(
 }
 
 export async function joinClassroom(
-  studentId: string,
+  _studentId: string,
   inviteCode: string,
 ): Promise<{ success: boolean; classroomName?: string; message: string }> {
-  const code = inviteCode.trim().toLowerCase();
-  const { data: cls, error: findErr } = await supabase
-    .from("classrooms")
-    .select("id, name")
-    .eq("invite_code", code)
-    .maybeSingle();
+  const code = inviteCode.trim();
+  if (!code) return { success: false, message: "Enter an invite code." };
 
-  if (findErr || !cls) {
-    return { success: false, message: "Invalid invite code. Check with your teacher." };
+  const { data, error } = await supabase.rpc("join_classroom_by_code", { _code: code });
+  if (error) {
+    const msg = String(error.message ?? "");
+    if (/invalid_code/.test(msg))
+      return { success: false, message: "Invalid invite code. Check with your teacher." };
+    if (/not_authenticated/.test(msg))
+      return { success: false, message: "Please sign in first." };
+    return { success: false, message: msg || "Couldn't join the class." };
   }
-
-  const { error: insertErr } = await supabase
-    .from("classroom_members")
-    .insert({ classroom_id: cls.id, student_id: studentId });
-
-  if (insertErr) {
-    if (insertErr.code === "23505" || insertErr.message.includes("duplicate")) {
-      return { success: true, classroomName: cls.name, message: `You're already in ${cls.name}.` };
-    }
-    return { success: false, message: insertErr.message };
+  const row = Array.isArray(data) ? data[0] : data;
+  const name = (row?.classroom_name as string) ?? "the class";
+  if (row?.already_member) {
+    return { success: true, classroomName: name, message: `You're already in ${name}.` };
   }
-
-  return { success: true, classroomName: cls.name, message: `Joined ${cls.name}!` };
+  return { success: true, classroomName: name, message: `Joined ${name}!` };
 }
+
+// ============= Assignments =============
+export interface Assignment {
+  id: string;
+  classroom_id: string;
+  teacher_id: string;
+  title: string;
+  instructions: string | null;
+  subject: string | null;
+  topic: string | null;
+  form_level: number | null;
+  question_type: string | null;
+  due_at: string | null;
+  created_at: string;
+}
+
+export async function fetchAssignmentsForStudent(studentId: string): Promise<Assignment[]> {
+  const { data: members, error: mErr } = await supabase
+    .from("classroom_members")
+    .select("classroom_id")
+    .eq("student_id", studentId);
+  if (mErr || !members?.length) return [];
+  const ids = members.map((m) => m.classroom_id);
+  const { data, error } = await supabase
+    .from("assignments")
+    .select("*")
+    .in("classroom_id", ids)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.warn("[Skor] fetchAssignmentsForStudent failed:", error.message);
+    return [];
+  }
+  return (data ?? []) as Assignment[];
+}
+
+export async function fetchAssignmentsForTeacher(teacherId: string): Promise<Assignment[]> {
+  const { data, error } = await supabase
+    .from("assignments")
+    .select("*")
+    .eq("teacher_id", teacherId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.warn("[Skor] fetchAssignmentsForTeacher failed:", error.message);
+    return [];
+  }
+  return (data ?? []) as Assignment[];
+}
+
+export async function createAssignment(input: {
+  classroom_id: string;
+  teacher_id: string;
+  title: string;
+  instructions?: string;
+  subject?: string;
+  topic?: string;
+  form_level?: number;
+  question_type?: string;
+  due_at?: string | null;
+}): Promise<{ success: boolean; message: string }> {
+  const { error } = await supabase.from("assignments").insert(input);
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: "Assignment created." };
+}
+
+export async function deleteAssignment(id: string): Promise<{ success: boolean; message: string }> {
+  const { error } = await supabase.from("assignments").delete().eq("id", id);
+  if (error) return { success: false, message: error.message };
+  return { success: true, message: "Deleted." };
+}
+
 
 
 
