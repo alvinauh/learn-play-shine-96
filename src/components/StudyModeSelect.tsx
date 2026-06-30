@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
-import { Target, BookOpen, Sparkles } from "lucide-react";
+import { Target, BookOpen, Sparkles, School } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 import {
   fetchDiagnosticProgress,
   type DiagnosticProgress,
 } from "@/services/api";
 
-export type StudyMode = "diagnostic" | "free_practice";
+export type StudyMode = "diagnostic" | "free_practice" | "join_class";
 
 interface Props {
   studentId: string;
   formLevel: number;
   initialMode?: StudyMode | null;
   onStart: (mode: StudyMode) => void;
+  onJoinClass?: (code: string) => Promise<void>;
 }
 
 export function StudyModeSelect({ studentId, formLevel, initialMode, onStart }: Props) {
