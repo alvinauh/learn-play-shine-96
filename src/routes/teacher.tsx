@@ -107,6 +107,9 @@ function TeacherDashboard() {
               ? data.weakest_topic
               : "-",
           );
+          setFlaggedStudents(Array.isArray(data?.flagged_students) ? data.flagged_students : []);
+          setMisconceptionClusters(Array.isArray(data?.misconception_clusters) ? data.misconception_clusters : []);
+
         })
         .catch((err) => {
           if (cancelled || !initial) return;
