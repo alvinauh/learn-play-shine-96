@@ -20,7 +20,7 @@ export async function logAppError(params: LogParams): Promise<void> {
       source: params.source ?? null,
       url: typeof window !== "undefined" ? window.location.href : null,
       stack: params.stack?.slice(0, 4000) ?? null,
-      context: params.context ?? null,
+      context: (params.context ?? null) as never,
     });
   } catch {
     // Logging must never throw.
