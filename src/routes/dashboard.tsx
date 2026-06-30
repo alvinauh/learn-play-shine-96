@@ -48,7 +48,7 @@ function StudentDashboard() {
   const { user, profile, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { lang } = useI18n();
-  const isBM = lang === "bm";
+  const isBM = lang === "ms";
 
   const studentId = user?.id ?? FALLBACK_ID;
 
