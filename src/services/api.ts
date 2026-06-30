@@ -111,7 +111,11 @@ export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
 }
 
 export interface SubjectWithTopics {
+  display_label: string;
+  name: string;
   subject: string;
+  curriculum: string;
+  form: number | null;
   topics: string[];
 }
 
@@ -130,7 +134,16 @@ export async function fetchSubjects(formLevel?: number): Promise<SubjectWithTopi
     console.error("[Skor API] /subjects error body:", text);
     throw new ApiResponseError(res.status);
   }
-  const data = (await res.json()) as { subjects?: Array<{ subject?: string; topics?: string[] }> };
+  const data = (await res.json()) as {
+    subjects?: Array<{
+      display_label?: string;
+      name?: string;
+      subject?: string;
+      curriculum?: string;
+      form?: number | null;
+      topics?: string[];
+    }>;
+  };
   console.log("[Skor API] /subjects raw response:", data);
   const seen = new Set<string>();
   const out: SubjectWithTopics[] = [];
@@ -141,7 +154,14 @@ export async function fetchSubjects(formLevel?: number): Promise<SubjectWithTopi
     const topics = Array.isArray(item?.topics)
       ? item!.topics!.map((t) => (typeof t === "string" ? t.trim() : "")).filter((t) => t.length > 0)
       : [];
-    out.push({ subject: name, topics });
+    out.push({
+      display_label: (item?.display_label ?? item?.name ?? name).trim(),
+      name: (item?.name ?? name).trim(),
+      subject: name,
+      curriculum: (item?.curriculum ?? "").trim(),
+      form: item?.form ?? null,
+      topics,
+    });
   }
   return out.filter((s) => s.subject.length > 0);
 }

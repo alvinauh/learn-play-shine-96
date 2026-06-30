@@ -1063,8 +1063,8 @@ function StudentFeed() {
             </SelectTrigger>
             <SelectContent>
               {subjects.map((s) => (
-                <SelectItem key={s.subject} value={s.subject}>
-                  {s.subject}
+                <SelectItem key={`${s.curriculum}-${s.subject}-${s.form}`} value={s.subject}>
+                  {s.display_label}
                 </SelectItem>
               ))}
             </SelectContent>
