@@ -36,6 +36,7 @@ import {
   type MisconceptionCluster,
 } from "@/services/api";
 import { ClassroomsPanel } from "@/components/teacher/ClassroomsPanel";
+import { AssignmentsPanel } from "@/components/teacher/AssignmentsPanel";
 import { FlaggedStudentCard } from "@/components/FlaggedStudentCard";
 
 import { useAuth } from "@/lib/auth";
