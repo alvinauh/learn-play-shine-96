@@ -17,13 +17,33 @@ export interface RecentAlert {
   action?: string;
 }
 
+export interface FlaggedStudent {
+  student_id: string;
+  topic: string;
+  error_category: string;
+  wrong_count: number;
+  root_cause: string;
+  last_seen: string;
+  intervention_script: string;
+  suggested_activity: string;
+}
+
+export interface MisconceptionCluster {
+  error_category: string;
+  student_count: number;
+  topics_affected: string[];
+}
+
 export interface TeacherInsightsResponse {
   class_mastery: ClassMasteryItem[];
   recent_alerts: RecentAlert[];
   active_students?: number;
   class_average_mastery?: number;
   weakest_topic?: string;
+  flagged_students: FlaggedStudent[];
+  misconception_clusters: MisconceptionCluster[];
 }
+
 
 export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
   const res = await fetch(`${BASE_URL}/teacher_insights?t=${Date.now()}`, {
