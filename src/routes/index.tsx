@@ -33,6 +33,7 @@ import {
   requestStudentCoach,
   fetchStudentCoach,
   startDiagnosticSession,
+  joinClassroom,
   type SessionResponse,
   type AnswerResponse,
   type MockBundle,
