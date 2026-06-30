@@ -1,6 +1,8 @@
 // Direct HTTPS endpoint to the quiz backend. CORS is configured upstream to allow lovable preview/published domains.
 export const BASE_URL = "https://178.105.130.105.nip.io:8443";
 
+import { supabase } from "@/integrations/supabase/client";
+
 export interface ClassMasteryItem {
   subject: string;
   mastery: number;
@@ -747,6 +749,36 @@ export async function fetchLeaderboard(
     return { subject: subject ?? null, leaderboard: [] };
   }
 }
+
+export async function joinClassroom(
+  studentId: string,
+  inviteCode: string,
+): Promise<{ success: boolean; classroomName?: string; message: string }> {
+  const code = inviteCode.trim().toLowerCase();
+  const { data: cls, error: findErr } = await supabase
+    .from("classrooms")
+    .select("id, name")
+    .eq("invite_code", code)
+    .maybeSingle();
+
+  if (findErr || !cls) {
+    return { success: false, message: "Invalid invite code. Check with your teacher." };
+  }
+
+  const { error: insertErr } = await supabase
+    .from("classroom_members")
+    .insert({ classroom_id: cls.id, student_id: studentId });
+
+  if (insertErr) {
+    if (insertErr.code === "23505" || insertErr.message.includes("duplicate")) {
+      return { success: true, classroomName: cls.name, message: `You're already in ${cls.name}.` };
+    }
+    return { success: false, message: insertErr.message };
+  }
+
+  return { success: true, classroomName: cls.name, message: `Joined ${cls.name}!` };
+}
+
 
 
 
