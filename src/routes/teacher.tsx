@@ -58,7 +58,7 @@ function TeacherDashboard() {
   const { t } = useI18n();
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"insights" | "classrooms">("insights");
+  const [tab, setTab] = useState<"insights" | "classrooms" | "assignments">("insights");
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
   const [activeStudents, setActiveStudents] = useState<string>("-");
