@@ -652,6 +652,7 @@ function StudentFeed() {
   };
 
   const handleStudyModeStart = (mode: StudyMode) => {
+    if (mode === "join_class") return;
     setStudyMode(mode);
     setDiagnosticComplete(false);
     setQuestionNumber(1);
@@ -666,6 +667,15 @@ function StudentFeed() {
       } else {
         void loadSubjectsForLevel(formLevel, { autoStart: true });
       }
+    }
+  };
+
+  const handleJoinClass = async (code: string) => {
+    const res = await joinClassroom(effectiveStudentId, code);
+    if (res.success) {
+      toast.success(res.message);
+    } else {
+      toast.error(res.message);
     }
   };
 
