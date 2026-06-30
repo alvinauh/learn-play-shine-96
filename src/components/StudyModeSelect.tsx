@@ -149,14 +149,68 @@ export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, on
                 </div>
               </div>
             </button>
+
+            {/* Join Class */}
+            <button
+              type="button"
+              onClick={() => setSelected("join_class")}
+              className={cn(
+                "rounded-xl border-2 p-5 text-left transition",
+                selected === "join_class"
+                  ? "border-white ring-2 ring-white bg-indigo-500/20"
+                  : "border-indigo-400 bg-indigo-900/30 hover:bg-indigo-800/40",
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-indigo-500/30 text-2xl">
+                  <School className="h-6 w-6 text-indigo-200" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-display text-lg font-bold text-white">
+                    {isMs ? "Sertai Kelas" : "Join Class"}
+                  </h2>
+                  <p className="mt-1 text-sm text-indigo-100">
+                    {isMs ? "Masukkan kod jemputan guru anda" : "Enter your teacher's invite code"}
+                  </p>
+                </div>
+              </div>
+            </button>
           </div>
 
+          {selected === "join_class" && (
+            <div className="mt-3">
+              <Input
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
+                placeholder={isMs ? "Kod jemputan" : "Invite code"}
+                className="h-12 rounded-xl border-indigo-400/60 bg-indigo-900/40 text-center text-lg font-bold uppercase tracking-widest text-white placeholder:text-indigo-300/60 focus-visible:ring-white"
+                maxLength={16}
+              />
+            </div>
+          )}
+
           <Button
-            onClick={() => selected && onStart(selected)}
-            disabled={!selected}
+            onClick={() => {
+              if (selected === "join_class") {
+                if (!joinCode.trim() || !onJoinClass) return;
+                setJoining(true);
+                void onJoinClass(joinCode.trim()).finally(() => {
+                  setJoining(false);
+                  setJoinCode("");
+                  setSelected(null);
+                });
+              } else if (selected) {
+                onStart(selected);
+              }
+            }}
+            disabled={!selected || (selected === "join_class" && !joinCode.trim()) || joining}
             className="mt-6 h-14 w-full rounded-xl bg-indigo-500 text-base font-bold text-white shadow-glow hover:bg-indigo-400 disabled:opacity-50"
           >
-            Let&apos;s Go →
+            {joining
+              ? (isMs ? "Menyertai…" : "Joining…")
+              : selected === "join_class"
+                ? (isMs ? "Sertai Kelas →" : "Join Class →")
+                : "Let's Go →"}
           </Button>
         </div>
       </main>
