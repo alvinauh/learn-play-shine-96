@@ -19,10 +19,14 @@ interface Props {
   onJoinClass?: (code: string) => Promise<void>;
 }
 
-export function StudyModeSelect({ studentId, formLevel, initialMode, onStart }: Props) {
+export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, onJoinClass }: Props) {
+  const { lang } = useI18n();
+  const isMs = lang === "ms";
   const [progress, setProgress] = useState<DiagnosticProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<StudyMode | null>(initialMode ?? null);
+  const [joinCode, setJoinCode] = useState("");
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
