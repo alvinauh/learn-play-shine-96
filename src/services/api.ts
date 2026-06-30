@@ -63,7 +63,10 @@ export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
     active_students?: number;
     class_average_mastery?: number;
     weakest_topic?: string;
+    flagged_students?: FlaggedStudent[];
+    misconception_clusters?: MisconceptionCluster[];
   };
+
 
   const class_mastery: ClassMasteryItem[] = (raw.class_mastery ?? [])
     .map((m) => ({
