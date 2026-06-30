@@ -888,6 +888,14 @@ function StudentFeed() {
         formLevel={formLevel}
         onStart={handleStudyModeStart}
         onJoinClass={handleJoinClass}
+        onStartAssignment={(a) => {
+          if (a.subject && a.topic) {
+            setStudyMode("free_practice");
+            void loadSession(a.subject, a.topic, activeLanguage, false);
+          } else {
+            setStudyMode("free_practice");
+          }
+        }}
       />
     );
   }
