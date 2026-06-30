@@ -17,13 +17,33 @@ export interface RecentAlert {
   action?: string;
 }
 
+export interface FlaggedStudent {
+  student_id: string;
+  topic: string;
+  error_category: string;
+  wrong_count: number;
+  root_cause: string;
+  last_seen: string;
+  intervention_script: string;
+  suggested_activity: string;
+}
+
+export interface MisconceptionCluster {
+  error_category: string;
+  student_count: number;
+  topics_affected: string[];
+}
+
 export interface TeacherInsightsResponse {
   class_mastery: ClassMasteryItem[];
   recent_alerts: RecentAlert[];
   active_students?: number;
   class_average_mastery?: number;
   weakest_topic?: string;
+  flagged_students: FlaggedStudent[];
+  misconception_clusters: MisconceptionCluster[];
 }
+
 
 export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
   const res = await fetch(`${BASE_URL}/teacher_insights?t=${Date.now()}`, {
@@ -43,7 +63,10 @@ export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
     active_students?: number;
     class_average_mastery?: number;
     weakest_topic?: string;
+    flagged_students?: FlaggedStudent[];
+    misconception_clusters?: MisconceptionCluster[];
   };
+
 
   const class_mastery: ClassMasteryItem[] = (raw.class_mastery ?? [])
     .map((m) => ({
@@ -79,7 +102,10 @@ export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
       typeof raw.weakest_topic === "string" && raw.weakest_topic.trim().length > 0
         ? raw.weakest_topic
         : weakest?.subject,
+    flagged_students: Array.isArray(raw.flagged_students) ? raw.flagged_students : [],
+    misconception_clusters: Array.isArray(raw.misconception_clusters) ? raw.misconception_clusters : [],
   };
+
 }
 
 export interface SubjectWithTopics {
