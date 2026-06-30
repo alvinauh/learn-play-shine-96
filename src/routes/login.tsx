@@ -31,8 +31,10 @@ function LoginPage() {
 
   useEffect(() => {
     if (loading || !user) return;
-    if (profile?.role === "teacher") void navigate({ to: "/teacher" });
+    if (profile?.role === "admin") void navigate({ to: "/admin" });
+    else if (profile?.role === "teacher") void navigate({ to: "/teacher" });
     else void navigate({ to: "/" });
+
   }, [user, profile, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
