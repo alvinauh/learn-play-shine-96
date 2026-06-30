@@ -102,7 +102,10 @@ export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
       typeof raw.weakest_topic === "string" && raw.weakest_topic.trim().length > 0
         ? raw.weakest_topic
         : weakest?.subject,
+    flagged_students: Array.isArray(raw.flagged_students) ? raw.flagged_students : [],
+    misconception_clusters: Array.isArray(raw.misconception_clusters) ? raw.misconception_clusters : [],
   };
+
 }
 
 export interface SubjectWithTopics {
