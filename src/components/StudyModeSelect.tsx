@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { Target, BookOpen, Sparkles, School } from "lucide-react";
+import { Target, BookOpen, Sparkles, School, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import {
   fetchDiagnosticProgress,
+  fetchAssignmentsForStudent,
   type DiagnosticProgress,
+  type Assignment,
 } from "@/services/api";
 
-export type StudyMode = "diagnostic" | "free_practice" | "join_class";
+export type StudyMode = "diagnostic" | "free_practice" | "join_class" | "assignments";
 
 interface Props {
   studentId: string;
@@ -17,9 +19,17 @@ interface Props {
   initialMode?: StudyMode | null;
   onStart: (mode: StudyMode) => void;
   onJoinClass?: (code: string) => Promise<void>;
+  onStartAssignment?: (assignment: Assignment) => void;
 }
 
-export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, onJoinClass }: Props) {
+export function StudyModeSelect({
+  studentId,
+  formLevel,
+  initialMode,
+  onStart,
+  onJoinClass,
+  onStartAssignment,
+}: Props) {
   const { lang } = useI18n();
   const isMs = lang === "ms";
   const [progress, setProgress] = useState<DiagnosticProgress | null>(null);
@@ -27,6 +37,8 @@ export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, on
   const [selected, setSelected] = useState<StudyMode | null>(initialMode ?? null);
   const [joinCode, setJoinCode] = useState("");
   const [joining, setJoining] = useState(false);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +47,6 @@ export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, on
       if (cancelled) return;
       setProgress(p);
       setLoading(false);
-      // Auto-select Diagnostic if resuming
       if (!initialMode && p && !p.diagnostic_complete && p.questions_answered > 0) {
         setSelected("diagnostic");
       }
@@ -44,6 +55,14 @@ export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, on
       cancelled = true;
     };
   }, [studentId, formLevel, initialMode]);
+
+  useEffect(() => {
+    if (selected !== "assignments") return;
+    setAssignmentsLoading(true);
+    void fetchAssignmentsForStudent(studentId)
+      .then(setAssignments)
+      .finally(() => setAssignmentsLoading(false));
+  }, [selected, studentId]);
 
   const answered = progress?.questions_answered ?? 0;
   const total = progress?.total ?? 10;
@@ -80,14 +99,12 @@ export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, on
               )}
             >
               <div className="flex items-start gap-3">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-indigo-500/30 text-2xl">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-indigo-500/30">
                   <Target className="h-6 w-6 text-indigo-200" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h2 className="font-display text-lg font-bold text-white">
-                      Diagnostic Test
-                    </h2>
+                    <h2 className="font-display text-lg font-bold text-white">Diagnostic Test</h2>
                     {fresh && (
                       <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-950">
                         Recommended
@@ -138,13 +155,37 @@ export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, on
               )}
             >
               <div className="flex items-start gap-3">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-indigo-500/30 text-2xl">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-indigo-500/30">
                   <BookOpen className="h-6 w-6 text-indigo-200" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="font-display text-lg font-bold text-white">Free Practice</h2>
+                  <p className="mt-1 text-sm text-indigo-100">Pick any subject and topic to practise</p>
+                </div>
+              </div>
+            </button>
+
+            {/* Assigned Tasks */}
+            <button
+              type="button"
+              onClick={() => setSelected("assignments")}
+              className={cn(
+                "rounded-xl border-2 p-5 text-left transition",
+                selected === "assignments"
+                  ? "border-white ring-2 ring-white bg-indigo-500/20"
+                  : "border-indigo-400 bg-indigo-900/30 hover:bg-indigo-800/40",
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-indigo-500/30">
+                  <ClipboardList className="h-6 w-6 text-indigo-200" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-display text-lg font-bold text-white">
+                    {isMs ? "Tugasan Diberi" : "Assigned Tasks"}
+                  </h2>
                   <p className="mt-1 text-sm text-indigo-100">
-                    Pick any subject and topic to practise
+                    {isMs ? "Tugasan dari guru anda" : "Tasks from your teacher"}
                   </p>
                 </div>
               </div>
@@ -162,7 +203,7 @@ export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, on
               )}
             >
               <div className="flex items-start gap-3">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-indigo-500/30 text-2xl">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-indigo-500/30">
                   <School className="h-6 w-6 text-indigo-200" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -189,6 +230,44 @@ export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, on
             </div>
           )}
 
+          {selected === "assignments" && (
+            <div className="mt-3 space-y-2 max-h-72 overflow-auto rounded-xl border border-indigo-400/40 bg-indigo-950/40 p-2">
+              {assignmentsLoading ? (
+                <p className="p-3 text-center text-sm text-indigo-200/80">Loading tasks…</p>
+              ) : assignments.length === 0 ? (
+                <p className="p-3 text-center text-sm text-indigo-200/80">
+                  {isMs ? "Tiada tugasan lagi. Sertai kelas dahulu." : "No tasks yet. Join a class first."}
+                </p>
+              ) : (
+                assignments.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => onStartAssignment?.(a)}
+                    className="w-full rounded-lg border border-indigo-400/40 bg-indigo-900/40 p-3 text-left text-white hover:bg-indigo-800/50 transition"
+                  >
+                    <div className="font-semibold text-sm">{a.title}</div>
+                    <div className="mt-0.5 text-xs text-indigo-200/80">
+                      {[a.subject, a.topic, a.form_level && `Form ${a.form_level}`]
+                        .filter(Boolean)
+                        .join(" · ") || "Practice"}
+                    </div>
+                    {a.instructions && (
+                      <div className="mt-1 text-xs text-indigo-100/90 line-clamp-2">
+                        {a.instructions}
+                      </div>
+                    )}
+                    {a.due_at && (
+                      <div className="mt-1 text-[10px] uppercase tracking-wider text-yellow-300">
+                        Due {new Date(a.due_at).toLocaleDateString()}
+                      </div>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
           <Button
             onClick={() => {
               if (selected === "join_class") {
@@ -199,18 +278,28 @@ export function StudyModeSelect({ studentId, formLevel, initialMode, onStart, on
                   setJoinCode("");
                   setSelected(null);
                 });
+              } else if (selected === "assignments") {
+                // No-op: user picks an individual assignment from the list above.
+                return;
               } else if (selected) {
                 onStart(selected);
               }
             }}
-            disabled={!selected || (selected === "join_class" && !joinCode.trim()) || joining}
+            disabled={
+              !selected ||
+              (selected === "join_class" && !joinCode.trim()) ||
+              selected === "assignments" ||
+              joining
+            }
             className="mt-6 h-14 w-full rounded-xl bg-indigo-500 text-base font-bold text-white shadow-glow hover:bg-indigo-400 disabled:opacity-50"
           >
             {joining
               ? (isMs ? "Menyertai…" : "Joining…")
               : selected === "join_class"
                 ? (isMs ? "Sertai Kelas →" : "Join Class →")
-                : "Let's Go →"}
+                : selected === "assignments"
+                  ? (isMs ? "Pilih tugasan di atas" : "Pick a task above")
+                  : "Let's Go →"}
           </Button>
         </div>
       </main>
