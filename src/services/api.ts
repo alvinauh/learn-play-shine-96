@@ -978,6 +978,18 @@ export async function fetchStudentInsights(studentId: string): Promise<StudentIn
   return data.insights;
 }
 
+export interface StudentDashboard {
+  student_id: string;
+  overall_progress: number;
+  radar: { subject: string; mastery: number }[];
+  insights: StudentInsight[];
+}
+export async function fetchStudentDashboard(studentId: string): Promise<StudentDashboard> {
+  const res = await fetch(`${BASE_URL}/student_dashboard/${studentId}`);
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<StudentDashboard>;
+}
+
 
 
 

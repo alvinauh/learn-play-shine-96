@@ -23,7 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { generateAiTask, assignAiTask, fetchMasteryMap, fetchStudentInsights, type GenerateTaskResult } from "@/services/api";
+import { generateAiTask, assignAiTask, fetchStudentDashboard, type GenerateTaskResult } from "@/services/api";
 
 interface Classroom {
   id: string;
@@ -618,41 +618,19 @@ function StudentDetail({
   useEffect(() => {
     let cancelled = false;
     setDetailLoading(true);
-
-    const loadMastery = fetchMasteryMap(student.id).then((data) => {
+    void fetchStudentDashboard(student.id).then((data) => {
       if (cancelled) return;
       setOverallProgress(data.overall_progress);
-      const radar = Object.entries(data.mastery_map)
-        .map(([subj, topics]) => ({
-          subject: subj
-            .replace("Additional Mathematics", "Add Math")
-            .replace("Pendidikan Moral", "P. Moral")
-            .replace("Pendidikan Seni Visual", "PSV")
-            .replace("Pendidikan Muzik", "P. Muzik"),
-          mastery: topics.length
-            ? Math.round((topics.reduce((s, t) => s + t.mastery_score, 0) / topics.length) * 100)
-            : 0,
-        }))
-        .filter((r) => r.mastery > 0)
-        .sort((a, b) => b.mastery - a.mastery)
-        .slice(0, 8);
-      setRadarData(radar);
-    }).catch(() => {});
-
-    const loadInsights = fetchStudentInsights(student.id).then((data) => {
-      if (cancelled) return;
-      setInsights(data.slice(0, 5).map((g) => ({
+      setRadarData(data.radar);
+      setInsights(data.insights.slice(0, 5).map((g) => ({
         severity: g.count >= 3 ? "destructive" : "warning",
         text: g.root_cause || g.error_category || "Misconception detected",
         topic: g.topic,
         count: g.count,
       })));
-    }).catch(() => {});
-
-    void Promise.all([loadMastery, loadInsights]).finally(() => {
+    }).catch(() => {}).finally(() => {
       if (!cancelled) setDetailLoading(false);
     });
-
     return () => { cancelled = true; };
   }, [student.id]);
 
