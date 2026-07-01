@@ -1575,6 +1575,16 @@ function StudentFeed() {
                 <p className="mt-1 text-sm text-foreground/90">{feedback.misconception}</p>
               </div>
             )}
+            {session?.source_excerpt && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                <div className="text-xs font-semibold uppercase tracking-widest text-amber-400">
+                  📖 {activeLanguage === "ms" ? "Dari buku teks" : "From the textbook"}
+                </div>
+                <div className="mt-1 border-t border-amber-500/20 pt-2">
+                  <p className="text-sm italic text-amber-100/90">"{session.source_excerpt}"</p>
+                </div>
+              </div>
+            )}
             <Button
               onClick={handleNext}
               size="lg"

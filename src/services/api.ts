@@ -204,6 +204,7 @@ export interface SessionResponse {
   mnemonic_lyrics?: string[];
   question_type?: QuestionType;
   illustrative_notes?: string;
+  source_excerpt?: string;
   audio_url?: string;
   passage?: string;
   lesson_id?: string;
@@ -277,6 +278,7 @@ interface StartSessionApiResponse {
     explanation?: string;
     question_type?: QuestionType;
     illustrative_notes?: string;
+    source_excerpt?: string;
     audio_url?: string;
     passage?: string;
   };
@@ -364,6 +366,7 @@ function normalizeSessionResponse(
     question_type:
       data.question_type ?? data.question_data?.question_type ?? data.draft?.question_type ?? "mcq",
     illustrative_notes: data.question_data?.illustrative_notes,
+    source_excerpt: data.question_data?.source_excerpt,
     audio_url: data.audio_url ?? data.question_data?.audio_url,
     passage: data.passage ?? data.question_data?.passage,
     lesson_id: data.lesson_id,
