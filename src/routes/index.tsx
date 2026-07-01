@@ -346,7 +346,6 @@ function RateLimitWaitingCard({
 function StudentFeed() {
   const { t, lang, setLang } = useI18n();
   const { user, profile, signOut } = useAuth();
-  const STUDENT_ID = "00000000-0000-0000-0000-000000000001";
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [videoBroll, setVideoBroll] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
@@ -516,7 +515,7 @@ function StudentFeed() {
     setSession(null);
     try {
       const data = await startSession(
-        user?.id ?? STUDENT_ID,
+        effectiveStudentId,
         target,
         "KSSM",
         apiLanguage,
@@ -1262,7 +1261,7 @@ function StudentFeed() {
             h5pContent={session.h5p_content as Parameters<typeof InteractiveVideoPlayer>[0]["h5pContent"]}
             questionData={(session.question_data ?? {}) as Record<string, unknown>}
             sessionId={session.session_id ?? ""}
-            studentId={user?.id ?? STUDENT_ID}
+            studentId={effectiveStudentId}
             topic={session.topic ?? activeTopic}
             subject={session.subject ?? activeSubject}
             language={langToApi(activeLanguage)}
@@ -1618,7 +1617,7 @@ function StudentFeed() {
         <TutorChatDrawer
           open={tutorChatOpen}
           onClose={() => setTutorChatOpen(false)}
-          studentId={user?.id ?? STUDENT_ID}
+          studentId={effectiveStudentId}
           lessonId={session.lesson_id ?? session.session_id}
           language={activeLanguage}
         />
