@@ -169,15 +169,10 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
       const invite = params.get("invite");
       if (invite) {
         void (async () => {
-          const { data: cls } = await supabase
-            .from("classrooms")
-            .select("id")
-            .eq("invite_code", invite)
-            .maybeSingle();
-          if (cls?.id) {
-            await supabase
-              .from("classroom_members")
-              .insert({ classroom_id: cls.id, student_id: user.id });
+          // Use the RPC (SECURITY DEFINER) so the insert succeeds regardless of RLS policies
+          const { error } = await supabase.rpc("join_classroom_by_code", { _code: invite.trim() });
+          if (error) {
+            console.warn("[Skor] invite-link join failed:", error.message);
           }
           // Clean URL
           const url = new URL(window.location.href);

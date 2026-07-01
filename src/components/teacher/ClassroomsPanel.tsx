@@ -60,6 +60,7 @@ export function ClassroomsPanel() {
       const { data: cls, error: e1 } = await supabase
         .from("classrooms")
         .select("id, name, subject, invite_code, created_at")
+        .eq("teacher_id", user.id)
         .order("created_at", { ascending: false });
       if (e1) throw e1;
       const classroomsList = (cls ?? []) as Classroom[];

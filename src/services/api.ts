@@ -1,5 +1,4 @@
-// Direct HTTPS endpoint to the quiz backend. CORS is configured upstream to allow lovable preview/published domains.
-export const BASE_URL = "https://178.105.130.105.nip.io:8443";
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://api.kuasa.tech:8443";
 
 import { supabase } from "@/integrations/supabase/client";
 

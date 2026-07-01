@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 const UPSTREAM_BASE_URL =
   process.env.SKOR_API_BASE_URL ??
   process.env.VITE_API_BASE_URL ??
-  "http://178.105.130.105:8001";
+  "https://api.kuasa.tech:8443";
 
 function buildCorsHeaders(request: Request) {
   const origin = request.headers.get("origin") ?? "*";
