@@ -23,7 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { generateAiTask, assignAiTask, type GenerateTaskResult } from "@/services/api";
+import { generateAiTask, assignAiTask, fetchMasteryMap, fetchStudentInsights, type GenerateTaskResult } from "@/services/api";
 
 interface Classroom {
   id: string;
@@ -603,32 +603,6 @@ function AiTaskDialog({
   );
 }
 
-const SAMPLE_MASTERY = [
-  { subject: "Kinematics", mastery: 78 },
-  { subject: "Forces", mastery: 64 },
-  { subject: "Electromagnetism", mastery: 42 },
-  { subject: "Cell Division", mastery: 81 },
-  { subject: "Sejarah", mastery: 70 },
-];
-
-const SAMPLE_INSIGHTS = [
-  {
-    severity: "destructive",
-    text: "Confuses velocity with acceleration in projectile motion.",
-    topic: "Kinematics",
-  },
-  {
-    severity: "warning",
-    text: "Right-hand rule applied incorrectly for current direction.",
-    topic: "Electromagnetism",
-  },
-  {
-    severity: "success",
-    text: "Strong grasp of mitosis vs meiosis distinction.",
-    topic: "Cell Division",
-  },
-];
-
 function StudentDetail({
   student,
   onBack,
@@ -636,6 +610,52 @@ function StudentDetail({
   student: StudentRow;
   onBack: () => void;
 }) {
+  const [radarData, setRadarData] = useState<{ subject: string; mastery: number }[]>([]);
+  const [insights, setInsights] = useState<{ severity: string; text: string; topic: string; count: number }[]>([]);
+  const [overallProgress, setOverallProgress] = useState<number | null>(null);
+  const [detailLoading, setDetailLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDetailLoading(true);
+
+    const loadMastery = fetchMasteryMap(student.id).then((data) => {
+      if (cancelled) return;
+      setOverallProgress(data.overall_progress);
+      const radar = Object.entries(data.mastery_map)
+        .map(([subj, topics]) => ({
+          subject: subj
+            .replace("Additional Mathematics", "Add Math")
+            .replace("Pendidikan Moral", "P. Moral")
+            .replace("Pendidikan Seni Visual", "PSV")
+            .replace("Pendidikan Muzik", "P. Muzik"),
+          mastery: topics.length
+            ? Math.round((topics.reduce((s, t) => s + t.mastery_score, 0) / topics.length) * 100)
+            : 0,
+        }))
+        .filter((r) => r.mastery > 0)
+        .sort((a, b) => b.mastery - a.mastery)
+        .slice(0, 8);
+      setRadarData(radar);
+    }).catch(() => {});
+
+    const loadInsights = fetchStudentInsights(student.id).then((data) => {
+      if (cancelled) return;
+      setInsights(data.slice(0, 5).map((g) => ({
+        severity: g.count >= 3 ? "destructive" : "warning",
+        text: g.root_cause || g.error_category || "Misconception detected",
+        topic: g.topic,
+        count: g.count,
+      })));
+    }).catch(() => {});
+
+    void Promise.all([loadMastery, loadInsights]).finally(() => {
+      if (!cancelled) setDetailLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [student.id]);
+
   return (
     <div className="space-y-6">
       <button
@@ -660,74 +680,92 @@ function StudentDetail({
             </p>
           </div>
         </div>
-        <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">
-          Active
-        </span>
+        {overallProgress !== null && (
+          <div className="text-right">
+            <p className="text-2xl font-bold">{Math.round(overallProgress * 100)}%</p>
+            <p className="text-xs text-muted-foreground">overall curriculum</p>
+          </div>
+        )}
       </div>
 
-      <section className="grid gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-card">
-          <h3 className="font-display text-lg font-semibold">Mastery radar</h3>
-          <p className="text-sm text-muted-foreground">
-            Topic-level mastery snapshot for this student.
-          </p>
-          <div className="mt-4 h-[340px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={SAMPLE_MASTERY} outerRadius="78%">
-                <PolarGrid stroke="oklch(0.30 0.03 280)" />
-                <PolarAngleAxis
-                  dataKey="subject"
-                  tick={{ fill: "oklch(0.85 0.02 280)", fontSize: 12, fontWeight: 500 }}
-                />
-                <PolarRadiusAxis
-                  angle={90}
-                  domain={[0, 100]}
-                  tick={{ fill: "oklch(0.55 0.02 280)", fontSize: 10 }}
-                  stroke="oklch(0.30 0.03 280)"
-                />
-                <Radar
-                  name="Mastery"
-                  dataKey="mastery"
-                  stroke="oklch(0.65 0.28 300)"
-                  fill="oklch(0.65 0.28 300)"
-                  fillOpacity={0.45}
-                  strokeWidth={2}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "oklch(0.20 0.025 280)",
-                    border: "1px solid oklch(0.30 0.03 280)",
-                    borderRadius: 12,
-                    color: "oklch(0.98 0.005 280)",
-                  }}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
+      {detailLoading ? (
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-8 text-sm text-muted-foreground justify-center">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading student data…
+        </div>
+      ) : (
+        <section className="grid gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-card">
+            <h3 className="font-display text-lg font-semibold">Mastery radar</h3>
+            <p className="text-sm text-muted-foreground">
+              Average mastery per subject — only started subjects shown.
+            </p>
+            {radarData.length === 0 ? (
+              <p className="mt-8 text-center text-sm text-muted-foreground">No activity yet for this student.</p>
+            ) : (
+              <div className="mt-4 h-[340px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData} outerRadius="78%">
+                    <PolarGrid stroke="oklch(0.30 0.03 280)" />
+                    <PolarAngleAxis
+                      dataKey="subject"
+                      tick={{ fill: "oklch(0.85 0.02 280)", fontSize: 11, fontWeight: 500 }}
+                    />
+                    <PolarRadiusAxis
+                      angle={90}
+                      domain={[0, 100]}
+                      tick={{ fill: "oklch(0.55 0.02 280)", fontSize: 10 }}
+                      stroke="oklch(0.30 0.03 280)"
+                    />
+                    <Radar
+                      name="Mastery"
+                      dataKey="mastery"
+                      stroke="oklch(0.65 0.28 300)"
+                      fill="oklch(0.65 0.28 300)"
+                      fillOpacity={0.45}
+                      strokeWidth={2}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "oklch(0.20 0.025 280)",
+                        border: "1px solid oklch(0.30 0.03 280)",
+                        borderRadius: 12,
+                        color: "oklch(0.98 0.005 280)",
+                      }}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
-        </div>
 
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card">
-          <h3 className="font-display text-lg font-semibold">Actionable insights</h3>
-          <ul className="mt-4 space-y-3">
-            {SAMPLE_INSIGHTS.map((i, idx) => (
-              <li
-                key={idx}
-                className={cn(
-                  "rounded-xl border p-4",
-                  i.severity === "destructive"
-                    ? "border-destructive/40 bg-destructive/5"
-                    : i.severity === "warning"
-                      ? "border-warning/40 bg-warning/5"
-                      : "border-success/40 bg-success/5",
-                )}
-              >
-                <p className="text-sm font-medium leading-snug">{i.text}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{i.topic}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+          <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card">
+            <h3 className="font-display text-lg font-semibold">Recurring errors</h3>
+            {insights.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">No repeated errors found — great work!</p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {insights.map((i, idx) => (
+                  <li
+                    key={idx}
+                    className={cn(
+                      "rounded-xl border p-4",
+                      i.severity === "destructive"
+                        ? "border-destructive/40 bg-destructive/5"
+                        : "border-warning/40 bg-warning/5",
+                    )}
+                  >
+                    <p className="text-sm font-medium leading-snug">{i.text}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground">{i.topic}</p>
+                      <span className="text-xs text-muted-foreground">· {i.count}×</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

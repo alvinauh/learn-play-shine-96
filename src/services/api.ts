@@ -948,6 +948,36 @@ export async function assignAiTask(req: {
   return res.json() as Promise<{ task_id: string | null }>;
 }
 
+export interface MasteryEntry {
+  topic: string;
+  mastery_score: number;
+  status: "available" | "started" | "complete";
+}
+export interface MasteryMapResult {
+  student_id: string;
+  overall_progress: number;
+  mastery_map: Record<string, MasteryEntry[]>;
+}
+export async function fetchMasteryMap(studentId: string): Promise<MasteryMapResult> {
+  const res = await fetch(`${BASE_URL}/mastery_map/${studentId}`);
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<MasteryMapResult>;
+}
+
+export interface StudentInsight {
+  topic: string;
+  subject: string;
+  error_category: string;
+  root_cause: string;
+  count: number;
+}
+export async function fetchStudentInsights(studentId: string): Promise<StudentInsight[]> {
+  const res = await fetch(`${BASE_URL}/student_insights/${studentId}`);
+  if (!res.ok) throw new ApiResponseError(res.status);
+  const data = await res.json() as { insights: StudentInsight[] };
+  return data.insights;
+}
+
 
 
 
