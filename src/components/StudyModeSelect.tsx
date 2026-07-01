@@ -7,8 +7,11 @@ import { useI18n } from "@/lib/i18n";
 import {
   fetchDiagnosticProgress,
   fetchAssignmentsForStudent,
+  fetchStudentAiTasks,
+  startAiTask,
   type DiagnosticProgress,
   type Assignment,
+  type AiTask,
 } from "@/services/api";
 
 export type StudyMode = "diagnostic" | "free_practice" | "join_class" | "assignments";
@@ -38,6 +41,7 @@ export function StudyModeSelect({
   const [joinCode, setJoinCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [aiTasks, setAiTasks] = useState<AiTask[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
 
   useEffect(() => {
@@ -59,9 +63,13 @@ export function StudyModeSelect({
   useEffect(() => {
     if (selected !== "assignments") return;
     setAssignmentsLoading(true);
-    void fetchAssignmentsForStudent(studentId)
-      .then(setAssignments)
-      .finally(() => setAssignmentsLoading(false));
+    void Promise.all([
+      fetchAssignmentsForStudent(studentId),
+      fetchStudentAiTasks(studentId),
+    ]).then(([cls, ai]) => {
+      setAssignments(cls);
+      setAiTasks(ai);
+    }).finally(() => setAssignmentsLoading(false));
   }, [selected, studentId]);
 
   const answered = progress?.questions_answered ?? 0;
@@ -234,36 +242,79 @@ export function StudyModeSelect({
             <div className="mt-3 space-y-2 max-h-72 overflow-auto rounded-xl border border-indigo-400/40 bg-indigo-950/40 p-2">
               {assignmentsLoading ? (
                 <p className="p-3 text-center text-sm text-indigo-200/80">Loading tasks…</p>
-              ) : assignments.length === 0 ? (
+              ) : assignments.length === 0 && aiTasks.length === 0 ? (
                 <p className="p-3 text-center text-sm text-indigo-200/80">
                   {isMs ? "Tiada tugasan lagi. Sertai kelas dahulu." : "No tasks yet. Join a class first."}
                 </p>
               ) : (
-                assignments.map((a) => (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => onStartAssignment?.(a)}
-                    className="w-full rounded-lg border border-indigo-400/40 bg-indigo-900/40 p-3 text-left text-white hover:bg-indigo-800/50 transition"
-                  >
-                    <div className="font-semibold text-sm">{a.title}</div>
-                    <div className="mt-0.5 text-xs text-indigo-200/80">
-                      {[a.subject, a.topic, a.form_level && `Form ${a.form_level}`]
-                        .filter(Boolean)
-                        .join(" · ") || "Practice"}
-                    </div>
-                    {a.instructions && (
-                      <div className="mt-1 text-xs text-indigo-100/90 line-clamp-2">
-                        {a.instructions}
+                <>
+                  {assignments.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => onStartAssignment?.(a)}
+                      className="w-full rounded-lg border border-indigo-400/40 bg-indigo-900/40 p-3 text-left text-white hover:bg-indigo-800/50 transition"
+                    >
+                      <div className="font-semibold text-sm">{a.title}</div>
+                      <div className="mt-0.5 text-xs text-indigo-200/80">
+                        {[a.subject, a.topic, a.form_level && `Form ${a.form_level}`]
+                          .filter(Boolean)
+                          .join(" · ") || "Practice"}
                       </div>
-                    )}
-                    {a.due_at && (
-                      <div className="mt-1 text-[10px] uppercase tracking-wider text-yellow-300">
-                        Due {new Date(a.due_at).toLocaleDateString()}
+                      {a.instructions && (
+                        <div className="mt-1 text-xs text-indigo-100/90 line-clamp-2">
+                          {a.instructions}
+                        </div>
+                      )}
+                      {a.due_at && (
+                        <div className="mt-1 text-[10px] uppercase tracking-wider text-yellow-300">
+                          Due {new Date(a.due_at).toLocaleDateString()}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                  {aiTasks.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        void startAiTask(t.id);
+                        onStartAssignment?.({
+                          id: t.id,
+                          classroom_id: "",
+                          teacher_id: "",
+                          title: `${t.task_type === "lesson" ? "📖" : t.task_type === "practice" ? "🎯" : "✏️"} ${t.topic}`,
+                          instructions: t.instructions,
+                          subject: t.subject,
+                          topic: t.topic,
+                          form_level: null,
+                          question_type: t.task_type === "lesson" ? "mcq" : t.task_type,
+                          due_at: t.due_at ?? null,
+                          created_at: t.assigned_at,
+                        });
+                      }}
+                      className="w-full rounded-lg border border-violet-400/50 bg-violet-900/30 p-3 text-left text-white hover:bg-violet-800/40 transition"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-violet-500/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-200">
+                          AI Task
+                        </span>
+                        <span className="font-semibold text-sm">{t.topic}</span>
                       </div>
-                    )}
-                  </button>
-                ))
+                      <div className="mt-0.5 text-xs text-indigo-200/80">{t.subject}</div>
+                      {t.instructions && (
+                        <div className="mt-1 text-xs text-indigo-100/90 line-clamp-2">
+                          {t.instructions}
+                        </div>
+                      )}
+                      {t.due_at && (
+                        <div className="mt-1 text-[10px] uppercase tracking-wider text-yellow-300">
+                          Due {new Date(t.due_at).toLocaleDateString()}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </>
               )}
             </div>
           )}

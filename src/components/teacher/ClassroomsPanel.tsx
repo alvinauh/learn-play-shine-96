@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, Copy, Check, Users, ArrowLeft, X, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Copy, Check, Users, ArrowLeft, X, AlertTriangle, Sparkles } from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -23,6 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { generateAiTask, assignAiTask, type GenerateTaskResult } from "@/services/api";
 
 interface Classroom {
   id: string;
@@ -51,6 +52,7 @@ export function ClassroomsPanel() {
   const [showCreate, setShowCreate] = useState(false);
   const [showInvite, setShowInvite] = useState<Classroom | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
+  const [aiTaskStudent, setAiTaskStudent] = useState<{ student: StudentRow; subject: string | null } | null>(null);
 
   const load = async () => {
     if (!user) return;
@@ -212,6 +214,7 @@ export function ClassroomsPanel() {
                         <th className="px-5 py-2 text-left font-medium">Grade</th>
                         <th className="px-5 py-2 text-left font-medium">Joined</th>
                         <th className="px-5 py-2"></th>
+                        <th className="px-5 py-2"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -230,6 +233,18 @@ export function ClassroomsPanel() {
                           </td>
                           <td className="px-5 py-3 text-muted-foreground">
                             {new Date(s.joined_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-3 py-3">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAiTaskStudent({ student: s, subject: cls.subject });
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg border border-violet-400/50 bg-violet-900/30 px-2.5 py-1.5 text-[11px] font-semibold text-violet-200 transition hover:bg-violet-800/50"
+                            >
+                              <Sparkles className="h-3 w-3" /> AI Task
+                            </button>
                           </td>
                           <td className="px-5 py-3 text-right text-xs font-medium text-primary-glow">
                             View insights →
@@ -256,6 +271,11 @@ export function ClassroomsPanel() {
       <InviteDialog
         classroom={showInvite}
         onOpenChange={(open) => !open && setShowInvite(null)}
+      />
+      <AiTaskDialog
+        student={aiTaskStudent?.student ?? null}
+        classroomSubject={aiTaskStudent?.subject ?? null}
+        onClose={() => setAiTaskStudent(null)}
       />
     </div>
   );
@@ -384,6 +404,200 @@ function InviteDialog({
             Invite code: <code className="font-mono">{classroom?.invite_code}</code>
           </p>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AiTaskDialog({
+  student,
+  classroomSubject,
+  onClose,
+}: {
+  student: StudentRow | null;
+  classroomSubject: string | null;
+  onClose: () => void;
+}) {
+  const [topic, setTopic] = useState("");
+  const [subject, setSubject] = useState(classroomSubject ?? "");
+  const [generating, setGenerating] = useState(false);
+  const [result, setResult] = useState<GenerateTaskResult | null>(null);
+  const [instructions, setInstructions] = useState("");
+  const [teacherNote, setTeacherNote] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = () => {
+    setTopic("");
+    setSubject(classroomSubject ?? "");
+    setGenerating(false);
+    setResult(null);
+    setInstructions("");
+    setTeacherNote("");
+    setAssigning(false);
+    setDone(false);
+    setError(null);
+  };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleGenerate = async () => {
+    if (!student) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const r = await generateAiTask(student.id, topic, subject);
+      setResult(r);
+      setInstructions(r.instructions);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to generate suggestion");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!student || !result) return;
+    setAssigning(true);
+    setError(null);
+    try {
+      await assignAiTask({
+        student_id: student.id,
+        subject: result.subject,
+        topic: result.topic,
+        task_type: result.task_type as "quiz" | "lesson" | "practice",
+        instructions,
+        teacher_note: teacherNote || undefined,
+        error_context: result.error_context,
+        priority_score: result.priority_score,
+      });
+      setDone(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to assign task");
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!student} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-violet-400" />
+            AI Task for {student?.full_name}
+          </DialogTitle>
+          <DialogDescription>
+            AI picks the weakest topic based on this student's mastery and recent mistakes.
+          </DialogDescription>
+        </DialogHeader>
+
+        {done ? (
+          <div className="py-6 text-center space-y-2">
+            <Check className="mx-auto h-8 w-8 text-success" />
+            <p className="font-medium">Task assigned!</p>
+            <p className="text-sm text-muted-foreground">
+              {student?.full_name} will see it in their Assigned Tasks.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="ai-subject">Subject</Label>
+                <Input
+                  id="ai-subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Physics"
+                  disabled={!!result}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ai-topic">Topic (optional)</Label>
+                <Input
+                  id="ai-topic"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="AI picks weakest"
+                  disabled={!!result}
+                />
+              </div>
+            </div>
+
+            {!result && (
+              <>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button
+                  onClick={handleGenerate}
+                  disabled={generating || !subject.trim()}
+                  className="w-full bg-violet-600 hover:bg-violet-500 text-white"
+                >
+                  {generating ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" />Generating…</>
+                  ) : (
+                    <><Sparkles className="h-4 w-4 mr-2" />Generate AI Suggestion</>
+                  )}
+                </Button>
+              </>
+            )}
+
+            {result && (
+              <div className="space-y-3 rounded-xl border border-violet-400/40 bg-violet-950/30 p-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="rounded-full bg-violet-500/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-200">
+                    {result.task_type}
+                  </span>
+                  <span className="text-sm font-semibold">{result.topic}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    Mastery: {Math.round((result.current_mastery ?? 0) * 100)}%
+                  </span>
+                </div>
+                {result.teacher_tip && (
+                  <div className="rounded-lg border border-amber-400/30 bg-amber-950/30 px-3 py-2">
+                    <p className="text-xs font-medium text-amber-300">AI tip for teacher</p>
+                    <p className="mt-0.5 text-xs text-amber-100">{result.teacher_tip}</p>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label>Instructions (editable)</Label>
+                  <textarea
+                    value={instructions}
+                    onChange={(e) => setInstructions(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-lg border border-border bg-background/60 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ai-note">Teacher note (optional)</Label>
+                  <Input
+                    id="ai-note"
+                    value={teacherNote}
+                    onChange={(e) => setTeacherNote(e.target.value)}
+                    placeholder="e.g. Focus on diagrams"
+                  />
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>
+            {done ? "Close" : "Cancel"}
+          </Button>
+          {result && !done && (
+            <Button
+              onClick={handleAssign}
+              disabled={assigning || !instructions.trim()}
+              className="bg-violet-600 hover:bg-violet-500 text-white"
+            >
+              {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : "Assign Task →"}
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

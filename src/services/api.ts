@@ -865,6 +865,89 @@ export async function deleteAssignment(id: string): Promise<{ success: boolean; 
   return { success: true, message: "Deleted." };
 }
 
+// ============= AI-personalised tasks (assigned_tasks table via backend API) =============
+
+export interface AiTask {
+  id: string;
+  student_id: string;
+  subject: string;
+  topic: string;
+  task_type: "quiz" | "lesson" | "practice";
+  instructions: string;
+  teacher_note?: string;
+  error_context?: string[];
+  priority_score?: number;
+  status: "pending" | "in_progress" | "completed";
+  assigned_at: string;
+  due_at?: string | null;
+}
+
+export interface GenerateTaskResult {
+  student_id: string;
+  topic: string;
+  subject: string;
+  task_type: string;
+  instructions: string;
+  teacher_tip: string;
+  error_context: string[];
+  priority_score: number;
+  current_mastery: number;
+}
+
+export async function fetchStudentAiTasks(studentId: string): Promise<AiTask[]> {
+  const safe = studentId && studentId !== "undefined" ? studentId : "00000000-0000-0000-0000-000000000001";
+  try {
+    const res = await fetch(`${BASE_URL}/student/tasks/${encodeURIComponent(safe)}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json() as { tasks?: AiTask[] };
+    return data.tasks ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function startAiTask(taskId: string): Promise<void> {
+  await fetch(`${BASE_URL}/student/tasks/${encodeURIComponent(taskId)}/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function generateAiTask(
+  studentId: string,
+  topic: string,
+  subject: string,
+): Promise<GenerateTaskResult> {
+  const res = await fetch(`${BASE_URL}/teacher/generate_task`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ student_id: studentId, topic, subject }),
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<GenerateTaskResult>;
+}
+
+export async function assignAiTask(req: {
+  student_id: string;
+  subject: string;
+  topic: string;
+  task_type: string;
+  instructions: string;
+  teacher_note?: string;
+  error_context?: string[];
+  priority_score?: number;
+}): Promise<{ task_id: string | null }> {
+  const res = await fetch(`${BASE_URL}/teacher/assign_task`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<{ task_id: string | null }>;
+}
+
 
 
 
