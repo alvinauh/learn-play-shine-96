@@ -31,6 +31,14 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Resolves to null after ms — lets us race Supabase calls that might hang
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -39,17 +47,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadProfile = async (uid: string) => {
     // Guard: only query profiles when a Supabase session exists, otherwise RLS 403s.
-    const { data: { session } } = await supabase.auth.getSession();
+    const sessionResult = await withTimeout(supabase.auth.getSession(), 5000);
+    if (!sessionResult) {
+      console.warn("[Auth] getSession timed out inside loadProfile");
+      setProfile(null);
+      return;
+    }
+    const { data: { session } } = sessionResult;
     if (!session?.user || session.user.id !== uid) {
       setProfile(null);
       return;
     }
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, role, school, grade")
-        .eq("id", uid)
-        .maybeSingle();
+      const queryResult = await withTimeout(
+        supabase
+          .from("profiles")
+          .select("id, full_name, role, school, grade")
+          .eq("id", uid)
+          .maybeSingle(),
+        5000,
+      );
+      if (!queryResult) {
+        console.warn("[Auth] profiles query timed out");
+        setProfile(null);
+        return;
+      }
+      const { data, error } = queryResult;
       if (error) {
         if ((error as { code?: string }).code === "PGRST301" || /permission|denied|forbidden/i.test(error.message)) {
           console.warn("[Auth] profile read denied by RLS:", error.message);
@@ -67,8 +90,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Safety net: if getSession or loadProfile hangs, unblock the spinner after 8s
+    const safetyTimer = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) console.warn("[Auth] loading safety-net fired — forcing unblock");
+        return false;
+      });
+    }, 8000);
+
     // Set up listener FIRST
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
@@ -76,21 +107,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTimeout(() => void loadProfile(newSession.user.id), 0);
       } else {
         setProfile(null);
+        // Session expired or signed out — redirect to login
+        if (event === "SIGNED_OUT" || (event === "TOKEN_REFRESHED" && !newSession)) {
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+            window.location.href = "/login";
+          }
+        }
       }
     });
 
     // Then check existing session
-    supabase.auth.getSession().then(({ data: { session: existing } }) => {
+    withTimeout(supabase.auth.getSession(), 6000).then((result) => {
+      const existing = result?.data?.session ?? null;
       setSession(existing);
       setUser(existing?.user ?? null);
       if (existing?.user) {
-        void loadProfile(existing.user.id).finally(() => setLoading(false));
+        void loadProfile(existing.user.id).finally(() => {
+          clearTimeout(safetyTimer);
+          setLoading(false);
+        });
       } else {
+        clearTimeout(safetyTimer);
         setLoading(false);
       }
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      sub.subscription.unsubscribe();
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   const signIn: AuthContextValue["signIn"] = async (email, password) => {
