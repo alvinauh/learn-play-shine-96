@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { Badge } from "@/components/ui/badge";
 import {
   Users,
   Target,
@@ -14,6 +13,7 @@ import {
   Trophy,
   Gamepad2,
   ClipboardList,
+  ChevronDown,
 } from "lucide-react";
 import {
   Radar,
@@ -29,16 +29,20 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   fetchTeacherInsights,
   fetchLeaderboard,
+  generateAiTask,
+  generateDifferentiatedPlan,
   type ClassMasteryItem,
-  type RecentAlert,
   type LeaderboardEntry,
   type FlaggedStudent,
   type MisconceptionCluster,
+  type GenerateTaskResult,
+  type StudentDiagnostic,
+  type DifferentiatedGroup,
+  type DifferentiatedPlanResult,
 } from "@/services/api";
 import { ClassroomsPanel } from "@/components/teacher/ClassroomsPanel";
 import { AssignmentsPanel } from "@/components/teacher/AssignmentsPanel";
-import { FlaggedStudentCard } from "@/components/FlaggedStudentCard";
-
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -60,8 +64,7 @@ function TeacherDashboard() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<"insights" | "classrooms" | "assignments">("insights");
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
-  const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([]);
-  const [activeStudents, setActiveStudents] = useState<string>("-");
+const [activeStudents, setActiveStudents] = useState<string>("-");
   const [classAverageMastery, setClassAverageMastery] = useState<string>("-");
   const [weakestTopic, setWeakestTopic] = useState<string>("-");
   const [loading, setLoading] = useState(true);
@@ -69,7 +72,13 @@ function TeacherDashboard() {
   const [topStudents, setTopStudents] = useState<LeaderboardEntry[]>([]);
   const [flaggedStudents, setFlaggedStudents] = useState<FlaggedStudent[]>([]);
   const [misconceptionClusters, setMisconceptionClusters] = useState<MisconceptionCluster[]>([]);
-
+  const [studentDiagnostics, setStudentDiagnostics] = useState<StudentDiagnostic[]>([]);
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [taskResults, setTaskResults] = useState<Record<string, GenerateTaskResult>>({});
+  const [studentNames, setStudentNames] = useState<Record<string, string>>({});
+  const [generatingPlan, setGeneratingPlan] = useState<string | null>(null);
+  const [planResults, setPlanResults] = useState<Record<string, DifferentiatedPlanResult>>({});
+  const studentNamesFetched = useRef(false);
 
   const unauthorized = !!profile && profile.role !== "teacher" && profile.role !== "admin";
 
@@ -95,7 +104,6 @@ function TeacherDashboard() {
           if (cancelled) return;
           setError(null);
           setClassMastery(Array.isArray(data?.class_mastery) ? data.class_mastery : []);
-          setRecentAlerts(Array.isArray(data?.recent_alerts) ? data.recent_alerts : []);
           setActiveStudents(
             typeof data?.active_students === "number" ? String(data.active_students) : "-",
           );
@@ -111,7 +119,26 @@ function TeacherDashboard() {
           );
           setFlaggedStudents(Array.isArray(data?.flagged_students) ? data.flagged_students : []);
           setMisconceptionClusters(Array.isArray(data?.misconception_clusters) ? data.misconception_clusters : []);
+          setStudentDiagnostics(Array.isArray(data?.student_diagnostics) ? data.student_diagnostics : []);
 
+          // Enrich alert student names from Supabase profiles (once per session)
+          const alerts = Array.isArray(data?.recent_alerts) ? data.recent_alerts : [];
+          if (!studentNamesFetched.current && alerts.length > 0) {
+            studentNamesFetched.current = true;
+            const ids = [...new Set(alerts.map((a) => a.student_id).filter(Boolean))] as string[];
+            supabase
+              .from("profiles")
+              .select("id, full_name")
+              .in("id", ids)
+              .then(({ data: profs }) => {
+                if (cancelled || !profs) return;
+                const map: Record<string, string> = {};
+                for (const p of profs) {
+                  if (p.full_name) map[p.id] = p.full_name;
+                }
+                setStudentNames(map);
+              });
+          }
         })
         .catch((err) => {
           if (cancelled || !initial) return;
@@ -146,27 +173,34 @@ function TeacherDashboard() {
   }));
 
 
-  const severityToColor = (sev?: string) => {
-    if (sev === "destructive" || sev === "high") return "destructive";
-    if (sev === "success" || sev === "low") return "success";
-    return "warning";
-  };
-  const severityToEmoji = (sev?: string) => {
-    const c = severityToColor(sev);
-    return c === "destructive" ? "🔴" : c === "success" ? "🟢" : "🟡";
+
+  const handleGenerateIntervention = async (topic: string, studentId: string, subject: string) => {
+    if (!studentId) return;
+    setGeneratingFor(studentId);
+    try {
+      const result = await generateAiTask(studentId, topic, subject);
+      setTaskResults((prev) => ({ ...prev, [studentId]: result }));
+    } catch (e) {
+      console.error("[Skor] Failed to generate intervention:", e);
+    } finally {
+      setGeneratingFor(null);
+    }
   };
 
-  const insights = (recentAlerts ?? []).map((a) => ({
-    color: severityToColor(a?.severity),
-    emoji: severityToEmoji(a?.severity),
-    topic: a?.topic ?? "",
-    category: a?.category ?? "",
-    observation: a?.observation ?? a?.diagnostic_tag ?? "",
-    action: a?.action ?? "",
-  }));
-
-  const handleGenerateIntervention = (topic: string) => {
-    console.log("[Skor] Generate intervention for:", topic);
+  const handleGenerateDifferentiatedPlan = async (cluster: MisconceptionCluster) => {
+    setGeneratingPlan(cluster.error_category);
+    try {
+      const result = await generateDifferentiatedPlan({
+        error_category: cluster.error_category,
+        topics_affected: cluster.topics_affected,
+        student_diagnostics: studentDiagnostics,
+      });
+      setPlanResults((prev) => ({ ...prev, [cluster.error_category]: result }));
+    } catch (e) {
+      console.error("[Skor] generateDifferentiatedPlan failed:", e);
+    } finally {
+      setGeneratingPlan(null);
+    }
   };
 
   if (unauthorized) return null;
@@ -279,63 +313,8 @@ function TeacherDashboard() {
           />
         </section>
 
-        {flaggedStudents.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-amber-600 text-lg">⚠️</span>
-              <h3 className="font-semibold text-amber-900 text-base">
-                Students Needing Your Attention ({flaggedStudents.length})
-              </h3>
-            </div>
-            <p className="text-amber-700 text-sm mb-4">
-              These students have made the same type of error multiple times. The AI has attempted
-              to help but the misconception persists — direct teacher engagement is recommended.
-            </p>
-            <div className="space-y-3">
-              {flaggedStudents.map((student, idx) => (
-                <FlaggedStudentCard key={student.student_id || idx} student={student} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {misconceptionClusters.length > 0 && (
-          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-            <h3 className="font-semibold text-purple-900 text-base mb-1">
-              Class-Wide Misconception Patterns
-            </h3>
-            <p className="text-purple-700 text-sm mb-3">
-              When multiple students share the same error type, a whole-class reteach
-              may be more efficient than individual conversations.
-            </p>
-            <div className="space-y-2">
-              {misconceptionClusters.map((cluster, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-purple-100"
-                >
-                  <div>
-                    <span className="text-sm font-medium text-gray-900">
-                      {cluster.error_category}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-2">
-                      ({cluster.topics_affected.slice(0, 2).join(", ")}
-                      {cluster.topics_affected.length > 2
-                        ? ` +${cluster.topics_affected.length - 2} more`
-                        : ""})
-                    </span>
-                  </div>
-                  <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {cluster.student_count} student{cluster.student_count !== 1 ? "s" : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
+        {/* Mastery radar + Class-wide misconception patterns */}
         <section className="grid gap-6 lg:grid-cols-5">
-
           <div className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-card">
             <div className="flex items-start justify-between">
               <div>
@@ -379,68 +358,58 @@ function TeacherDashboard() {
             </div>
           </div>
 
-          <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold">{t.diagnosticInsights}</h2>
-              <span className="text-xs text-muted-foreground">{insights.length} {t.alerts}</span>
+          <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-card flex flex-col gap-4">
+            <div>
+              <h2 className="font-display text-lg font-semibold">Class-Wide Patterns</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Expand a pattern to see differentiated groups</p>
             </div>
-            
-            <ul className="mt-4 space-y-3">
-              {insights.map((i, idx) => (
-                <li
-                  key={idx}
-                  className={`rounded-xl border p-4 transition hover:bg-accent/30 ${
-                    i.color === "destructive"
-                      ? "border-destructive/40 bg-destructive/5"
-                      : i.color === "warning"
-                        ? "border-warning/40 bg-warning/5"
-                        : "border-success/40 bg-success/5"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-lg leading-none">{i.emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {i.category && (
-                          <Badge
-                            variant={
-                              i.color === "destructive"
-                                ? "destructive"
-                                : i.color === "success"
-                                  ? "secondary"
-                                  : "outline"
-                            }
-                            className="text-[10px] uppercase tracking-wide"
-                          >
-                            {i.category}
-                          </Badge>
-                        )}
-                        {i.topic && (
-                          <span className="text-xs text-muted-foreground">{i.topic}</span>
-                        )}
-                      </div>
-                      {i.observation && (
-                        <p className="mt-2 text-sm font-medium leading-snug">{i.observation}</p>
-                      )}
-                      {(i.action || i.topic) && (
-                        <div className="mt-3 flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-background/40 p-3">
-                          <p className="flex-1 text-xs text-muted-foreground leading-snug">
-                            {i.action || "Recommended next step"}
-                          </p>
-                          <button
-                            onClick={() => handleGenerateIntervention(i.topic)}
-                            className="shrink-0 rounded-md bg-gradient-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition"
-                          >
-                            Generate Intervention
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {misconceptionClusters.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No recurring class-wide patterns yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {misconceptionClusters.map((cluster, idx) => (
+                  <MisconceptionClusterCard
+                    key={idx}
+                    cluster={cluster}
+                    studentDiagnostics={studentDiagnostics}
+                    generatingPlan={generatingPlan}
+                    planResult={planResults[cluster.error_category]}
+                    onGenerate={handleGenerateDifferentiatedPlan}
+                  />
+                ))}
+              </ul>
+            )}
           </div>
+        </section>
+
+        {/* Per-student diagnostic insights */}
+        <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-display text-lg font-semibold">Diagnostic Insights — By Student</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Students with recurring errors, grouped by individual — worst topic shown first
+              </p>
+            </div>
+            <span className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
+              {studentDiagnostics.length} student{studentDiagnostics.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          {studentDiagnostics.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No students with recurring errors yet.</p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {studentDiagnostics.map((student) => (
+                <StudentDiagnosticCard
+                  key={student.student_id}
+                  student={student}
+                  generatingFor={generatingFor}
+                  taskResult={taskResults[student.student_id]}
+                  onGenerate={(sid, topic, subject) => void handleGenerateIntervention(topic, sid, subject)}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
@@ -488,6 +457,260 @@ function TeacherDashboard() {
         )}
       </main>
     </div>
+  );
+}
+
+function StudentDiagnosticCard({
+  student,
+  generatingFor,
+  taskResult,
+  onGenerate,
+}: {
+  student: StudentDiagnostic;
+  generatingFor: string | null;
+  taskResult?: GenerateTaskResult;
+  onGenerate: (studentId: string, topic: string, subject: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const initials = student.student_name
+    ? student.student_name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("")
+    : (student.student_id || "").slice(0, 2).toUpperCase();
+  const displayName = student.student_name ?? `Student ${(student.student_id || "").slice(0, 8).toUpperCase()}`;
+  const topTopic = student.topics[0];
+
+  return (
+    <div className="rounded-xl border border-border bg-background/40 overflow-hidden">
+      <button
+        className="w-full flex items-center gap-3 p-4 text-left hover:bg-accent/20 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-primary text-sm font-bold text-primary-foreground shadow-glow">
+          {initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            {student.topics.length} topic{student.topics.length !== 1 ? "s" : ""} struggling · {student.dominant_error}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+            {student.total_errors} errors
+          </span>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 border-t border-border/60">
+          {/* Topic breakdown */}
+          <div className="pt-3 space-y-1.5">
+            {student.topics.map((t, idx) => (
+              <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                  <span className="truncate font-medium text-foreground">{t.topic}</span>
+                  <span className="truncate text-muted-foreground hidden sm:block">
+                    {t.subject || <span className="italic">no subject</span>} · {t.error_category}
+                  </span>
+                </div>
+                <span className="shrink-0 text-muted-foreground">{t.wrong_count}×</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Root cause of worst topic */}
+          <div className="rounded-lg border border-border/60 bg-card p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Why they're stuck</p>
+            {topTopic?.root_cause
+              ? <p className="text-xs text-foreground/80 leading-relaxed">{topTopic.root_cause}</p>
+              : <p className="text-xs text-muted-foreground italic">No data — root cause will appear after the evaluator diagnoses a wrong answer.</p>
+            }
+          </div>
+
+          {/* Intervention script */}
+          <div className="rounded-lg border border-primary/20 bg-primary/10 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-primary-glow mb-1">💬 What to say</p>
+            {student.intervention_script
+              ? <p className="text-xs text-foreground/90 italic leading-relaxed">"{student.intervention_script}"</p>
+              : <p className="text-xs text-muted-foreground italic">No data — script is generated when the student hits the error threshold (≥2 same mistake on the same topic).</p>
+            }
+          </div>
+
+          {/* Suggested activity */}
+          <div className="rounded-lg border border-success/20 bg-success/10 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-success mb-1">✏️ 5-min activity</p>
+            {student.suggested_activity
+              ? <p className="text-xs text-foreground/90 leading-relaxed">{student.suggested_activity}</p>
+              : <p className="text-xs text-muted-foreground italic">No data — activity will be generated alongside the intervention script.</p>
+            }
+          </div>
+
+          {/* Generated task result */}
+          {taskResult && (
+            <div className="rounded-lg border border-success/20 bg-success/10 p-3 space-y-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-success">
+                {taskResult.task_type === "lesson" ? "📖 Re-teach" : taskResult.task_type === "quiz" ? "✏️ Practice Quiz" : "🎯 Drilling"}
+                {" "}· Mastery {Math.round((taskResult.current_mastery ?? 0) * 100)}%
+              </p>
+              <p className="text-xs text-foreground/90 leading-relaxed">{taskResult.instructions}</p>
+              {taskResult.teacher_tip && (
+                <p className="text-xs text-muted-foreground border-t border-border/40 pt-1.5 mt-1.5">
+                  <span className="font-semibold">Tip: </span>{taskResult.teacher_tip}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Generate task button */}
+          <button
+            onClick={() => onGenerate(student.student_id, topTopic?.topic ?? "", topTopic?.subject ?? "")}
+            disabled={!topTopic || generatingFor === student.student_id}
+            className="w-full rounded-lg bg-gradient-primary py-2 text-xs font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {generatingFor === student.student_id
+              ? "Generating…"
+              : taskResult
+                ? "Regenerate Task"
+                : "Generate Personalised Task"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const TIER_STATIC: Record<string, { label: string; color: string; bg: string; border: string; activity: string }> = {
+  support: {
+    label: "Support",
+    color: "text-destructive",
+    bg: "bg-destructive/10",
+    border: "border-destructive/25",
+    activity: "Teacher-led mini-lesson with worked examples",
+  },
+  core: {
+    label: "Core",
+    color: "text-warning",
+    bg: "bg-warning/10",
+    border: "border-warning/25",
+    activity: "Structured pair practice with worksheet",
+  },
+  extension: {
+    label: "Extension",
+    color: "text-success",
+    bg: "bg-success/10",
+    border: "border-success/25",
+    activity: "Independent application + peer teach-back",
+  },
+};
+
+function MisconceptionClusterCard({
+  cluster,
+  studentDiagnostics,
+  generatingPlan,
+  planResult,
+  onGenerate,
+}: {
+  cluster: MisconceptionCluster;
+  studentDiagnostics: StudentDiagnostic[];
+  generatingPlan: string | null;
+  planResult?: DifferentiatedPlanResult;
+  onGenerate: (cluster: MisconceptionCluster) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Client-side tier split for display (backend re-computes for assignment)
+  const relevant = studentDiagnostics.filter(
+    (s) =>
+      s.dominant_error === cluster.error_category ||
+      s.topics.some((t) => t.error_category === cluster.error_category),
+  );
+  const sorted = [...relevant].sort((a, b) => b.total_errors - a.total_errors);
+  const n = sorted.length || cluster.student_count;
+  const third = Math.max(1, Math.floor(n / 3));
+  const tierCounts = { support: third, core: third, extension: Math.max(0, n - third * 2) };
+
+  const isGenerating = generatingPlan === cluster.error_category;
+
+  return (
+    <li className="rounded-xl border border-border/60 bg-background/40 overflow-hidden">
+      <button
+        className="w-full flex items-start justify-between gap-3 px-3 py-2.5 text-left hover:bg-accent/20 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-foreground truncate">{cluster.error_category}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            {cluster.topics_affected.slice(0, 2).join(", ")}
+            {cluster.topics_affected.length > 2 ? ` +${cluster.topics_affected.length - 2}` : ""}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-semibold text-destructive">
+            {cluster.student_count} student{cluster.student_count !== 1 ? "s" : ""}
+          </span>
+          <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", expanded && "rotate-180")} />
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-3 space-y-3 border-t border-border/50">
+          {/* Tier breakdown */}
+          <div className="pt-3 space-y-2">
+            {(["support", "core", "extension"] as const).map((tier) => {
+              const meta = TIER_STATIC[tier];
+              const group = planResult?.groups.find((g) => g.tier === tier);
+              const count = group?.student_count ?? tierCounts[tier];
+              const activity = group?.activity_suggestion ?? meta.activity;
+              return (
+                <div key={tier} className={cn("rounded-lg border px-3 py-2", meta.bg, meta.border)}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={cn("text-[10px] font-bold uppercase tracking-wider", meta.color)}>
+                      {meta.label} Group
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{count} student{count !== 1 ? "s" : ""}</span>
+                  </div>
+                  <p className="text-xs text-foreground/80">{activity}</p>
+                  {group?.instructions && (
+                    <p className="text-xs text-foreground/70 mt-1 border-t border-border/30 pt-1 leading-relaxed">
+                      {group.instructions}
+                    </p>
+                  )}
+                  {group?.teacher_tip && (
+                    <p className="text-[10px] text-muted-foreground mt-1 italic">
+                      Tip: {group.teacher_tip}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Success banner after generation */}
+          {planResult && (
+            <div className="flex items-center gap-2 rounded-lg bg-success/10 border border-success/20 px-3 py-2">
+              <span className="text-success text-xs font-semibold">
+                ✅ {planResult.tasks_assigned} tasks assigned to students
+              </span>
+            </div>
+          )}
+
+          {/* Generate button */}
+          <button
+            onClick={() => onGenerate(cluster)}
+            disabled={isGenerating}
+            className="w-full rounded-lg bg-gradient-primary py-2 text-xs font-semibold text-primary-foreground shadow-glow hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isGenerating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {isGenerating
+              ? "Generating tasks…"
+              : planResult
+                ? "Regenerate & Reassign Tasks"
+                : "Generate & Assign Tasks for All Groups"}
+          </button>
+        </div>
+      )}
+    </li>
   );
 }
 

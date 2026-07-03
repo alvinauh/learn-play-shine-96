@@ -10,6 +10,9 @@ export interface ClassMasteryItem {
 }
 
 export interface RecentAlert {
+  student_id?: string;
+  student_name?: string;
+  subject?: string;
   diagnostic_tag?: string;
   topic?: string;
   severity?: "destructive" | "warning" | "success" | string;
@@ -20,6 +23,7 @@ export interface RecentAlert {
 
 export interface FlaggedStudent {
   student_id: string;
+  student_name?: string | null;
   topic: string;
   error_category: string;
   wrong_count: number;
@@ -35,6 +39,58 @@ export interface MisconceptionCluster {
   topics_affected: string[];
 }
 
+export interface DifferentiatedGroup {
+  name: string;
+  tier: "support" | "core" | "extension";
+  student_ids: string[];
+  student_count: number;
+  activity_suggestion: string;
+  task_type: string;
+  instructions: string;
+  teacher_tip: string;
+}
+
+export interface DifferentiatedPlanResult {
+  error_category: string;
+  groups: DifferentiatedGroup[];
+  tasks_assigned: number;
+}
+
+export async function generateDifferentiatedPlan(req: {
+  error_category: string;
+  topics_affected: string[];
+  student_diagnostics: StudentDiagnostic[];
+}): Promise<DifferentiatedPlanResult> {
+  const res = await fetch(`${BASE_URL}/teacher/generate_differentiated_plan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<DifferentiatedPlanResult>;
+}
+
+export interface StudentDiagnosticTopic {
+  topic: string;
+  subject: string;
+  error_category: string;
+  wrong_count: number;
+  root_cause: string;
+  intervention_script: string;
+  suggested_activity: string;
+}
+
+export interface StudentDiagnostic {
+  student_id: string;
+  student_name: string | null;
+  total_errors: number;
+  topics: StudentDiagnosticTopic[];
+  dominant_error: string;
+  intervention_script: string;
+  suggested_activity: string;
+  last_seen: string | null;
+}
+
 export interface TeacherInsightsResponse {
   class_mastery: ClassMasteryItem[];
   recent_alerts: RecentAlert[];
@@ -43,6 +99,7 @@ export interface TeacherInsightsResponse {
   weakest_topic?: string;
   flagged_students: FlaggedStudent[];
   misconception_clusters: MisconceptionCluster[];
+  student_diagnostics: StudentDiagnostic[];
 }
 
 
@@ -66,6 +123,7 @@ export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
     weakest_topic?: string;
     flagged_students?: FlaggedStudent[];
     misconception_clusters?: MisconceptionCluster[];
+    student_diagnostics?: StudentDiagnostic[];
   };
 
 
@@ -105,6 +163,7 @@ export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
         : weakest?.subject,
     flagged_students: Array.isArray(raw.flagged_students) ? raw.flagged_students : [],
     misconception_clusters: Array.isArray(raw.misconception_clusters) ? raw.misconception_clusters : [],
+    student_diagnostics: Array.isArray(raw.student_diagnostics) ? raw.student_diagnostics : [],
   };
 
 }
@@ -298,16 +357,23 @@ interface StartSessionApiResponse {
 
 
 
-async function postJSON<T>(path: string, body: unknown, bustCache: boolean = false): Promise<T> {
+async function postJSON<T>(path: string, body: unknown, bustCache: boolean = false, timeoutMs?: number): Promise<T> {
   const url = bustCache ? `${BASE_URL}${path}?t=${Date.now()}` : `${BASE_URL}${path}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new ApiResponseError(res.status);
-  return res.json() as Promise<T>;
+  const controller = new AbortController();
+  const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new ApiResponseError(res.status);
+    return res.json() as Promise<T>;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 function normalizeOptions(options?: StartSessionApiResponse["options"] | string[]) {
@@ -407,7 +473,7 @@ export async function startSession(
     throw new Error("startSession: missing required fields");
   }
   try {
-    const data = await postJSON<StartSessionApiResponse>("/start_session", payload, true);
+    const data = await postJSON<StartSessionApiResponse>("/start_session", payload, true, 90_000);
     console.log("[Skor API] /start_session response:", data);
 
     return normalizeSessionResponse(data, topic, subject);
@@ -443,7 +509,7 @@ export async function submitAnswer(
   };
   if (sessionId) payload.session_id = sessionId;
   try {
-    return await postJSON<AnswerResponse>("/submit_answer", payload);
+    return await postJSON<AnswerResponse>("/submit_answer", payload, false, 60_000);
   } catch (err) {
     console.warn("[Skor API] submitAnswer failed, using mock:", err);
     if (!mock || err instanceof ApiResponseError) throw err;
