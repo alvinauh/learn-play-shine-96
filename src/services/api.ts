@@ -250,6 +250,12 @@ export interface Lesson {
   };
 }
 
+export interface SubPart {
+  label: string;
+  question: string;
+  marks: number;
+}
+
 export interface SessionResponse {
   session_id?: string;
   question: string;
@@ -269,6 +275,9 @@ export interface SessionResponse {
   lesson?: Lesson | null;
   h5p_content?: Record<string, unknown> | null;
   question_data?: Record<string, unknown> | null;
+  sub_parts?: SubPart[];
+  stimulus?: string;
+  kbat_level?: string;
 }
 
 
@@ -339,6 +348,9 @@ interface StartSessionApiResponse {
     source_excerpt?: string;
     audio_url?: string;
     passage?: string;
+    sub_parts?: SubPart[];
+    stimulus?: string;
+    kbat_level?: string;
   };
   audio_url?: string;
   passage?: string;
@@ -438,7 +450,9 @@ function normalizeSessionResponse(
     lesson: (data as { lesson?: Lesson | null }).lesson ?? null,
     h5p_content: (data as { h5p_content?: Record<string, unknown> | null }).h5p_content ?? null,
     question_data: (data.question_data ?? null) as Record<string, unknown> | null,
-
+    sub_parts: data.question_data?.sub_parts,
+    stimulus: data.question_data?.stimulus,
+    kbat_level: data.question_data?.kbat_level,
   };
 }
 

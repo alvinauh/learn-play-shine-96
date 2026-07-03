@@ -193,9 +193,6 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
     if (profile.role === "student" && path.startsWith("/teacher")) {
       void navigate({ to: "/" });
     }
-    if (profile.role === "teacher" && path === "/") {
-      void navigate({ to: "/teacher" });
-    }
   }, [user, profile, loading, path, isPublic, navigate]);
 
   if (loading) {

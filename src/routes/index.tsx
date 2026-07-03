@@ -12,6 +12,7 @@ import {
   X,
   AlertTriangle,
   Trophy,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -48,6 +49,8 @@ import { cn } from "@/lib/utils";
 import { useI18n, type Lang } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuth } from "@/lib/auth";
+import { useStudentPrefs, FONT_SIZE_CLASS } from "@/hooks/useStudentPrefs";
+import { StudentSettingsSheet } from "@/components/StudentSettingsSheet";
 import { LogOut } from "lucide-react";
 import { LessonNotesModal } from "@/components/LessonNotesModal";
 import { TutorChatDrawer } from "@/components/TutorChatDrawer";
@@ -512,6 +515,7 @@ function StudentFeed() {
     setMediaUrl(null);
     setMnemonicLyrics(null);
     setTextAnswer("");
+    setSubPartAnswers({});
     setSession(null);
     try {
       const data = await startSession(
@@ -612,6 +616,7 @@ function StudentFeed() {
     setMediaUrl(null);
     setMnemonicLyrics(null);
     setTextAnswer("");
+    setSubPartAnswers({});
     setSession(null);
     try {
       const res = await startDiagnosticSession(
@@ -838,6 +843,10 @@ function StudentFeed() {
   };
 
   const [submittingText, setSubmittingText] = useState(false);
+  const [subPartAnswers, setSubPartAnswers] = useState<Record<string, string>>({});
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { prefs } = useStudentPrefs();
+
   const handleTextSubmit = async () => {
     if (submittingText || feedback || !session) return;
     const trimmed = textAnswer.trim();
@@ -845,6 +854,21 @@ function StudentFeed() {
     setSubmittingText(true);
     try {
       await submitToBackend(trimmed);
+    } finally {
+      setSubmittingText(false);
+    }
+  };
+
+  const handleSubPartsSubmit = async () => {
+    if (submittingText || feedback || !session) return;
+    const combined = (session.sub_parts ?? [])
+      .map((p) => `${p.label} ${(subPartAnswers[p.label] ?? "").trim()}`)
+      .filter((s) => s.split(" ").slice(1).join(" ").trim().length > 0)
+      .join("\n");
+    if (!combined) return;
+    setSubmittingText(true);
+    try {
+      await submitToBackend(combined);
     } finally {
       setSubmittingText(false);
     }
@@ -944,11 +968,18 @@ function StudentFeed() {
           >
             <LogOut className="h-4 w-4" />
           </button>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-muted-foreground hover:text-foreground transition"
+            aria-label="Personalize"
+          >
+            <Settings className="h-4 w-4" />
+          </button>
         </div>
       </header>
 
       {(() => { console.log("[Skor] dropdown render → subjects state:", subjects, "activeSubject:", activeSubject, "activeTopic:", activeTopic, "topics for active:", activeSubject ? topicsForSubject(activeSubject) : []); return null; })()}
-      <main className="relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6">
+      <main className={cn("relative z-10 mx-auto flex max-w-md flex-col gap-4 px-4 pb-8 pt-6", FONT_SIZE_CLASS[prefs.fontSize])}>
         <GameTopBar
           streak={streak}
           score={score}
@@ -1195,7 +1226,8 @@ function StudentFeed() {
             <MessageCircle className="h-5 w-5" />
             {activeLanguage === "ms" ? "Tanya Tutor" : "Ask Tutor"}
           </button>
-          <span className="ml-auto text-xs">
+          <span className="ml-auto flex items-center gap-1.5 text-xs">
+            <span className="text-base leading-none">{prefs.avatar}</span>
             {profile?.full_name
               ? `@${profile.full_name.split(" ")[0].toLowerCase()}`
               : user?.email?.split("@")[0]
@@ -1282,7 +1314,11 @@ function StudentFeed() {
 
 
 
-            <section className={cn("rounded-3xl border border-border/70 bg-card/70 p-5 backdrop-blur transition", isBossMode && "ring-2 ring-red-500 border-red-500/60 shadow-[0_0_24px_rgba(239,68,68,0.35)]") }>
+            <section className={cn(
+              "rounded-2xl border-2 p-5 transition-all bg-white text-zinc-900 shadow-md",
+              feedback && !isBossMode && "opacity-75",
+              isBossMode ? "ring-2 ring-red-500 border-red-500/60 shadow-[0_0_24px_rgba(239,68,68,0.35)]" : "border-zinc-200",
+            )}>
               {isBossMode && (
                 <div className="-mt-1 mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-red-300">
                   ⚔️ Boss Mode
@@ -1305,34 +1341,75 @@ function StudentFeed() {
                       <button
                         type="button"
                         onClick={() => setStudyPackOpen(true)}
-                        className="group mb-3 block w-full rounded-2xl border border-[oklch(0.55_0.1_85/0.35)] bg-[oklch(0.25_0.04_85/0.12)] p-3.5 text-left transition hover:border-[oklch(0.65_0.14_85/0.6)] hover:bg-[oklch(0.28_0.05_85/0.2)]"
+                        className="group mb-3 block w-full rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-left transition hover:border-amber-300 hover:bg-amber-100"
                         aria-label={activeLanguage === "ms" ? "Buka nota konsep" : "Open concept note"}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-xs font-semibold uppercase tracking-wider text-[oklch(0.82_0.16_85)]">
+                          <div className="text-xs font-semibold uppercase tracking-wider text-amber-700">
                             📖 {activeLanguage === "ms" ? "Nota Konsep" : "Concept Note"}
                           </div>
-                          <div className="text-[10px] font-medium uppercase tracking-wider text-[oklch(0.82_0.16_85)] opacity-70 group-hover:opacity-100">
+                          <div className="text-[10px] font-medium uppercase tracking-wider text-amber-600 opacity-70 group-hover:opacity-100">
                             {activeLanguage === "ms" ? "Ketuk untuk belajar →" : "Tap to study →"}
                           </div>
                         </div>
                         {previewText && (
-                          <p className="mt-1 text-sm leading-relaxed text-[oklch(0.88_0.03_85)] line-clamp-2">
+                          <p className="mt-1 text-sm leading-relaxed text-zinc-600 line-clamp-2">
                             {previewText}
                           </p>
                         )}
                       </button>
                     );
                   })()}
-                  <div className="flex items-center justify-between gap-2 text-xs uppercase tracking-widest text-primary-glow">
-                    <span>{t.question}</span>
-                    <span className="text-muted-foreground">
-                      {(session.subject ?? activeSubject) || ""} · {activeLanguage === "ms" ? `Tingkatan ${formLevel}` : `Form ${formLevel}`}
-                    </span>
-                  </div>
-                  <h1 className="mt-2 font-display text-2xl font-semibold leading-snug">
-                    {session.question}
-                  </h1>
+                  {session.stimulus && (
+                    <div className="mb-4 flex overflow-hidden rounded-xl border border-primary/25 bg-primary/5">
+                      <div className="w-1 shrink-0 bg-primary" />
+                      <div className="p-4">
+                        <div className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2">
+                          {activeLanguage === "ms" ? "Bahan Rangsangan" : "Stimulus Material"}
+                        </div>
+                        <p className="text-sm leading-relaxed text-zinc-700 whitespace-pre-wrap">{session.stimulus}</p>
+                      </div>
+                    </div>
+                  )}
+                  {(() => {
+                    const paperLabel: Record<string, string> = {
+                      mcq: activeLanguage === "ms" ? "Kertas 1 · Bahagian A" : "Paper 1 · Section A",
+                      short_answer: activeLanguage === "ms" ? "Kertas 2 · Bahagian A" : "Paper 2 · Section A",
+                      essay: activeLanguage === "ms" ? "Kertas 2 · Bahagian B" : "Paper 2 · Section B",
+                      listening: activeLanguage === "ms" ? "Kertas 3" : "Paper 3",
+                    };
+                    const kbatColorMap: Record<string, string> = {
+                      C1: "bg-zinc-100 text-zinc-600 border-zinc-300",
+                      C2: "bg-blue-50 text-blue-600 border-blue-200",
+                      C3: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                      C4: "bg-amber-50 text-amber-700 border-amber-200",
+                      C5: "bg-orange-50 text-orange-600 border-orange-200",
+                      C6: "bg-red-50 text-red-600 border-red-200",
+                    };
+                    const kbatKey = (session.kbat_level ?? "").toUpperCase().replace(/\s.*/, "");
+                    const kbatClass = kbatColorMap[kbatKey] ?? "bg-zinc-100 text-zinc-500 border-zinc-300";
+                    const label = paperLabel[session.question_type ?? "mcq"] ?? "Paper 1";
+                    return (
+                      <>
+                        <div className="mb-3 flex flex-wrap items-center gap-2">
+                          <span className="rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-primary">
+                            {label}
+                          </span>
+                          {session.kbat_level && (
+                            <span className={cn("rounded-md border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest", kbatClass)}>
+                              {session.kbat_level}
+                            </span>
+                          )}
+                          <span className="ml-auto text-[10px] uppercase tracking-wider text-zinc-400">
+                            {(session.subject ?? activeSubject) || ""} · {activeLanguage === "ms" ? `T${formLevel}` : `F${formLevel}`}
+                          </span>
+                        </div>
+                        <h1 className="text-xl font-semibold leading-snug tracking-tight">
+                          {session.question}
+                        </h1>
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </section>
@@ -1382,6 +1459,47 @@ function StudentFeed() {
                 );
               }
               if (qt === "short_answer") {
+                const subParts = session.sub_parts;
+                if (subParts && subParts.length > 0) {
+                  const hasAnyAnswer = subParts.some((p) => (subPartAnswers[p.label] ?? "").trim().length > 0);
+                  return (
+                    <div className="flex flex-col gap-3">
+                      <div className="rounded-2xl border-2 border-border/40 bg-card overflow-hidden">
+                        {subParts.map((part, idx) => (
+                          <div key={part.label} className={cn("p-4", idx < subParts.length - 1 && "border-b border-border/30")}>
+                            <div className="flex items-baseline justify-between gap-3 mb-2">
+                              <p className="flex-1 text-sm leading-relaxed text-foreground">
+                                <span className="font-bold text-primary mr-1.5">{part.label}</span>
+                                {part.question}
+                              </p>
+                              <span className="shrink-0 rounded border border-border/40 bg-muted/40 px-2 py-0.5 text-[10px] font-bold text-muted-foreground whitespace-nowrap">
+                                [{part.marks} {activeLanguage === "ms" ? "markah" : part.marks === 1 ? "mark" : "marks"}]
+                              </span>
+                            </div>
+                            <Textarea
+                              value={subPartAnswers[part.label] ?? ""}
+                              onChange={(e) => setSubPartAnswers((prev) => ({ ...prev, [part.label]: e.target.value }))}
+                              disabled={!!feedback || submittingText}
+                              placeholder={activeLanguage === "ms" ? "Tulis jawapan di sini…" : "Write your answer here…"}
+                              className={cn(
+                                "rounded-lg border-2 border-border/40 bg-background/60 px-3 py-2 text-sm leading-relaxed transition focus:border-primary",
+                                part.marks === 1 ? "min-h-[44px]" : "min-h-[72px]",
+                              )}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <Button
+                        onClick={() => void handleSubPartsSubmit()}
+                        disabled={!!feedback || submittingText || !hasAnyAnswer}
+                        size="lg"
+                        className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
+                      >
+                        {submittingText ? <Loader2 className="h-5 w-5 animate-spin" /> : activeLanguage === "ms" ? "Hantar Jawapan" : "Submit Answers"}
+                      </Button>
+                    </div>
+                  );
+                }
                 return (
                   <div className="flex flex-col gap-3">
                     <Input
@@ -1400,28 +1518,34 @@ function StudentFeed() {
                       size="lg"
                       className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
                     >
-                      {submittingText ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Answer"}
+                      {submittingText ? <Loader2 className="h-5 w-5 animate-spin" /> : activeLanguage === "ms" ? "Hantar Jawapan" : "Submit Answer"}
                     </Button>
                   </div>
                 );
               }
               if (qt === "essay") {
+                const wordCount = textAnswer.trim() ? textAnswer.trim().split(/\s+/).length : 0;
                 return (
                   <div className="flex flex-col gap-3">
-                    <Textarea
-                      value={textAnswer}
-                      onChange={(e) => setTextAnswer(e.target.value)}
-                      disabled={!!feedback || submittingText}
-                      placeholder="Write your essay response…"
-                      className="min-h-[180px] rounded-2xl border-2 border-border bg-card/60 px-4 py-3 text-base leading-relaxed"
-                    />
+                    <div className="relative">
+                      <Textarea
+                        value={textAnswer}
+                        onChange={(e) => setTextAnswer(e.target.value)}
+                        disabled={!!feedback || submittingText}
+                        placeholder={activeLanguage === "ms" ? "Tulis karangan anda di sini…" : "Write your essay response here…"}
+                        className="min-h-[220px] rounded-xl border-2 border-border/50 bg-card px-4 pb-8 pt-3 text-sm leading-relaxed"
+                      />
+                      <div className="pointer-events-none absolute bottom-2.5 right-3 text-[10px] font-medium tabular-nums text-muted-foreground">
+                        {wordCount} {activeLanguage === "ms" ? "patah perkataan" : "words"}
+                      </div>
+                    </div>
                     <Button
                       onClick={() => void handleTextSubmit()}
                       disabled={!!feedback || submittingText || !textAnswer.trim()}
                       size="lg"
                       className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
                     >
-                      {submittingText ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Essay"}
+                      {submittingText ? <Loader2 className="h-5 w-5 animate-spin" /> : activeLanguage === "ms" ? "Hantar Karangan" : "Submit Essay"}
                     </Button>
                   </div>
                 );
@@ -1436,37 +1560,41 @@ function StudentFeed() {
                   </div>
                 );
               }
-              const COLORS: Record<Letter, string> = {
-                A: "bg-red-500 hover:bg-red-400",
-                B: "bg-blue-500 hover:bg-blue-400",
-                C: "bg-yellow-500 hover:bg-yellow-400",
-                D: "bg-green-500 hover:bg-green-400",
+              const LETTER_CIRCLE: Record<Letter, string> = {
+                A: "border-red-400/80 bg-red-500 text-white",
+                B: "border-blue-400/80 bg-blue-500 text-white",
+                C: "border-amber-400/80 bg-amber-500 text-white",
+                D: "border-emerald-400/80 bg-emerald-500 text-white",
               };
               return (
-                <div className="grid gap-3">
+                <div className="grid gap-2.5">
                   {LETTERS.map((letter) => {
                     const isChecking = checking === letter;
                     const isSelected = selected === letter;
                     const isFlashCorrect = correctFlash === letter;
                     const isFlashWrong = wrongFlash === letter;
+                    const active = isSelected || isFlashCorrect || isFlashWrong;
                     return (
                       <button
                         key={letter}
                         onClick={() => handleAnswer(letter)}
                         disabled={!!checking || !!feedback || !session}
                         className={cn(
-                          "group flex items-center gap-4 rounded-xl px-4 py-4 text-left text-white font-bold text-lg transition-all shadow-lg",
-                          COLORS[letter],
-                          "disabled:cursor-not-allowed",
-                          isSelected && !feedback && "ring-4 ring-white scale-105",
-                          isFlashCorrect && "animate-pulse ring-4 ring-white",
-                          isFlashWrong && "animate-[shake_0.4s_ease-in-out] ring-4 ring-red-200",
+                          "group flex items-center gap-3 rounded-xl border-2 bg-card px-4 py-3.5 text-left transition-all",
+                          "border-border/40 hover:border-primary/50 hover:bg-primary/5",
+                          "disabled:cursor-not-allowed disabled:opacity-60",
+                          isSelected && !feedback && "border-primary bg-primary/10 scale-[1.02] shadow-sm",
+                          isFlashCorrect && "border-emerald-400 bg-emerald-500/10 animate-pulse",
+                          isFlashWrong && "border-destructive bg-destructive/10 animate-[shake_0.4s_ease-in-out]",
                         )}
                       >
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/25 text-xl font-extrabold">
-                          {isChecking ? <Loader2 className="h-5 w-5 animate-spin" /> : letter}
+                        <span className={cn(
+                          "grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 text-sm font-extrabold transition-colors",
+                          active ? LETTER_CIRCLE[letter] : "border-border/50 bg-muted/50 text-foreground",
+                        )}>
+                          {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : letter}
                         </span>
-                        <span className="flex-1 leading-snug">
+                        <span className="flex-1 text-sm font-medium leading-snug text-foreground">
                           {session?.options[letter]}
                         </span>
                       </button>
@@ -1622,6 +1750,8 @@ function StudentFeed() {
           language={activeLanguage}
         />
       )}
+
+      <StudentSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <PraiseOverlay
         show={praiseOn}

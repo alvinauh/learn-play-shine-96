@@ -14,6 +14,7 @@ import {
   Gamepad2,
   ClipboardList,
   ChevronDown,
+  Sparkles,
 } from "lucide-react";
 import {
   Radar,
@@ -217,6 +218,14 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
           </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
+            <Link
+              to="/"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary-glow hover:bg-card/80 transition"
+              aria-label="Go to student quiz"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Student Quiz
+            </Link>
             <Link
               to="/leaderboard"
               className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-yellow-500 hover:text-yellow-400 transition"
