@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Target, BookOpen, Sparkles, School, ClipboardList } from "lucide-react";
+import { Target, BookOpen, Sparkles, School, ClipboardList, LayoutDashboard } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -353,6 +354,13 @@ export function StudyModeSelect({
                   : "Let's Go →"}
           </Button>
         </div>
+        <Link
+          to="/dashboard"
+          className="flex items-center justify-center gap-1.5 text-sm text-indigo-300/70 hover:text-indigo-100 transition-colors"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          {isMs ? "Lihat Papan Pemuka" : "View Dashboard"}
+        </Link>
       </main>
     </div>
   );
