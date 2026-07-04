@@ -350,7 +350,7 @@ function RateLimitWaitingCard({
 
 function StudentFeed() {
   const { t, lang, setLang } = useI18n();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [videoBroll, setVideoBroll] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
@@ -505,8 +505,8 @@ function StudentFeed() {
     const nextActiveLanguage = languageOverride ?? activeLanguage;
     const qType = questionTypeOverride ?? questionType;
     const apiLanguage = langToApi(nextActiveLanguage);
-    if (!subject || !target) {
-      // Nothing to load yet (subjects still loading from backend).
+    if (!subject || !target || authLoading) {
+      // Nothing to load yet (subjects still loading or auth not resolved).
       return;
     }
     setLoading(true);
@@ -700,6 +700,14 @@ function StudentFeed() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Once auth resolves (authLoading flips false), retry loadSession if a
+  // topic is already selected but no session exists yet (the earlier call
+  // was skipped because effectiveStudentId was null).
+  useEffect(() => {
+    if (authLoading || session || !activeSubject || !activeTopic) return;
+    void loadSession(activeSubject, activeTopic, activeLanguage, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading]);
 
   useEffect(() => {
     setActiveLanguage(lang);
@@ -738,7 +746,7 @@ function StudentFeed() {
   };
 
   const submitToBackend = async (answerText: string, letter?: Letter) => {
-    if (!session) return;
+    if (!session || authLoading) return;
     setError(null);
     try {
       const apiLanguage = langToApi(activeLanguage);
