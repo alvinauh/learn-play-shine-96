@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, type AppRole } from "@/lib/auth";
-import { fetchLeaderboard, type LeaderboardEntry } from "@/services/api";
+import { fetchLeaderboard, BASE_URL, type LeaderboardEntry } from "@/services/api";
 import {
   Loader2,
   LogOut,
@@ -13,6 +13,11 @@ import {
   Trophy,
   ExternalLink,
   RefreshCw,
+  Activity,
+  Send,
+  Zap,
+  BookOpen,
+  UserX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +32,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminConsole,
 });
 
-type Tab = "users" | "classrooms" | "errors" | "leaderboard";
+type Tab = "users" | "classrooms" | "errors" | "leaderboard" | "monitor";
 
 interface UserRow {
   id: string;
@@ -84,6 +89,7 @@ function AdminConsole() {
     { key: "classrooms", label: "Classrooms", icon: School },
     { key: "errors", label: "Error Log", icon: AlertTriangle },
     { key: "leaderboard", label: "Leaderboard", icon: Trophy },
+    { key: "monitor", label: "Platform", icon: Activity },
   ];
 
   return (
@@ -151,6 +157,7 @@ function AdminConsole() {
         {tab === "classrooms" && <ClassroomsPanel />}
         {tab === "errors" && <ErrorsPanel />}
         {tab === "leaderboard" && <LeaderboardPanel />}
+        {tab === "monitor" && <MonitorPanel />}
       </main>
     </div>
   );
@@ -587,5 +594,233 @@ function LeaderboardPanel() {
         </ul>
       )}
     </section>
+  );
+}
+
+/* ---------------- Platform Monitor ---------------- */
+
+interface NodeStat {
+  requests: number;
+  errors: number;
+  error_rate_pct: number;
+  avg_ms: number;
+  p50_ms: number;
+  p95_ms: number;
+}
+interface MonitorData {
+  last_5min: NodeStat;
+  last_hour: NodeStat;
+  nodes_last_hour: Record<string, NodeStat>;
+  slowest_recent_spans: { node: string; label: string; ms: number }[];
+  total_spans_last_hour: number;
+  error?: string;
+}
+interface InsightsData {
+  period_days: number;
+  summary: {
+    answers_today: number;
+    correct_today: number;
+    accuracy_today_pct: number;
+    total_wrong_in_period: number;
+    stuck_student_count: number;
+    seed_gap_count: number;
+  };
+  worst_topics: { topic: string; total_errors: number; categories: Record<string, number> }[];
+  stuck_students: { student_short: string; stuck_topic_count: number }[];
+  seed_gaps: { topic: string; language: string; form_level: number }[];
+  provider_health: { node_errors_24h: Record<string, number>; total_traces_24h: number };
+}
+
+function MonitorPanel() {
+  const [monitor, setMonitor] = useState<MonitorData | null>(null);
+  const [insights, setInsights] = useState<InsightsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [digestSending, setDigestSending] = useState(false);
+  const [digestMsg, setDigestMsg] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    const [m, i] = await Promise.all([
+      fetch(`${BASE_URL}/admin/monitor`).then((r) => r.json()).catch((e) => ({ error: String(e) })),
+      fetch(`${BASE_URL}/admin/insights?days=7`).then((r) => r.json()).catch(() => null),
+    ]);
+    setMonitor(m as MonitorData);
+    setInsights(i as InsightsData);
+    setLoading(false);
+  };
+
+  const sendDigest = async () => {
+    setDigestSending(true);
+    setDigestMsg(null);
+    try {
+      const r = await fetch(`${BASE_URL}/admin/digest`, { method: "POST" });
+      const d = await r.json() as { sent: boolean; preview?: string; error?: string };
+      setDigestMsg(d.sent ? "Digest sent to Telegram." : (d.error ?? "Not sent — check TELEGRAM_BOT_TOKEN in .env"));
+    } catch {
+      setDigestMsg("Request failed.");
+    } finally {
+      setDigestSending(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading platform telemetry…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-lg font-semibold">Platform Health</h2>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={sendDigest}
+            disabled={digestSending}
+            className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+          >
+            {digestSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            Send Telegram Digest
+          </button>
+          <button
+            onClick={() => void load()}
+            className="grid h-9 w-9 place-items-center rounded-md border border-border bg-card text-muted-foreground hover:text-foreground transition"
+            aria-label="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      {digestMsg && <p className="text-sm text-muted-foreground">{digestMsg}</p>}
+
+      {monitor?.error ? (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          {monitor.error}
+        </div>
+      ) : monitor && (
+        <>
+          {/* HTTP latency cards */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Req (5 min)", value: monitor.last_5min.requests },
+              { label: "Errors (5 min)", value: monitor.last_5min.errors, warn: monitor.last_5min.errors > 0 },
+              { label: "p50 latency (1 h)", value: `${monitor.last_hour.p50_ms} ms` },
+              { label: "p95 latency (1 h)", value: `${monitor.last_hour.p95_ms} ms`, warn: monitor.last_hour.p95_ms > 5000 },
+            ].map(({ label, value, warn }) => (
+              <div key={label} className={cn("rounded-xl border bg-card p-4", warn ? "border-destructive/40" : "border-border")}>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+                <p className={cn("mt-1 text-2xl font-bold tabular-nums", warn ? "text-destructive" : "")}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Node breakdown */}
+          {Object.keys(monitor.nodes_last_hour).length > 0 && (
+            <section className="rounded-2xl border border-border bg-card p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <Zap className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-semibold">Agent node latency (last hour)</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="py-2 pr-4">Node</th>
+                      <th className="py-2 pr-4">Calls</th>
+                      <th className="py-2 pr-4">Errors</th>
+                      <th className="py-2 pr-4">Avg ms</th>
+                      <th className="py-2 pr-4">p50 ms</th>
+                      <th className="py-2 pr-4">p95 ms</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(monitor.nodes_last_hour).map(([name, s]) => (
+                      <tr key={name} className="border-b border-border/40">
+                        <td className="py-2 pr-4 font-mono text-xs">{name}</td>
+                        <td className="py-2 pr-4 tabular-nums">{s.requests}</td>
+                        <td className={cn("py-2 pr-4 tabular-nums", s.errors > 0 ? "text-destructive font-semibold" : "text-muted-foreground")}>{s.errors}</td>
+                        <td className="py-2 pr-4 tabular-nums text-muted-foreground">{s.avg_ms}</td>
+                        <td className="py-2 pr-4 tabular-nums">{s.p50_ms}</td>
+                        <td className={cn("py-2 pr-4 tabular-nums", s.p95_ms > 5000 ? "text-amber-500" : "")}>{s.p95_ms}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* Slowest spans */}
+          {monitor.slowest_recent_spans.length > 0 && (
+            <div className="rounded-xl border border-amber-400/30 bg-amber-500/5 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-600">Slowest recent spans</p>
+              <ul className="space-y-1">
+                {monitor.slowest_recent_spans.map((s, i) => (
+                  <li key={i} className="flex items-center justify-between text-sm">
+                    <span className="font-mono text-xs text-muted-foreground">{s.node} — {s.label}</span>
+                    <span className="font-bold tabular-nums text-amber-600">{s.ms} ms</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Insights */}
+      {insights && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <section className="rounded-2xl border border-border bg-card p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-semibold">Today's activity</h3>
+            </div>
+            <dl className="space-y-1 text-sm">
+              <div className="flex justify-between"><dt className="text-muted-foreground">Answers</dt><dd className="font-semibold tabular-nums">{insights.summary.answers_today}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted-foreground">Accuracy</dt><dd className="font-semibold tabular-nums">{insights.summary.accuracy_today_pct}%</dd></div>
+              <div className="flex justify-between"><dt className="text-muted-foreground">Stuck students</dt><dd className={cn("font-semibold tabular-nums", insights.summary.stuck_student_count > 0 ? "text-amber-500" : "")}>{insights.summary.stuck_student_count}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted-foreground">Seed gaps</dt><dd className={cn("font-semibold tabular-nums", insights.summary.seed_gap_count > 0 ? "text-destructive" : "")}>{insights.summary.seed_gap_count}</dd></div>
+            </dl>
+          </section>
+
+          <section className="rounded-2xl border border-border bg-card p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-semibold">Top problem topics (7d)</h3>
+            </div>
+            <ul className="space-y-1.5">
+              {insights.worst_topics.slice(0, 5).map((t) => (
+                <li key={t.topic} className="flex items-center justify-between text-sm">
+                  <span className="truncate text-xs">{t.topic}</span>
+                  <span className="ml-2 shrink-0 rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive">{t.total_errors} err</span>
+                </li>
+              ))}
+              {insights.worst_topics.length === 0 && <li className="text-xs text-muted-foreground">No errors logged.</li>}
+            </ul>
+          </section>
+
+          <section className="rounded-2xl border border-border bg-card p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <UserX className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-semibold">Stuck students</h3>
+            </div>
+            <ul className="space-y-1.5">
+              {insights.stuck_students.slice(0, 5).map((s) => (
+                <li key={s.student_short} className="flex items-center justify-between text-sm">
+                  <span className="font-mono text-xs">{s.student_short}</span>
+                  <span className="ml-2 shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-600">{s.stuck_topic_count} topics</span>
+                </li>
+              ))}
+              {insights.stuck_students.length === 0 && <li className="text-xs text-muted-foreground">No stuck students.</li>}
+            </ul>
+          </section>
+        </div>
+      )}
+    </div>
   );
 }

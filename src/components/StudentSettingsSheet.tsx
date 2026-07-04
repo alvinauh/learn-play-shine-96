@@ -2,6 +2,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useStudentPrefs, THEMES, type ThemeKey, type FontSize } from "@/hooks/useStudentPrefs";
+import { ChevronRight } from "lucide-react";
 
 const AVATARS = ["🎓", "🦁", "🐯", "🦊", "🐺", "🦅", "⚡", "🔥", "🌟", "💎", "🚀", "🎯"];
 
@@ -22,9 +23,10 @@ const FONT_OPTIONS: { key: FontSize; label: string; size: string }[] = [
 interface Props {
   open: boolean;
   onClose: () => void;
+  onOpenExamPrefs?: () => void;
 }
 
-export function StudentSettingsSheet({ open, onClose }: Props) {
+export function StudentSettingsSheet({ open, onClose, onOpenExamPrefs }: Props) {
   const { prefs, save } = useStudentPrefs();
 
   return (
@@ -108,7 +110,7 @@ export function StudentSettingsSheet({ open, onClose }: Props) {
         </section>
 
         {/* Sound toggle */}
-        <div className="flex items-center justify-between rounded-xl border border-border bg-card/60 px-4 py-3">
+        <div className="mb-6 flex items-center justify-between rounded-xl border border-border bg-card/60 px-4 py-3">
           <div>
             <div className="text-sm font-semibold">Sound Effects</div>
             <div className="text-xs text-muted-foreground">Correct / wrong answer sounds</div>
@@ -118,6 +120,36 @@ export function StudentSettingsSheet({ open, onClose }: Props) {
             onCheckedChange={(v) => save({ soundOn: v })}
           />
         </div>
+
+        {/* Exam Mode */}
+        <section>
+          <div className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            SPM Exam Mode
+          </div>
+          <div className="rounded-xl border border-border bg-card/60 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold">Exam Paper Layout</div>
+                <div className="text-xs text-muted-foreground">
+                  Replaces the game card with an SPM booklet format
+                </div>
+              </div>
+              <Switch
+                checked={prefs.examMode}
+                onCheckedChange={(v) => save({ examMode: v })}
+              />
+            </div>
+            {prefs.examMode && onOpenExamPrefs && (
+              <button
+                onClick={() => { onClose(); onOpenExamPrefs(); }}
+                className="flex w-full items-center justify-between border-t border-border px-4 py-2.5 text-sm text-primary hover:bg-primary/5 transition"
+              >
+                <span>Customise exam paper</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </section>
       </SheetContent>
     </Sheet>
   );

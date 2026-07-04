@@ -24,11 +24,13 @@ import {
   fetchTeacherInsights,
   fetchDiagnosticStatus,
   fetchStudentCoach,
+  fetchMasteryMap,
   type LeaderboardEntry,
   type FlaggedStudent,
   type RecentAlert,
   type DiagnosticStatus,
   type StudentCoachResponse,
+  type MasteryMapResult,
 } from "@/services/api";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +59,7 @@ function StudentDashboard() {
   const [alerts, setAlerts] = useState<RecentAlert[]>([]);
   const [diagnostic, setDiagnostic] = useState<DiagnosticStatus | null>(null);
   const [coach, setCoach] = useState<StudentCoachResponse | null>(null);
+  const [masteryMap, setMasteryMap] = useState<MasteryMapResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -72,13 +75,15 @@ function StudentDashboard() {
       fetchTeacherInsights().catch(() => null),
       fetchDiagnosticStatus(studentId).catch(() => null),
       fetchStudentCoach(studentId).catch(() => null),
-    ]).then(([lb, ins, diag, c]) => {
+      fetchMasteryMap(studentId).catch(() => null),
+    ]).then(([lb, ins, diag, c, mm]) => {
       if (cancelled) return;
       setLeaderboard(lb.leaderboard);
       setFlagged((ins?.flagged_students ?? []).filter((f) => f.student_id === studentId));
       setAlerts(ins?.recent_alerts ?? []);
       setDiagnostic(diag);
       setCoach(c);
+      setMasteryMap(mm);
       setLoading(false);
     });
     return () => {
@@ -231,6 +236,63 @@ function StudentDashboard() {
             </div>
           )}
         </section>
+
+        {/* Mastery map — per-subject topic progress */}
+        {(loading || masteryMap) && (
+          <section className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-emerald-300" />
+                <h2 className="text-lg font-bold">{isBM ? "Peta Penguasaan" : "Mastery Map"}</h2>
+              </div>
+              {masteryMap && (
+                <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
+                  {Math.round((masteryMap.overall_progress ?? 0) * 100)}% {isBM ? "selesai" : "overall"}
+                </span>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-16 w-full bg-white/10" />
+                <Skeleton className="h-16 w-full bg-white/10" />
+              </div>
+            ) : masteryMap && Object.keys(masteryMap.mastery_map).length === 0 ? (
+              <p className="text-sm text-white/60">
+                {isBM ? "Belum ada data penguasaan. Mula menjawab soalan!" : "No mastery data yet — start answering questions!"}
+              </p>
+            ) : masteryMap && (
+              <div className="space-y-4">
+                {Object.entries(masteryMap.mastery_map).map(([subject, topics]) => (
+                  <div key={subject}>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">{subject}</p>
+                    <div className="space-y-1.5">
+                      {topics.map((t) => {
+                        const pct = Math.round(t.mastery_score * 100);
+                        const color =
+                          t.status === "complete" ? "bg-emerald-400" :
+                          pct >= 50 ? "bg-indigo-400" :
+                          pct > 0 ? "bg-amber-400" : "bg-white/20";
+                        return (
+                          <div key={t.topic} className="flex items-center gap-3">
+                            <span className="w-40 shrink-0 truncate text-xs text-white/70">{t.topic}</span>
+                            <div className="flex-1 overflow-hidden rounded-full bg-white/10 h-2">
+                              <div
+                                className={`h-2 rounded-full transition-all ${color}`}
+                                style={{ width: `${Math.max(pct, pct > 0 ? 3 : 0)}%` }}
+                              />
+                            </div>
+                            <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-white/50">{pct}%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Two-column: alerts + leaderboard preview */}
         <section className="grid gap-4 md:grid-cols-2">

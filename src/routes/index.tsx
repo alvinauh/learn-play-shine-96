@@ -51,7 +51,9 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useAuth } from "@/lib/auth";
 import { useStudentPrefs, FONT_SIZE_CLASS } from "@/hooks/useStudentPrefs";
 import { StudentSettingsSheet } from "@/components/StudentSettingsSheet";
-import { LogOut } from "lucide-react";
+import { ExamPaperCard } from "@/components/ExamPaperCard";
+import { ExamPrefsSheet } from "@/components/ExamPrefsSheet";
+import { LogOut, BookOpen, Gamepad2 } from "lucide-react";
 import { LessonNotesModal } from "@/components/LessonNotesModal";
 import { TutorChatDrawer } from "@/components/TutorChatDrawer";
 import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
@@ -845,7 +847,8 @@ function StudentFeed() {
   const [submittingText, setSubmittingText] = useState(false);
   const [subPartAnswers, setSubPartAnswers] = useState<Record<string, string>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { prefs } = useStudentPrefs();
+  const [examPrefsOpen, setExamPrefsOpen] = useState(false);
+  const { prefs, save } = useStudentPrefs();
 
   const handleTextSubmit = async () => {
     if (submittingText || feedback || !session) return;
@@ -1311,8 +1314,62 @@ function StudentFeed() {
           />
         ) : (
           <>
+            {/* Game ↔ Exam mode toggle pill */}
+            <div className="flex justify-end">
+              <div className="inline-flex rounded-full border border-border bg-card/80 p-0.5 shadow-sm">
+                <button
+                  onClick={() => save({ examMode: false })}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all",
+                    !prefs.examMode
+                      ? "bg-primary text-primary-foreground shadow"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Gamepad2 className="h-3.5 w-3.5" />
+                  Game
+                </button>
+                <button
+                  onClick={() => save({ examMode: true })}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all",
+                    prefs.examMode
+                      ? "bg-primary text-primary-foreground shadow"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  SPM Exam
+                </button>
+              </div>
+            </div>
 
-
+            {/* Exam Paper mode */}
+            {prefs.examMode ? (
+              <ExamPaperCard
+                session={session}
+                examPrefs={prefs.examPrefs}
+                formLevel={formLevel}
+                activeLanguage={activeLanguage}
+                activeSubject={activeSubject}
+                questionNumber={questionNumber}
+                subPartAnswers={subPartAnswers}
+                setSubPartAnswers={setSubPartAnswers}
+                textAnswer={textAnswer}
+                setTextAnswer={setTextAnswer}
+                feedback={feedback}
+                submittingText={submittingText}
+                selected={selected}
+                checking={checking}
+                correctFlash={correctFlash}
+                wrongFlash={wrongFlash}
+                loading={loading}
+                onSubPartsSubmit={handleSubPartsSubmit}
+                onTextSubmit={handleTextSubmit}
+                onAnswer={handleAnswer}
+              />
+            ) : (
+            <>
 
             <section className={cn(
               "rounded-2xl border-2 p-5 transition-all bg-white text-zinc-900 shadow-md",
@@ -1610,6 +1667,8 @@ function StudentFeed() {
                 </div>
               );
             })()}
+            </> /* end game-mode fragment */
+            )} {/* end exam/game ternary */}
           </>
         )}
       </main>
@@ -1751,7 +1810,12 @@ function StudentFeed() {
         />
       )}
 
-      <StudentSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <StudentSettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onOpenExamPrefs={() => setExamPrefsOpen(true)}
+      />
+      <ExamPrefsSheet open={examPrefsOpen} onClose={() => setExamPrefsOpen(false)} />
 
       <PraiseOverlay
         show={praiseOn}

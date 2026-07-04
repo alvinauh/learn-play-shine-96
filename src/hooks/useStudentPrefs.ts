@@ -2,19 +2,42 @@ import { useState, useEffect } from "react";
 
 export type ThemeKey = "purple" | "blue" | "green" | "orange" | "red";
 export type FontSize = "sm" | "md" | "lg";
+export type ExamFont = "serif" | "sans";
+export type PaperColour = "white" | "cream" | "blue";
+export type LineStyle = "ruled" | "plain" | "graph";
+
+export interface ExamPrefs {
+  font: ExamFont;
+  paperColour: PaperColour;
+  showMarks: boolean;
+  lineStyle: LineStyle;
+  bilingualLabels: boolean;
+}
 
 export interface StudentPrefs {
   avatar: string;
   theme: ThemeKey;
   fontSize: FontSize;
   soundOn: boolean;
+  examMode: boolean;
+  examPrefs: ExamPrefs;
 }
+
+const DEFAULT_EXAM_PREFS: ExamPrefs = {
+  font: "serif",
+  paperColour: "white",
+  showMarks: true,
+  lineStyle: "ruled",
+  bilingualLabels: true,
+};
 
 const DEFAULT: StudentPrefs = {
   avatar: "🎓",
   theme: "purple",
   fontSize: "md",
   soundOn: true,
+  examMode: false,
+  examPrefs: DEFAULT_EXAM_PREFS,
 };
 
 const STORAGE_KEY = "kp_prefs";
