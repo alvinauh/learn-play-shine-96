@@ -373,6 +373,8 @@ function StudentFeed() {
   const [penaltyOpen, setPenaltyOpen] = useState(false);
   const [wrongFlash, setWrongFlash] = useState<Letter | null>(null);
   const [correctFlash, setCorrectFlash] = useState<Letter | null>(null);
+  const [diagramSvg, setDiagramSvg] = useState<string | null>(null);
+  const [hasSeenIntro, setHasSeenIntro] = useState(false);
   
   const [error, setError] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<SubjectWithTopics[]>([]);
@@ -509,6 +511,9 @@ function StudentFeed() {
       // Nothing to load yet (subjects still loading or auth not resolved).
       return;
     }
+    const introKey = `kp_intro_${effectiveStudentId}_${subject}_${target}`;
+    const alreadySeenIntro = localStorage.getItem(introKey) === "1";
+    setHasSeenIntro(alreadySeenIntro);
     setLoading(true);
     setError(null);
     setFeedback(null);
@@ -516,6 +521,7 @@ function StudentFeed() {
     setVideoBroll(null);
     setMediaUrl(null);
     setMnemonicLyrics(null);
+    setDiagramSvg(null);
     setTextAnswer("");
     setSubPartAnswers({});
     setSession(null);
@@ -536,6 +542,9 @@ function StudentFeed() {
       setVideoBroll(data.video_broll ?? null);
       setMediaUrl(data.media_url ?? null);
       setMnemonicLyrics(data.mnemonic_lyrics ?? null);
+      setDiagramSvg(data.diagram_svg ?? null);
+      // Mark this topic's intro as seen so next question skips it
+      localStorage.setItem(introKey, "1");
       setSession(data);
     } catch (err) {
       if (requestId !== latestLoadRequestRef.current) return;
@@ -1181,8 +1190,8 @@ function StudentFeed() {
           />
         </div>
 
-        {/* Media / Mnemonic Hook — hidden when H5P interactive video is shown */}
-        {session && !session.h5p_content && (
+        {/* Media / Mnemonic Hook — hidden when H5P is shown or intro already seen */}
+        {session && !session.h5p_content && !hasSeenIntro && (
           (Array.isArray(mnemonicLyrics) && mnemonicLyrics.some((l) => typeof l === "string" && l.trim().length > 0)) ||
           isValidUrl(videoBroll) ||
           isValidUrl(mediaUrl)
@@ -1192,6 +1201,27 @@ function StudentFeed() {
             videoBroll={videoBroll}
             voiceoverUrl={mediaUrl}
           />
+        ) : session && !session.h5p_content && hasSeenIntro && diagramSvg ? (
+          /* Compact diagram panel shown after first encounter */
+          <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                📊 {activeLanguage === "ms" ? "Rajah Konsep" : "Concept Diagram"}
+              </span>
+              {(Array.isArray(mnemonicLyrics) && mnemonicLyrics.some((l) => typeof l === "string" && l.trim().length > 0)) || isValidUrl(videoBroll) ? (
+                <button
+                  onClick={() => setHasSeenIntro(false)}
+                  className="text-[10px] font-medium text-primary hover:underline"
+                >
+                  🎵 {activeLanguage === "ms" ? "Ulang intro" : "Review intro"}
+                </button>
+              ) : null}
+            </div>
+            <div
+              className="overflow-hidden rounded-lg [&_svg]:h-auto [&_svg]:w-full"
+              dangerouslySetInnerHTML={{ __html: diagramSvg }}
+            />
+          </div>
         ) : session && session.h5p_content ? null : (
           <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
@@ -1310,6 +1340,13 @@ function StudentFeed() {
             language={langToApi(activeLanguage)}
             correctAnswer={session.correct}
             mnemonicLyrics={mnemonicLyrics}
+            skipIntro={hasSeenIntro}
+            diagramSvg={diagramSvg}
+            onIntroComplete={() => {
+              const key = `kp_intro_${effectiveStudentId}_${activeSubject}_${activeTopic}`;
+              localStorage.setItem(key, "1");
+              setHasSeenIntro(true);
+            }}
             onAnswerSubmit={(res) => {
               if (res.correct) {
                 setStreak((s) => s + 1);

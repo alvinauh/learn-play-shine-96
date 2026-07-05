@@ -40,6 +40,12 @@ interface InteractiveVideoPlayerProps {
   language: string;
   correctAnswer?: string;
   mnemonicLyrics?: string[] | null;
+  /** Skip the video+DragText intro and jump straight to the MCQ. */
+  skipIntro?: boolean;
+  /** Called the first time the video intro naturally transitions to MCQ. */
+  onIntroComplete?: () => void;
+  /** SVG diagram string to use as background when skipIntro=true. */
+  diagramSvg?: string | null;
   onAnswerSubmit: (result: AnswerResponse) => void;
 }
 
@@ -93,6 +99,9 @@ export function InteractiveVideoPlayer({
   language,
   correctAnswer,
   mnemonicLyrics,
+  skipIntro = false,
+  onIntroComplete,
+  diagramSvg,
   onAnswerSubmit,
 }: InteractiveVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -148,7 +157,7 @@ export function InteractiveVideoPlayer({
     };
   }, [h5pContent]);
 
-  const [phase, setPhase] = useState<"intro" | "drag" | "mcq">("intro");
+  const [phase, setPhase] = useState<"intro" | "drag" | "mcq">(() => skipIntro ? "mcq" : "intro");
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<AnswerResponse | null>(null);
@@ -189,10 +198,12 @@ export function InteractiveVideoPlayer({
         v.pause();
         audioRef.current?.pause();
         setPhase("drag");
+        onIntroComplete?.();
       } else if (!parsed.drag && v.currentTime >= parsed.mcqAt) {
         v.pause();
         audioRef.current?.pause();
         setPhase("mcq");
+        onIntroComplete?.();
       }
     }
     if (safeLyrics.length > 0) {
@@ -313,7 +324,17 @@ export function InteractiveVideoPlayer({
   return (
     <div className="relative mx-auto w-full max-w-[480px] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
       <div className="relative aspect-[9/16] w-full">
-        {parsed.videoUrl ? (
+        {skipIntro ? (
+          /* Intro skipped — show diagram or gradient as background */
+          diagramSvg ? (
+            <div
+              className="absolute inset-0 overflow-hidden bg-white [&_svg]:h-full [&_svg]:w-full [&_svg]:object-contain"
+              dangerouslySetInnerHTML={{ __html: diagramSvg }}
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 to-primary/60" />
+          )
+        ) : parsed.videoUrl ? (
           <video
             ref={videoRef}
             src={parsed.videoUrl}
@@ -422,12 +443,13 @@ export function InteractiveVideoPlayer({
         {phase === "mcq" && (
           <div
             className={cn(
-              "absolute inset-0 flex flex-col gap-3 p-4 backdrop-blur-sm transition-colors",
+              "absolute inset-0 flex flex-col gap-3 p-4 transition-colors",
+              skipIntro ? "" : "backdrop-blur-sm",
               result
                 ? result.correct
                   ? "bg-[oklch(0.35_0.18_150/0.85)]"
                   : "bg-[oklch(0.4_0.22_25/0.85)]"
-                : "bg-black/70",
+                : skipIntro ? "bg-white/80" : "bg-black/70",
             )}
           >
             <div className="rounded-2xl bg-card/95 p-4 text-foreground shadow-lg">
