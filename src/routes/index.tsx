@@ -357,7 +357,7 @@ function StudentFeed() {
   const [videoBroll, setVideoBroll] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mnemonicLyrics, setMnemonicLyrics] = useState<string[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [selected, setSelected] = useState<Letter | null>(null);
   const [checking, setChecking] = useState<Letter | null>(null);
