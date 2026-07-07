@@ -1254,7 +1254,7 @@ function StudentFeed() {
           />
         </div>
 
-        {/* Media / Mnemonic Hook — hidden when H5P is shown or intro already seen */}
+        {/* Mnemonic intro — only for non-H5P Q1 with actual lyrics/video content */}
         {session && !session.h5p_content && !hasSeenIntro && (
           (Array.isArray(mnemonicLyrics) && mnemonicLyrics.some((l) => typeof l === "string" && l.trim().length > 0)) ||
           isValidUrl(videoBroll) ||
@@ -1266,7 +1266,7 @@ function StudentFeed() {
             voiceoverUrl={mediaUrl}
           />
         ) : session && !session.h5p_content && diagramSvg ? (
-          /* Compact diagram panel — shown for Q2+ and any non-H5P question with a diagram */
+          /* Compact diagram panel — Q2+ continuity reference */
           <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
@@ -1286,35 +1286,7 @@ function StudentFeed() {
               dangerouslySetInnerHTML={{ __html: diagramSvg }}
             />
           </div>
-        ) : session && session.h5p_content ? null : (
-          <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-primary/40 bg-card/80 shadow-glow animate-pulse-glow">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,oklch(0.70_0.22_240/0.4),transparent_60%),radial-gradient(circle_at_70%_70%,oklch(0.65_0.28_300/0.4),transparent_60%)]" />
-            <div className="absolute inset-0 grid place-items-center">
-              <button
-                onClick={() => setPlaying((p) => !p)}
-                className="grid h-20 w-20 place-items-center rounded-full bg-background/40 backdrop-blur-md ring-1 ring-white/10 transition hover:scale-105"
-                aria-label={playing ? "Pause" : "Play"}
-              >
-                {playing ? (
-                  <Pause className="h-9 w-9 fill-foreground" />
-                ) : (
-                  <Play className="h-9 w-9 fill-foreground translate-x-0.5" />
-                )}
-              </button>
-            </div>
-            <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-background/50 px-3 py-1 text-xs font-medium backdrop-blur">
-              <span className="h-2 w-2 rounded-full bg-neon-green animate-pulse" />
-              {session?.subject ?? "Physics"} • {session?.topic ?? "Kinematics"} · {activeLanguage === "ms" ? `Tingkatan ${formLevel}` : `Form ${formLevel}`}
-            </div>
-            <div className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-background/50 backdrop-blur">
-              <Volume2 className="h-4 w-4" />
-            </div>
-            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-muted-foreground">
-              <span>0:00 / 0:42</span>
-              <span>{t.form}</span>
-            </div>
-          </div>
-        )}
+        ) : null}
 
 
         {/* Side actions row (TikTok-style) */}
