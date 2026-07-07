@@ -157,7 +157,18 @@ export function InteractiveVideoPlayer({
     };
   }, [h5pContent]);
 
-  const [phase, setPhase] = useState<"intro" | "drag" | "mcq">(() => skipIntro ? "mcq" : "intro");
+  const noDiagramVideo =
+    !(h5pContent as any)?.interactiveVideo?.video?.files?.[0]?.path && !!diagramSvg;
+  const [phase, setPhase] = useState<"intro" | "drag" | "mcq">(() => {
+    if (skipIntro || noDiagramVideo) {
+      // If DragText exists in the blob, enter drag phase first; otherwise jump straight to MCQ.
+      const hasDrag = (h5pContent as any)?.interactiveVideo?.assets?.interactions?.some(
+        (i: any) => i.action?.library?.startsWith("H5P.DragText"),
+      );
+      return hasDrag ? "drag" : "mcq";
+    }
+    return "intro";
+  });
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<AnswerResponse | null>(null);
@@ -180,6 +191,14 @@ export function InteractiveVideoPlayer({
   const safeLyrics = Array.isArray(mnemonicLyrics)
     ? mnemonicLyrics.filter((l): l is string => typeof l === "string" && l.trim().length > 0)
     : [];
+
+  // In diagram mode (no video), trigger audio playback on mount.
+  useEffect(() => {
+    if (noDiagramVideo && parsed.audioUrl) {
+      const a = audioRef.current;
+      if (a) { a.currentTime = 0; a.play().catch(() => undefined); }
+    }
+  }, [noDiagramVideo, parsed.audioUrl]);
 
   const handleCanPlay = () => {
     const a = audioRef.current;
@@ -324,8 +343,8 @@ export function InteractiveVideoPlayer({
   return (
     <div className="relative mx-auto w-full max-w-[480px] overflow-hidden rounded-3xl border border-primary/40 bg-black shadow-glow">
       <div className="relative aspect-[9/16] w-full">
-        {skipIntro ? (
-          /* Intro skipped — show diagram or gradient as background */
+        {(skipIntro || noDiagramVideo) ? (
+          /* No video intro — show diagram as background, or gradient fallback */
           diagramSvg ? (
             <div
               className="absolute inset-0 overflow-hidden bg-white [&_svg]:h-full [&_svg]:w-full [&_svg]:object-contain"
@@ -345,9 +364,7 @@ export function InteractiveVideoPlayer({
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">
-            Video unavailable
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 to-primary/60" />
         )}
         {parsed.audioUrl && <audio ref={audioRef} src={parsed.audioUrl} preload="auto" />}
 
