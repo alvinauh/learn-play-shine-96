@@ -377,6 +377,8 @@ function StudentFeed() {
   const [correctFlash, setCorrectFlash] = useState<Letter | null>(null);
   const [diagramSvg, setDiagramSvg] = useState<string | null>(null);
   const [hasSeenIntro, setHasSeenIntro] = useState(false);
+  const [kbatLevelSeen, setKbatLevelSeen] = useState<string | null>(null);
+  const [levelUpLabel, setLevelUpLabel] = useState<string | null>(null);
   
   const [error, setError] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<SubjectWithTopics[]>([]);
@@ -545,7 +547,18 @@ function StudentFeed() {
       setVideoBroll(data.video_broll ?? null);
       setMediaUrl(data.media_url ?? null);
       setMnemonicLyrics(data.mnemonic_lyrics ?? null);
-      setDiagramSvg(data.diagram_svg ?? null);
+      // Preserve diagram across Q1→Q2+ transitions; only clear on topic change
+      if (data.diagram_svg) {
+        setDiagramSvg(data.diagram_svg);
+      } else if (data.topic !== activeTopic || data.subject !== activeSubject) {
+        setDiagramSvg(null);
+      }
+      // Detect KBAT level-up and show a brief celebration chip
+      if (data.kbat_level && kbatLevelSeen && data.kbat_level !== kbatLevelSeen) {
+        setLevelUpLabel(data.kbat_level);
+        setTimeout(() => setLevelUpLabel(null), 2500);
+      }
+      setKbatLevelSeen(data.kbat_level ?? null);
       // Mark this topic's intro as seen so next question skips it
       localStorage.setItem(introKey, "1");
       setSession(data);
@@ -1252,8 +1265,8 @@ function StudentFeed() {
             videoBroll={videoBroll}
             voiceoverUrl={mediaUrl}
           />
-        ) : session && !session.h5p_content && hasSeenIntro && diagramSvg ? (
-          /* Compact diagram panel shown after first encounter */
+        ) : session && !session.h5p_content && diagramSvg ? (
+          /* Compact diagram panel — shown for Q2+ and any non-H5P question with a diagram */
           <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
@@ -1467,6 +1480,14 @@ function StudentFeed() {
             ) : (
             <>
 
+            {levelUpLabel && (
+              <div className="animate-in slide-in-from-top fade-in duration-300 flex justify-center">
+                <div className="flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-1.5 text-sm font-bold text-white shadow-lg">
+                  <span>↑</span>
+                  <span>{activeLanguage === "ms" ? "Tahap Baru" : "Level Up"} — {levelUpLabel}</span>
+                </div>
+              </div>
+            )}
             {session && session.kbat_level && (
               <KbatProgressBar
                 kbatLevel={session.kbat_level}
