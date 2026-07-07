@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   ArrowRight,
   GraduationCap,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,10 @@ import {
   type MasteryMapResult,
 } from "@/services/api";
 import { cn } from "@/lib/utils";
+import { useStudentPrefs } from "@/hooks/useStudentPrefs";
+import { StudentSettingsSheet } from "@/components/StudentSettingsSheet";
+import { ProfileBanner } from "@/components/ProfileBanner";
+import { MasteryPanel } from "@/components/MasteryPanel";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -51,6 +56,8 @@ function StudentDashboard() {
   const navigate = useNavigate();
   const { lang } = useI18n();
   const isBM = lang === "ms";
+  const { prefs } = useStudentPrefs();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const studentId = user?.id ?? FALLBACK_ID;
 
@@ -130,6 +137,15 @@ function StudentDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Personalize"
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/20 bg-white/5 hover:bg-white/10 transition"
+            >
+              <span className="text-lg leading-none">{prefs.avatar}</span>
+            </Button>
             <Link to="/">
               <Button size="sm" className="bg-gradient-to-r from-indigo-500 to-fuchsia-500 text-white">
                 {isBM ? "Mula Kuiz" : "Start Quiz"}
@@ -143,7 +159,18 @@ function StudentDashboard() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
+      {/* Profile Banner */}
+      <div className="mx-auto max-w-6xl px-4 pt-4">
+        <div className="overflow-hidden rounded-2xl">
+          <ProfileBanner
+            banner={prefs.banner}
+            avatar={prefs.avatar}
+            name={profile?.full_name ?? user?.email?.split("@")[0] ?? "Student"}
+          />
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
         {/* Stats hero */}
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatCard
@@ -238,61 +265,19 @@ function StudentDashboard() {
         </section>
 
         {/* Mastery map — per-subject topic progress */}
-        {(loading || masteryMap) && (
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-emerald-300" />
-                <h2 className="text-lg font-bold">{isBM ? "Peta Penguasaan" : "Mastery Map"}</h2>
-              </div>
-              {masteryMap && (
-                <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
-                  {Math.round((masteryMap.overall_progress ?? 0) * 100)}% {isBM ? "selesai" : "overall"}
-                </span>
-              )}
+        {/* Mastery Panel */}
+        <section>
+          <h2 className="mb-3 text-lg font-bold">{isBM ? "Peta Penguasaan" : "Mastery Map"}</h2>
+          {loading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-24 w-full bg-white/10" />
+              <Skeleton className="h-16 w-full bg-white/10" />
+              <Skeleton className="h-16 w-full bg-white/10" />
             </div>
-
-            {loading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-16 w-full bg-white/10" />
-                <Skeleton className="h-16 w-full bg-white/10" />
-              </div>
-            ) : masteryMap && Object.keys(masteryMap.mastery_map).length === 0 ? (
-              <p className="text-sm text-white/60">
-                {isBM ? "Belum ada data penguasaan. Mula menjawab soalan!" : "No mastery data yet — start answering questions!"}
-              </p>
-            ) : masteryMap && (
-              <div className="space-y-4">
-                {Object.entries(masteryMap.mastery_map).map(([subject, topics]) => (
-                  <div key={subject}>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">{subject}</p>
-                    <div className="space-y-1.5">
-                      {topics.map((t) => {
-                        const pct = Math.round(t.mastery_score * 100);
-                        const color =
-                          t.status === "complete" ? "bg-emerald-400" :
-                          pct >= 50 ? "bg-indigo-400" :
-                          pct > 0 ? "bg-amber-400" : "bg-white/20";
-                        return (
-                          <div key={t.topic} className="flex items-center gap-3">
-                            <span className="w-40 shrink-0 truncate text-xs text-white/70">{t.topic}</span>
-                            <div className="flex-1 overflow-hidden rounded-full bg-white/10 h-2">
-                              <div
-                                className={`h-2 rounded-full transition-all ${color}`}
-                                style={{ width: `${Math.max(pct, pct > 0 ? 3 : 0)}%` }}
-                              />
-                            </div>
-                            <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-white/50">{pct}%</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+          ) : masteryMap ? (
+            <MasteryPanel data={masteryMap} isBM={isBM} />
+          ) : null}
+        </section>
 
         {/* Two-column: alerts + leaderboard preview */}
         <section className="grid gap-4 md:grid-cols-2">
@@ -359,6 +344,8 @@ function StudentDashboard() {
           </div>
         </section>
       </main>
+
+      <StudentSettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

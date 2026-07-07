@@ -275,6 +275,7 @@ export interface SessionResponse {
   lesson?: Lesson | null;
   h5p_content?: Record<string, unknown> | null;
   diagram_svg?: string | null;
+  worked_example?: string | null;
   question_data?: Record<string, unknown> | null;
   sub_parts?: SubPart[];
   stimulus?: string;
@@ -451,6 +452,7 @@ function normalizeSessionResponse(
     lesson: (data as { lesson?: Lesson | null }).lesson ?? null,
     h5p_content: (data as { h5p_content?: Record<string, unknown> | null }).h5p_content ?? null,
     diagram_svg: (data as { diagram_svg?: string | null }).diagram_svg ?? null,
+    worked_example: (data as { worked_example?: string | null }).worked_example ?? null,
     question_data: (data.question_data ?? null) as Record<string, unknown> | null,
     sub_parts: data.question_data?.sub_parts,
     stimulus: data.question_data?.stimulus,

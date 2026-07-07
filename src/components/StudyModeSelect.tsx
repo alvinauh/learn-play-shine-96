@@ -92,7 +92,7 @@ export function StudyModeSelect({
 
         <div className="rounded-2xl border border-indigo-400/40 bg-[#1a0e3f]/80 p-6 backdrop-blur shadow-glow">
           <h1 className="text-center font-display text-2xl font-bold text-white">
-            How do you want to study today?
+            {isMs ? "Bagaimana anda ingin belajar hari ini?" : "How do you want to study today?"}
           </h1>
 
           <div className="mt-6 flex flex-col gap-3">
@@ -113,23 +113,29 @@ export function StudyModeSelect({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h2 className="font-display text-lg font-bold text-white">Diagnostic Test</h2>
+                    <h2 className="font-display text-lg font-bold text-white">
+                      {isMs ? "Ujian Diagnostik" : "Diagnostic Test"}
+                    </h2>
                     {fresh && (
                       <span className="rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yellow-950">
-                        Recommended
+                        {isMs ? "Disyorkan" : "Recommended"}
                       </span>
                     )}
                   </div>
                   {loading ? (
-                    <p className="mt-1 text-sm text-indigo-200/60">Checking your progress…</p>
+                    <p className="mt-1 text-sm text-indigo-200/60">
+                      {isMs ? "Menyemak kemajuan anda…" : "Checking your progress…"}
+                    </p>
                   ) : complete ? (
                     <p className="mt-1 text-sm text-indigo-100">
-                      ✅ Completed! Tap to retake or view your Study Coach.
+                      {isMs
+                        ? "✅ Selesai! Ketuk untuk ulang atau lihat Jurulatih Belajar anda."
+                        : "✅ Completed! Tap to retake or view your Study Coach."}
                     </p>
                   ) : inProgress ? (
                     <>
                       <p className="mt-1 text-sm text-indigo-100">
-                        Resume — {answered}/{total} done
+                        {isMs ? `Sambung — ${answered}/${total} selesai` : `Resume — ${answered}/${total} done`}
                       </p>
                       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-indigo-800">
                         <div
@@ -141,10 +147,10 @@ export function StudyModeSelect({
                   ) : (
                     <>
                       <p className="mt-1 text-sm text-indigo-100">
-                        {total} questions across all your subjects
+                        {isMs ? `${total} soalan merentas semua subjek anda` : `${total} questions across all your subjects`}
                       </p>
                       <p className="mt-0.5 text-xs text-indigo-200/80">
-                        Unlock your AI Study Coach report when done
+                        {isMs ? "Buka laporan Jurulatih AI anda selepas tamat" : "Unlock your AI Study Coach report when done"}
                       </p>
                     </>
                   )}
@@ -168,8 +174,12 @@ export function StudyModeSelect({
                   <BookOpen className="h-6 w-6 text-indigo-200" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-display text-lg font-bold text-white">Free Practice</h2>
-                  <p className="mt-1 text-sm text-indigo-100">Pick any subject and topic to practise</p>
+                  <h2 className="font-display text-lg font-bold text-white">
+                    {isMs ? "Latihan Bebas" : "Free Practice"}
+                  </h2>
+                  <p className="mt-1 text-sm text-indigo-100">
+                    {isMs ? "Pilih mana-mana subjek dan topik untuk berlatih" : "Pick any subject and topic to practise"}
+                  </p>
                 </div>
               </div>
             </button>
@@ -242,7 +252,9 @@ export function StudyModeSelect({
           {selected === "assignments" && (
             <div className="mt-3 space-y-2 max-h-72 overflow-auto rounded-xl border border-indigo-400/40 bg-indigo-950/40 p-2">
               {assignmentsLoading ? (
-                <p className="p-3 text-center text-sm text-indigo-200/80">Loading tasks…</p>
+                <p className="p-3 text-center text-sm text-indigo-200/80">
+                  {isMs ? "Memuatkan tugasan…" : "Loading tasks…"}
+                </p>
               ) : assignments.length === 0 && aiTasks.length === 0 ? (
                 <p className="p-3 text-center text-sm text-indigo-200/80">
                   {isMs ? "Tiada tugasan lagi. Sertai kelas dahulu." : "No tasks yet. Join a class first."}
@@ -351,7 +363,7 @@ export function StudyModeSelect({
                 ? (isMs ? "Sertai Kelas →" : "Join Class →")
                 : selected === "assignments"
                   ? (isMs ? "Pilih tugasan di atas" : "Pick a task above")
-                  : "Let's Go →"}
+                  : (isMs ? "Jom Mulakan →" : "Let's Go →")}
           </Button>
         </div>
         <Link

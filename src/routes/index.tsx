@@ -63,6 +63,7 @@ import { BossBattleIntro } from "@/components/BossBattleIntro";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
 import { StudyCoachModal } from "@/components/StudyCoachModal";
 import { StudyModeSelect, type StudyMode } from "@/components/StudyModeSelect";
+import { ProfileBanner } from "@/components/ProfileBanner";
 import { DiagnosticHeaderBar } from "@/components/DiagnosticHeaderBar";
 import { DiagnosticCompleteScreen } from "@/components/DiagnosticCompleteScreen";
 import { toast } from "sonner";
@@ -492,6 +493,7 @@ function StudentFeed() {
   const handleLanguageChange = (nextLanguage: Lang) => {
     setActiveLanguage(nextLanguage);
     setLang(nextLanguage);
+    save({ lang: nextLanguage });
   };
 
   const loadSession = async (
@@ -704,6 +706,25 @@ function StudentFeed() {
   useEffect(() => {
     if (initialLoadAttempted.current) return;
     initialLoadAttempted.current = true;
+
+    // Check for a practice intent set by MasteryPanel (dashboard → quiz deep-link)
+    const intentRaw = sessionStorage.getItem("kp_practice_intent");
+    if (intentRaw) {
+      sessionStorage.removeItem("kp_practice_intent");
+      try {
+        const { subject, topic } = JSON.parse(intentRaw) as { subject: string; topic: string };
+        if (subject && topic) {
+          setStudyMode("free_practice");
+          setActiveSubject(subject);
+          setActiveTopic(topic);
+          void loadSession(subject, topic, activeLanguage, false);
+          return;
+        }
+      } catch {
+        // malformed intent — fall through to normal preload
+      }
+    }
+
     // Preload subjects in the background (no autostart) — used by Free Practice.
     void loadSubjectsForLevel(formLevel, { autoStart: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -867,6 +888,19 @@ function StudentFeed() {
   const [examPrefsOpen, setExamPrefsOpen] = useState(false);
   const { prefs, save } = useStudentPrefs();
 
+  // When Supabase prefs load (cross-device), apply the saved language once.
+  const prefLangApplied = useRef(false);
+  useEffect(() => {
+    if (prefLangApplied.current) return;
+    if (prefs.lang && prefs.lang !== "en") {
+      prefLangApplied.current = true;
+      setLang(prefs.lang);
+    } else if (prefs.lang === "en") {
+      prefLangApplied.current = true;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs.lang]);
+
   const handleTextSubmit = async () => {
     if (submittingText || feedback || !session) return;
     const trimmed = textAnswer.trim();
@@ -925,21 +959,37 @@ function StudentFeed() {
 
   // Study Mode selection screen — show before any question loads
   if (studyMode === null) {
+    const displayName =
+      profile?.full_name ??
+      user?.email?.split("@")[0] ??
+      "Student";
     return (
-      <StudyModeSelect
-        studentId={effectiveStudentId}
-        formLevel={formLevel}
-        onStart={handleStudyModeStart}
-        onJoinClass={handleJoinClass}
-        onStartAssignment={(a) => {
-          if (a.subject && a.topic) {
-            setStudyMode("free_practice");
-            void loadSession(a.subject, a.topic, activeLanguage, false);
-          } else {
-            setStudyMode("free_practice");
-          }
-        }}
-      />
+      <div className="min-h-[100dvh] bg-[linear-gradient(180deg,#1a0533_0%,#2d0a6e_100%)]">
+        <div className="mx-auto max-w-lg">
+          <ProfileBanner
+            banner={prefs.banner}
+            avatar={prefs.avatar}
+            name={displayName}
+          />
+          {/* offset for the overflowing avatar circle */}
+          <div className="mt-10">
+            <StudyModeSelect
+              studentId={effectiveStudentId}
+              formLevel={formLevel}
+              onStart={handleStudyModeStart}
+              onJoinClass={handleJoinClass}
+              onStartAssignment={(a) => {
+                if (a.subject && a.topic) {
+                  setStudyMode("free_practice");
+                  void loadSession(a.subject, a.topic, activeLanguage, false);
+                } else {
+                  setStudyMode("free_practice");
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -1804,6 +1854,16 @@ function StudentFeed() {
                   {t.commonMisconception}
                 </div>
                 <p className="mt-1 text-sm text-foreground/90">{feedback.misconception}</p>
+              </div>
+            )}
+            {session?.worked_example && !feedback?.correct && (
+              <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/10 p-4">
+                <div className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
+                  📐 {activeLanguage === "ms" ? "Cara menyelesaikan:" : "How to work through it:"}
+                </div>
+                <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-foreground/90">
+                  {session.worked_example}
+                </p>
               </div>
             )}
             {session?.source_excerpt && (

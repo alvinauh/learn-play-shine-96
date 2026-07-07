@@ -1,10 +1,26 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { useStudentPrefs, THEMES, type ThemeKey, type FontSize } from "@/hooks/useStudentPrefs";
+import {
+  useStudentPrefs,
+  THEMES,
+  AVATARS,
+  BANNERS,
+  type ThemeKey,
+  type FontSize,
+} from "@/hooks/useStudentPrefs";
 import { ChevronRight } from "lucide-react";
 
-const AVATARS = ["🎓", "🦁", "🐯", "🦊", "🐺", "🦅", "⚡", "🔥", "🌟", "💎", "🚀", "🎯"];
+const AVATAR_BG_CYCLE = [
+  "bg-violet-100",
+  "bg-blue-100",
+  "bg-emerald-100",
+  "bg-amber-100",
+  "bg-rose-100",
+  "bg-cyan-100",
+  "bg-orange-100",
+  "bg-teal-100",
+];
 
 const THEME_OPTIONS: { key: ThemeKey; label: string; primary: string }[] = [
   { key: "purple", label: "Purple", primary: THEMES.purple["--primary"] },
@@ -37,21 +53,22 @@ export function StudentSettingsSheet({ open, onClose, onOpenExamPrefs }: Props) 
           <p className="text-xs text-muted-foreground">Saved automatically to this device.</p>
         </SheetHeader>
 
-        {/* Avatar */}
+        {/* Avatar — 30 entries in 6-column grid */}
         <section className="mb-6">
           <div className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
             Avatar
           </div>
           <div className="grid grid-cols-6 gap-2">
-            {AVATARS.map((emoji) => (
+            {AVATARS.map((emoji, idx) => (
               <button
                 key={emoji}
                 onClick={() => save({ avatar: emoji })}
                 className={cn(
-                  "grid h-10 w-10 place-items-center rounded-xl text-xl transition-all",
+                  "grid h-12 w-12 place-items-center rounded-2xl text-2xl transition-all",
+                  AVATAR_BG_CYCLE[idx % AVATAR_BG_CYCLE.length],
                   prefs.avatar === emoji
-                    ? "bg-primary/20 ring-2 ring-primary scale-110"
-                    : "bg-card hover:bg-muted",
+                    ? "ring-2 ring-primary scale-110 bg-primary/15"
+                    : "hover:scale-105",
                 )}
                 aria-label={emoji}
               >
@@ -61,7 +78,31 @@ export function StudentSettingsSheet({ open, onClose, onOpenExamPrefs }: Props) 
           </div>
         </section>
 
-        {/* Accent colour */}
+        {/* Profile Banner — 10 swatches in 5-column grid */}
+        <section className="mb-6">
+          <div className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Profile Banner
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {BANNERS.map(({ key, label, gradient }) => (
+              <button
+                key={key}
+                onClick={() => save({ banner: key })}
+                title={label}
+                style={{ background: gradient }}
+                className={cn(
+                  "h-7 w-10 rounded-lg transition-all",
+                  prefs.banner === key
+                    ? "ring-2 ring-primary ring-offset-1 scale-105"
+                    : "opacity-75 hover:opacity-100 hover:scale-105",
+                )}
+                aria-label={label}
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* Accent Colour */}
         <section className="mb-6">
           <div className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
             Accent Colour
@@ -84,7 +125,7 @@ export function StudentSettingsSheet({ open, onClose, onOpenExamPrefs }: Props) 
           </div>
         </section>
 
-        {/* Font size */}
+        {/* Text Size */}
         <section className="mb-6">
           <div className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
             Text Size
@@ -109,7 +150,7 @@ export function StudentSettingsSheet({ open, onClose, onOpenExamPrefs }: Props) 
           <p className="mt-2 text-[10px] text-muted-foreground">Small · Medium · Large</p>
         </section>
 
-        {/* Sound toggle */}
+        {/* Sound Effects */}
         <div className="mb-6 flex items-center justify-between rounded-xl border border-border bg-card/60 px-4 py-3">
           <div>
             <div className="text-sm font-semibold">Sound Effects</div>
@@ -122,7 +163,7 @@ export function StudentSettingsSheet({ open, onClose, onOpenExamPrefs }: Props) 
         </div>
 
         {/* Exam Mode */}
-        <section>
+        <section className="mb-6">
           <div className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
             SPM Exam Mode
           </div>
@@ -150,6 +191,11 @@ export function StudentSettingsSheet({ open, onClose, onOpenExamPrefs }: Props) 
             )}
           </div>
         </section>
+
+        {/* DB sync note */}
+        <p className="text-xs text-muted-foreground text-center pb-2">
+          ✓ Saved to your account
+        </p>
       </SheetContent>
     </Sheet>
   );

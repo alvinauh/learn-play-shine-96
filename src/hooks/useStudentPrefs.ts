@@ -1,4 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
+import type { Lang } from "@/lib/i18n";
 
 export type ThemeKey = "purple" | "blue" | "green" | "orange" | "red";
 export type FontSize = "sm" | "md" | "lg";
@@ -21,6 +24,8 @@ export interface StudentPrefs {
   soundOn: boolean;
   examMode: boolean;
   examPrefs: ExamPrefs;
+  banner: string;
+  lang: Lang;
 }
 
 const DEFAULT_EXAM_PREFS: ExamPrefs = {
@@ -38,6 +43,8 @@ const DEFAULT: StudentPrefs = {
   soundOn: true,
   examMode: false,
   examPrefs: DEFAULT_EXAM_PREFS,
+  banner: "galaxy",
+  lang: "en",
 };
 
 const STORAGE_KEY = "kp_prefs";
@@ -86,29 +93,95 @@ export const FONT_SIZE_CLASS: Record<FontSize, string> = {
   lg: "text-lg",
 };
 
+export const AVATARS = [
+  "🎓", "🦁", "🐯", "🦊", "🐺", "🦅",
+  "⚡", "🔥", "🌟", "💎", "🚀", "🎯",
+  "🐼", "🐨", "🦉", "🦋", "🐬", "🦈",
+  "🐸", "🐙", "🦄", "🐲", "🤖", "👾",
+  "🧙", "🦸", "🌺", "🎮", "🏆", "🎨",
+];
+
+export const BANNERS: { key: string; label: string; gradient: string }[] = [
+  { key: "galaxy",  label: "Galaxy",  gradient: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)" },
+  { key: "ocean",   label: "Ocean",   gradient: "linear-gradient(135deg, #1a6dff 0%, #00c6fb 100%)" },
+  { key: "forest",  label: "Forest",  gradient: "linear-gradient(135deg, #134e5e, #71b280)" },
+  { key: "sunset",  label: "Sunset",  gradient: "linear-gradient(135deg, #f7971e, #ffd200)" },
+  { key: "fire",    label: "Fire",    gradient: "linear-gradient(135deg, #f12711, #f5af19)" },
+  { key: "sakura",  label: "Sakura",  gradient: "linear-gradient(135deg, #f8c0c0, #e886a9)" },
+  { key: "royal",   label: "Royal",   gradient: "linear-gradient(135deg, #141e30, #243b55)" },
+  { key: "aurora",  label: "Aurora",  gradient: "linear-gradient(135deg, #00c9ff, #92fe9d)" },
+  { key: "dusk",    label: "Dusk",    gradient: "linear-gradient(135deg, #2c3e50, #fd746c)" },
+  { key: "jade",    label: "Jade",    gradient: "linear-gradient(135deg, #11998e, #38ef7d)" },
+];
+
+function readFromStorage(): StudentPrefs {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? { ...DEFAULT, ...(JSON.parse(raw) as Partial<StudentPrefs>) } : DEFAULT;
+  } catch {
+    return DEFAULT;
+  }
+}
+
 export function useStudentPrefs() {
-  const [prefs, setPrefs] = useState<StudentPrefs>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? { ...DEFAULT, ...(JSON.parse(raw) as Partial<StudentPrefs>) } : DEFAULT;
-    } catch {
-      return DEFAULT;
+  const [prefs, setPrefs] = useState<StudentPrefs>(readFromStorage);
+  const userIdRef = useRef<string | null>(null);
+
+  // On mount: resolve user id, then merge DB prefs over localStorage
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFromDb() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled || !user) return;
+
+      userIdRef.current = user.id;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("preferences")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (cancelled || error || !data?.preferences) return;
+
+      // DB wins for avatar / theme / banner; merge over localStorage values
+      const dbPrefs = data.preferences as Partial<StudentPrefs>;
+      setPrefs((prev) => {
+        const merged: StudentPrefs = { ...prev, ...dbPrefs };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        return merged;
+      });
     }
-  });
 
-  const save = (next: Partial<StudentPrefs>) => {
-    setPrefs((prev) => {
-      const merged = { ...prev, ...next };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      return merged;
-    });
-  };
+    loadFromDb();
+    return () => { cancelled = true; };
+  }, []);
 
+  // Apply CSS variables whenever theme changes
   useEffect(() => {
     const vars = THEMES[prefs.theme];
     const root = document.documentElement;
     Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
   }, [prefs.theme]);
+
+  const save = (next: Partial<StudentPrefs>) => {
+    setPrefs((prev) => {
+      const merged: StudentPrefs = { ...prev, ...next };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+
+      // Fire-and-forget upsert to Supabase — don't block the UI
+      const userId = userIdRef.current;
+      if (userId) {
+        supabase
+          .from("profiles")
+          .upsert({ id: userId, preferences: merged as unknown as Json }, { onConflict: "id" })
+          .then(() => { /* intentionally ignored */ });
+      }
+
+      return merged;
+    });
+  };
 
   return { prefs, save };
 }

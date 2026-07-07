@@ -165,6 +165,7 @@ export type Database = {
           full_name: string
           grade: string | null
           id: string
+          preferences: Json | null
           role: Database["public"]["Enums"]["app_role"]
           school: string | null
           updated_at: string
@@ -174,6 +175,7 @@ export type Database = {
           full_name?: string
           grade?: string | null
           id: string
+          preferences?: Json | null
           role?: Database["public"]["Enums"]["app_role"]
           school?: string | null
           updated_at?: string
@@ -183,6 +185,7 @@ export type Database = {
           full_name?: string
           grade?: string | null
           id?: string
+          preferences?: Json | null
           role?: Database["public"]["Enums"]["app_role"]
           school?: string | null
           updated_at?: string
