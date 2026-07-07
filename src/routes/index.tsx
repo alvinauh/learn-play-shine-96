@@ -66,6 +66,7 @@ import { StudyModeSelect, type StudyMode } from "@/components/StudyModeSelect";
 import { ProfileBanner } from "@/components/ProfileBanner";
 import { DiagnosticHeaderBar } from "@/components/DiagnosticHeaderBar";
 import { DiagnosticCompleteScreen } from "@/components/DiagnosticCompleteScreen";
+import { KbatProgressBar } from "@/components/KbatProgressBar";
 import { toast } from "sonner";
 
 
@@ -1465,6 +1466,13 @@ function StudentFeed() {
               />
             ) : (
             <>
+
+            {session && session.kbat_level && (
+              <KbatProgressBar
+                kbatLevel={session.kbat_level}
+                language={langToApi(activeLanguage)}
+              />
+            )}
 
             <section className={cn(
               "rounded-2xl border-2 p-5 transition-all bg-white text-zinc-900 shadow-md",
