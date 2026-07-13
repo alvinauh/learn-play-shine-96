@@ -63,30 +63,56 @@ export function QuestionSlide({
   const [pointsBurst, setPointsBurst] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
   const [gameChallenge, setGameChallenge] = useState<GameChallenge | null>(null);
+  const [readyChallenge, setReadyChallenge] = useState<GameChallenge | null>(null);
   const [gamifyLoading, setGamifyLoading] = useState(false);
   const answeredRef = useRef(false);
+
+  // Prefetch the gamify challenge AND warm the Kaplay chunk while this slide is
+  // active, so "gamify this" opens instantly instead of waiting on a network
+  // round-trip plus a cold dynamic import.
+  useEffect(() => {
+    if (!isActive || !isMcq || !session.session_id || feedback) return;
+    let cancelled = false;
+    void import("kaplay"); // warm the game engine chunk in the background
+    void (async () => {
+      const correctRaw = await fetchSessionChallenge(session.session_id!);
+      if (cancelled) return;
+      const ch = buildChallengeFrom(session.question, session.options, correctRaw, "mcq");
+      if (ch) setReadyChallenge(ch);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, isMcq, session.session_id, feedback]);
 
   // "I'm bored, gamify this!" — play the current MCQ as Answer Flappy. Winning
   // requires flying through the correct (unmarked) answer gate, so a win proves
   // knowledge → auto-submit as correct. A loss just closes; answer normally.
-  const startGamify = async () => {
+  const startGamify = () => {
     if (!session.session_id || gamifyLoading || feedback) return;
-    setGamifyLoading(true);
-    try {
-      const correctRaw = await fetchSessionChallenge(session.session_id);
-      const ch = buildChallengeFrom(session.question, session.options, correctRaw, "mcq");
-      if (ch) {
-        setGameChallenge(ch);
-      } else {
-        toast.error(
-          lang === "ms"
-            ? "Tak boleh jadikan permainan untuk soalan ini. Jawab macam biasa."
-            : "Can't gamify this question. Answer it normally.",
-        );
-      }
-    } finally {
-      setGamifyLoading(false);
+    // Instant open when prefetched (the common path).
+    if (readyChallenge) {
+      setGameChallenge(readyChallenge);
+      return;
     }
+    // Fallback: prefetch hasn't landed yet — fetch on demand.
+    setGamifyLoading(true);
+    void (async () => {
+      try {
+        const correctRaw = await fetchSessionChallenge(session.session_id!);
+        const ch = buildChallengeFrom(session.question, session.options, correctRaw, "mcq");
+        if (ch) {
+          setGameChallenge(ch);
+        } else {
+          toast.error(
+            lang === "ms"
+              ? "Tak boleh jadikan permainan untuk soalan ini. Jawab macam biasa."
+              : "Can't gamify this question. Answer it normally.",
+          );
+        }
+      } finally {
+        setGamifyLoading(false);
+      }
+    })();
   };
 
   const handleGamifyEnd = (won: boolean) => {
