@@ -7,7 +7,6 @@ import { XpBar } from "./XpBar";
 import { MasteryBar } from "./MasteryBar";
 import { QuestionSlide, type SlideResult } from "./QuestionSlide";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
-import { buildChallenge } from "@/lib/challenge";
 import type { GameChallenge } from "@/components/games/CatchStarsGame";
 
 interface FeedSlide {
@@ -106,13 +105,14 @@ export function QuestionFeed({
     } else {
       setStreak(0);
       // Every 3rd consecutive wrong answer the backend asks for a mini-game break.
-      // Replay the just-wrong MCQ as the game so a win credits mastery recovery.
+      // Replay the just-wrong MCQ (rebuilt from feedback, which keeps the correct
+      // answer) so a win credits mastery recovery.
       if (r.triggerPenalty) {
         const wrong = slides[current]?.session;
         setPenalty({
           open: true,
           sessionId: r.sessionId,
-          challenge: buildChallenge(wrong ?? null),
+          challenge: r.challenge ?? null,
           topic: wrong?.topic ?? topic,
           subject: wrong?.subject ?? subject,
         });

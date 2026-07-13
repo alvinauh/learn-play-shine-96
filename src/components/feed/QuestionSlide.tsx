@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { submitAnswer, type AnswerResponse, type SessionResponse } from "@/services/api";
+import { buildChallengeFrom } from "@/lib/challenge";
+import type { GameChallenge } from "@/components/games/CatchStarsGame";
 import { QUESTION_SECONDS, speedBonus, totalPoints } from "@/lib/gameProgress";
 import { SpeedTimer } from "./SpeedTimer";
 
@@ -24,6 +26,9 @@ export interface SlideResult {
   nextTopic?: string;
   triggerPenalty?: boolean;
   sessionId?: string;
+  /** The just-answered MCQ rebuilt with its correct answer (from feedback, which
+   *  is NOT stripped) so the penalty game can replay it. Null for non-MCQ. */
+  challenge?: GameChallenge | null;
 }
 
 interface QuestionSlideProps {
@@ -87,6 +92,14 @@ export function QuestionSlide({
         topicComplete: res.topic_complete, nextTopic: res.next_topic,
         triggerPenalty: res.trigger_penalty_game === true,
         sessionId: session.session_id,
+        // Feedback carries the correct answer (session payload strips it), so the
+        // penalty game can replay this exact question.
+        challenge: buildChallengeFrom(
+          session.question,
+          session.options,
+          res.correct_answer,
+          session.question_type ?? "mcq",
+        ),
       });
     } catch {
       answeredRef.current = false; // allow retry on network error

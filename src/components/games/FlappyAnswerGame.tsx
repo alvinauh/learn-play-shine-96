@@ -9,7 +9,7 @@ interface Props {
 
 const W = 360;
 const H = 480;
-const GOAL = 5; // correct gates to win
+const GOAL = 3; // correct gates to win
 const LIVES = 3;
 
 const SPEED = 118; // px/s the world scrolls left
