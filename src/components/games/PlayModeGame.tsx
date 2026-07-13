@@ -142,7 +142,7 @@ export function PlayModeGame({
       const kaplay = (await import("kaplay")).default;
       if (disposed) return;
       const k = kaplay({
-        canvas, width: W, height: H, background: [11, 16, 34],
+        canvas, width: W, height: H, background: [186, 230, 253], // soft pastel sky
         global: false, touchToMouse: true, crisp: false,
         pixelDensity: Math.min(2, window.devicePixelRatio || 1),
       });
@@ -159,34 +159,94 @@ export function PlayModeGame({
       let spawner: { cancel: () => void } | null = null;
       let current: GameChallenge | null = null; // question the live obstacle presents
 
-      // ---- parallax stars ----
-      for (let i = 0; i < 26; i++) {
-        const depth = 0.3 + Math.random() * 0.7;
-        const star = k.add([
-          k.rect(2 + depth * 2, 2 + depth * 2),
-          k.pos(Math.random() * W, Math.random() * H),
-          k.color(255, 255, 255), k.opacity(0.2 + depth * 0.5), k.z(-10),
-        ]);
-        star.onUpdate(() => {
-          if (paused) return;
-          star.pos.x -= SPEED * depth * 0.5 * k.dt();
-          if (star.pos.x < -4) star.pos.x = W + 4;
-        });
-      }
+      // ---- soft sky backdrop: sun, fluffy clouds, rolling hills ----
+      // gentle top-to-horizon wash
+      k.add([k.rect(W, H * 0.55), k.pos(0, 0), k.color(203, 238, 255), k.opacity(0.6), k.z(-30)]);
+      // sun with a soft halo
+      k.add([k.circle(46), k.pos(W - 58, 66), k.color(255, 241, 178), k.opacity(0.5), k.z(-24)]);
+      k.add([k.circle(30), k.pos(W - 58, 66), k.color(255, 236, 150), k.z(-23)]);
 
+      // a fluffy cloud = a few overlapping soft circles that drift + wrap
+      const addCloud = (x: number, y: number, s: number, depth: number) => {
+        const cloud = k.add([k.pos(x, y), k.z(-20), k.opacity(0.9)]);
+        const puff = (dx: number, dy: number, r: number) =>
+          cloud.add([k.circle(r), k.pos(dx, dy), k.color(255, 255, 255), k.opacity(0.95), k.anchor("center")]);
+        puff(0, 0, 18 * s); puff(20 * s, 6 * s, 14 * s); puff(-20 * s, 6 * s, 13 * s); puff(4 * s, -8 * s, 13 * s);
+        cloud.onUpdate(() => {
+          if (paused) return;
+          cloud.pos.x -= SPEED * depth * 0.35 * k.dt();
+          if (cloud.pos.x < -60 * s) cloud.pos.x = W + 60 * s;
+        });
+      };
+      addCloud(70, 70, 1, 0.5);
+      addCloud(240, 120, 0.75, 0.35);
+      addCloud(160, 40, 0.6, 0.28);
+
+      // rolling hills along the bottom (two parallax bands)
+      const addHill = (cx: number, r: number, color: [number, number, number], depth: number, y: number) => {
+        const hill = k.add([k.circle(r), k.pos(cx, y), k.color(...color), k.anchor("center"), k.z(-15 + depth)]);
+        hill.onUpdate(() => {
+          if (paused) return;
+          hill.pos.x -= SPEED * depth * 0.5 * k.dt();
+          if (hill.pos.x < -r) hill.pos.x = W + r;
+        });
+      };
+      addHill(60, 120, [167, 217, 130], 0.4, H + 40);
+      addHill(260, 140, [167, 217, 130], 0.4, H + 50);
+      addHill(160, 90, [134, 199, 106], 0.7, H + 30);
+      // solid grass strip at the very bottom
+      k.add([k.rect(W, 26), k.pos(0, H - 26), k.color(126, 194, 96), k.z(-12)]);
+
+      // ---- cute mascot bird (compound: body + wing + eye + beak + cheek) ----
       const bird = k.add([
-        k.circle(15), k.pos(BIRD_X, H / 2), k.color(250, 204, 21),
-        k.outline(3, k.rgb(120, 53, 15)), k.area({ scale: 0.85 }),
-        k.body({ jumpForce: FLAP }), k.anchor("center"), k.rotate(0), k.opacity(1), k.z(10), "bird",
+        k.circle(16), k.pos(BIRD_X, H / 2), k.color(255, 209, 71),
+        k.outline(3, k.rgb(230, 160, 30)), k.area({ scale: 0.8 }),
+        k.body({ jumpForce: FLAP }), k.anchor("center"), k.rotate(0), k.scale(1), k.opacity(1), k.z(10), "bird",
       ]);
+      // belly highlight
+      bird.add([k.circle(9), k.pos(-2, 4), k.color(255, 235, 170), k.anchor("center"), k.opacity(0.9)]);
+      // rosy cheek
+      bird.add([k.circle(4), k.pos(6, 4), k.color(255, 158, 158), k.anchor("center"), k.opacity(0.85)]);
+      // eye white + pupil
+      bird.add([k.circle(6), k.pos(6, -4), k.color(255, 255, 255), k.anchor("center"), k.outline(1.5, k.rgb(120, 90, 20))]);
+      bird.add([k.circle(2.6), k.pos(7.5, -4), k.color(40, 30, 15), k.anchor("center")]);
+      // beak (little orange triangle)
+      bird.add([k.polygon([k.vec2(0, -4), k.vec2(11, 0), k.vec2(0, 4)]), k.pos(14, 0), k.color(255, 149, 60), k.outline(1.5, k.rgb(214, 110, 20))]);
+      // flapping wing (rotates on each flap)
+      const wing = bird.add([k.circle(7), k.pos(-6, 2), k.color(255, 190, 40), k.outline(1.5, k.rgb(230, 160, 30)), k.anchor("center"), k.rotate(0)]);
+
+      let trailAcc = 0;
+      let squash = 0; // decays each frame; drives the squash-stretch
       bird.onUpdate(() => {
         const vy = bird.vel?.y ?? 0;
-        bird.angle = Math.max(-28, Math.min(70, vy * 0.06));
+        bird.angle = Math.max(-24, Math.min(60, vy * 0.05));
+        // ease wing back to rest
+        wing.angle += (0 - wing.angle) * Math.min(1, k.dt() * 12);
+        // squash-stretch relaxes back to round
+        squash += (0 - squash) * Math.min(1, k.dt() * 10);
+        bird.scale = k.vec2(1 + squash, 1 - squash);
+        // soft motion trail while flying
+        if (started && !paused && !gameOver) {
+          trailAcc += k.dt();
+          if (trailAcc > 0.05) {
+            trailAcc = 0;
+            const puff = k.add([
+              k.circle(7), k.pos(bird.pos.x - 10, bird.pos.y),
+              k.color(255, 224, 130), k.opacity(0.5), k.anchor("center"), k.scale(1), k.z(9),
+            ]);
+            puff.onUpdate(() => {
+              puff.opacity -= k.dt() * 1.6;
+              puff.scale = k.vec2((puff.scale?.x ?? 1) * (1 - k.dt() * 1.2));
+              if (puff.opacity <= 0) puff.destroy();
+            });
+          }
+        }
       });
 
       const startHint = k.add([
-        k.text("Tap / Space\nto start", { size: 20, align: "center" }),
-        k.pos(W / 2, H * 0.36), k.color(255, 255, 255), k.opacity(0.9), k.anchor("center"), k.z(20),
+        k.text("Tap / Space\nto start 🐤", { size: 20, align: "center" }),
+        k.pos(W / 2, H * 0.36), k.color(60, 70, 90),
+        k.outline(3, k.rgb(255, 255, 255)), k.opacity(0.95), k.anchor("center"), k.z(20),
       ]);
 
       const flap = () => {
@@ -198,6 +258,8 @@ export function PlayModeGame({
           spawner = k.loop(2.6, trySpawn);
         }
         bird.jump(FLAP);
+        wing.angle = -55; // snap wing up; onUpdate eases it back
+        squash = 0.18;    // little stretch on the upbeat
       };
       k.onKeyPress("space", flap);
       k.onMousePress(flap);
@@ -241,22 +303,72 @@ export function PlayModeGame({
         };
       };
 
-      // ---- obstacle building (two gaps: correct + one distractor) ----
-      const gapPill = (parent: ReturnType<typeof k.add>, cx: number, cy: number, label: string) => {
-        const pill = parent.add([
-          k.rect(128, 34, { radius: 8 }), k.pos(cx, cy), k.color(248, 250, 252),
-          k.outline(2, k.rgb(148, 163, 184)), k.anchor("center"), k.z(6),
+      // Confetti burst + "+1" pop when the player nails the correct gate.
+      const celebrate = (x: number, y: number) => {
+        const colors: [number, number, number][] = [
+          [255, 205, 90], [134, 199, 106], [96, 165, 250], [244, 114, 182], [255, 255, 255],
+        ];
+        for (let i = 0; i < 16; i++) {
+          const ang = (Math.PI * 2 * i) / 16 + Math.random();
+          const spd = 120 + Math.random() * 140;
+          let vx = Math.cos(ang) * spd;
+          let vy = Math.sin(ang) * spd;
+          const bit = k.add([
+            k.rect(6, 6, { radius: 2 }), k.pos(x, y), k.color(...colors[i % colors.length]),
+            k.anchor("center"), k.rotate(Math.random() * 360), k.opacity(1), k.z(15),
+          ]);
+          bit.onUpdate(() => {
+            vy += 480 * k.dt();
+            bit.pos.x += vx * k.dt();
+            bit.pos.y += vy * k.dt();
+            bit.angle += 300 * k.dt();
+            bit.opacity -= k.dt() * 1.3;
+            if (bit.opacity <= 0) bit.destroy();
+          });
+        }
+        const pop = k.add([
+          k.text("+1", { size: 26 }), k.pos(x, y - 10), k.color(46, 160, 67),
+          k.outline(3, k.rgb(255, 255, 255)), k.anchor("center"), k.opacity(1), k.z(16),
         ]);
-        pill.add([
-          k.text(truncate(label, 15), { size: 15, align: "center" }),
-          k.color(15, 23, 42), k.anchor("center"), k.pos(0, 0),
+        pop.onUpdate(() => {
+          pop.pos.y -= 40 * k.dt();
+          pop.opacity -= k.dt() * 1.1;
+          if (pop.opacity <= 0) pop.destroy();
+        });
+      };
+
+      // ---- obstacle building (two gaps: correct + one distractor) ----
+      const gapPill = (parent: ReturnType<typeof k.add>, cx: number, cy: number, letter: Letter, text: string) => {
+        // soft drop shadow
+        parent.add([
+          k.rect(136, 36, { radius: 12 }), k.pos(cx, cy + 3), k.color(30, 41, 59),
+          k.opacity(0.16), k.anchor("center"), k.z(5),
+        ]);
+        // cream card
+        const card = parent.add([
+          k.rect(136, 36, { radius: 12 }), k.pos(cx, cy), k.color(255, 251, 235),
+          k.outline(2, k.rgb(245, 210, 130)), k.anchor("center"), k.z(6),
+        ]);
+        // letter badge (neutral amber — never reveals which gate is correct)
+        card.add([k.circle(12), k.pos(-50, 0), k.color(255, 205, 90), k.outline(2, k.rgb(235, 170, 40)), k.anchor("center")]);
+        card.add([k.text(letter, { size: 15 }), k.pos(-50, 0), k.color(90, 60, 10), k.anchor("center")]);
+        // answer text
+        card.add([
+          k.text(truncate(text, 12), { size: 14, align: "left" }),
+          k.color(30, 41, 59), k.anchor("left"), k.pos(-34, 0),
         ]);
       };
       const pipeSeg = (parent: ReturnType<typeof k.add>, y: number, h: number) => {
         if (h <= 0) return;
+        // soft rounded body (collision lives here)
         parent.add([
-          k.rect(PIPE_W, h), k.pos(0, y), k.color(34, 197, 94),
-          k.outline(3, k.rgb(21, 128, 61)), k.area(), k.anchor("topleft"), "pipe",
+          k.rect(PIPE_W, h, { radius: 12 }), k.pos(0, y), k.color(122, 199, 106),
+          k.outline(3, k.rgb(95, 168, 82)), k.area(), k.anchor("topleft"), "pipe",
+        ]);
+        // glossy highlight stripe (decorative, no collision)
+        parent.add([
+          k.rect(10, Math.max(0, h - 16), { radius: 6 }), k.pos(10, y + 8),
+          k.color(180, 226, 160), k.opacity(0.7), k.anchor("topleft"),
         ]);
       };
       const gapSensor = (
@@ -294,9 +406,8 @@ export function PlayModeGame({
         const correctOnTop = k.time() % 1 < 0.5;
         const topLetter = correctOnTop ? correctL : distractor;
         const botLetter = correctOnTop ? distractor : correctL;
-        const label = (l: Letter) => `${l}. ${next.options[l] ?? ""}`;
-        gapPill(obst, PIPE_W / 2, TOP_GAP_C, label(topLetter));
-        gapPill(obst, PIPE_W / 2, BOT_GAP_C, label(botLetter));
+        gapPill(obst, PIPE_W / 2, TOP_GAP_C, topLetter, next.options[topLetter] ?? "");
+        gapPill(obst, PIPE_W / 2, BOT_GAP_C, botLetter, next.options[botLetter] ?? "");
         gapSensor(obst, TOP_GAP_C, correctOnTop, topLetter);
         gapSensor(obst, BOT_GAP_C, !correctOnTop, botLetter);
 
@@ -331,6 +442,8 @@ export function PlayModeGame({
           correctCount += 1;
           setCorrect(correctCount);
           k.shake(3);
+          squash = 0.22; // happy bounce
+          celebrate(bird.pos.x + 20, bird.pos.y);
         } else {
           teachThenResume(challenge, gap.letter);
           loseLife();
