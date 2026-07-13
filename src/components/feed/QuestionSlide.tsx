@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronUp, Loader2, MessageCircle } from "lucide-react";
+import { ChevronUp, Gamepad2, Loader2, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { submitAnswer, type AnswerResponse, type SessionResponse } from "@/services/api";
+import { submitAnswer, fetchSessionChallenge, type AnswerResponse, type SessionResponse } from "@/services/api";
 import { buildChallengeFrom } from "@/lib/challenge";
 import type { GameChallenge } from "@/components/games/CatchStarsGame";
+import { FlappyAnswerGame } from "@/components/games/FlappyAnswerGame";
 import { QUESTION_SECONDS, speedBonus, totalPoints } from "@/lib/gameProgress";
 import { SpeedTimer } from "./SpeedTimer";
 
@@ -60,7 +61,30 @@ export function QuestionSlide({
   const [feedback, setFeedback] = useState<AnswerResponse | null>(null);
   const [pointsBurst, setPointsBurst] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
+  const [gameChallenge, setGameChallenge] = useState<GameChallenge | null>(null);
+  const [gamifyLoading, setGamifyLoading] = useState(false);
   const answeredRef = useRef(false);
+
+  // "I'm bored, gamify this!" — play the current MCQ as Answer Flappy. Winning
+  // requires flying through the correct (unmarked) answer gate, so a win proves
+  // knowledge → auto-submit as correct. A loss just closes; answer normally.
+  const startGamify = async () => {
+    if (!session.session_id || gamifyLoading || feedback) return;
+    setGamifyLoading(true);
+    try {
+      const correctRaw = await fetchSessionChallenge(session.session_id);
+      const ch = buildChallengeFrom(session.question, session.options, correctRaw, "mcq");
+      if (ch) setGameChallenge(ch);
+    } finally {
+      setGamifyLoading(false);
+    }
+  };
+
+  const handleGamifyEnd = (won: boolean) => {
+    const ch = gameChallenge;
+    setGameChallenge(null);
+    if (won && ch) void submit(ch.options[ch.correctLetter] ?? "", ch.correctLetter);
+  };
 
   // Countdown only while active + unanswered.
   useEffect(() => {
@@ -150,6 +174,18 @@ export function QuestionSlide({
             {session.question}
           </h1>
         </div>
+
+        {/* "I'm bored, gamify this!" — only for MCQ, before answering */}
+        {isMcq && !feedback && isActive && session.session_id && (
+          <button
+            onClick={() => void startGamify()}
+            disabled={gamifyLoading}
+            className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-fuchsia-400/50 bg-gradient-to-r from-fuchsia-500/20 to-indigo-500/20 px-4 py-2 text-sm font-bold text-fuchsia-200 transition hover:from-fuchsia-500/30 hover:to-indigo-500/30 disabled:opacity-50"
+          >
+            {gamifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gamepad2 className="h-4 w-4" />}
+            {lang === "ms" ? "Bosan? Jadikan permainan! 🎮" : "I'm bored, gamify this! 🎮"}
+          </button>
+        )}
 
         {/* answers */}
         <div className="flex shrink-0 flex-col gap-2">
@@ -250,6 +286,24 @@ export function QuestionSlide({
           </button>
         </div>
       </div>
+
+      {/* "Gamify this" overlay — play the current MCQ as Answer Flappy */}
+      {gameChallenge && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/85 p-3 backdrop-blur-sm">
+          <button
+            onClick={() => setGameChallenge(null)}
+            className="self-end rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80 hover:bg-white/20"
+          >
+            {lang === "ms" ? "Batal ✕" : "Cancel ✕"}
+          </button>
+          <FlappyAnswerGame challenge={gameChallenge} onGameEnd={handleGamifyEnd} />
+          <p className="text-center text-xs text-white/60">
+            {lang === "ms"
+              ? "Menang = jawapan betul dihantar. Kalah? Jawab biasa."
+              : "Win = your correct answer is submitted. Lose? Just answer normally."}
+          </p>
+        </div>
+      )}
 
       {/* points burst */}
       {pointsBurst != null && (

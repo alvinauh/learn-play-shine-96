@@ -467,6 +467,20 @@ function normalizeSessionResponse(
   };
 }
 
+/** Fetch the correct answer for an active session's current MCQ so the client
+ *  can build an on-demand "gamify this" challenge. Returns null on any failure /
+ *  non-MCQ. (The correct answer is normally stripped from the session payload.) */
+export async function fetchSessionChallenge(sessionId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${BASE_URL}/session_challenge/${sessionId}`);
+    if (!res.ok) return null;
+    const d = (await res.json()) as { correct_answer?: string | null };
+    return d.correct_answer ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function startSession(
   studentId: string,
   topic: string,
@@ -775,6 +789,24 @@ export async function fetchChatHistory(
       : "00000000-0000-0000-0000-000000000001";
   const res = await fetch(
     `${BASE_URL}/chat/history/${encodeURIComponent(lessonId)}/${encodeURIComponent(safeStudentId)}`,
+    { method: "GET", cache: "no-store" },
+  );
+  if (!res.ok) throw new ApiResponseError(res.status);
+  const data = (await res.json()) as { messages?: ChatMessage[] } | ChatMessage[];
+  const list = Array.isArray(data) ? data : (data.messages ?? []);
+  return list.filter((m) => m && typeof m.content === "string" && (m.role === "student" || m.role === "tutor"));
+}
+
+export async function fetchChatHistoryBySession(
+  sessionId: string,
+  studentId: string,
+): Promise<ChatMessage[]> {
+  const safeStudentId =
+    studentId && studentId !== "undefined"
+      ? studentId
+      : "00000000-0000-0000-0000-000000000001";
+  const res = await fetch(
+    `${BASE_URL}/chat/history/session/${encodeURIComponent(sessionId)}/${encodeURIComponent(safeStudentId)}`,
     { method: "GET", cache: "no-store" },
   );
   if (!res.ok) throw new ApiResponseError(res.status);
