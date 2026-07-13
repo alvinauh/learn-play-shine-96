@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { ChevronUp, Gamepad2, Loader2, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -74,7 +75,15 @@ export function QuestionSlide({
     try {
       const correctRaw = await fetchSessionChallenge(session.session_id);
       const ch = buildChallengeFrom(session.question, session.options, correctRaw, "mcq");
-      if (ch) setGameChallenge(ch);
+      if (ch) {
+        setGameChallenge(ch);
+      } else {
+        toast.error(
+          lang === "ms"
+            ? "Tak boleh jadikan permainan untuk soalan ini. Jawab macam biasa."
+            : "Can't gamify this question. Answer it normally.",
+        );
+      }
     } finally {
       setGamifyLoading(false);
     }

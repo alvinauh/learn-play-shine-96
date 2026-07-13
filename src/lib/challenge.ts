@@ -19,13 +19,30 @@ export function buildChallengeFrom(
   if (!raw) return null;
   let correctLetter: Letter | null = null;
   const up = raw.toUpperCase();
+  // 1) bare letter: "A"
   if ((LETTERS as readonly string[]).includes(up)) {
     correctLetter = up as Letter;
-  } else {
-    const match = LETTERS.find(
-      (l) => (options[l] ?? "").trim().toLowerCase() === raw.toLowerCase(),
-    );
-    if (match) correctLetter = match;
+  }
+  // 2) leading-letter prefix: "A)", "A.", "A -", "(A)"  (common LLM formatting)
+  if (!correctLetter) {
+    const m = up.match(/^\(?([A-D])[).\-:\s]/);
+    if (m) correctLetter = m[1] as Letter;
+  }
+  // 3) exact option-text match
+  if (!correctLetter) {
+    correctLetter =
+      LETTERS.find(
+        (l) => (options[l] ?? "").trim().toLowerCase() === raw.toLowerCase(),
+      ) ?? null;
+  }
+  // 4) tolerant match: option contains raw or vice versa (prefix/format drift)
+  if (!correctLetter) {
+    const rl = raw.toLowerCase();
+    correctLetter =
+      LETTERS.find((l) => {
+        const o = (options[l] ?? "").trim().toLowerCase();
+        return o.length > 0 && (o.includes(rl) || rl.includes(o));
+      }) ?? null;
   }
   if (!correctLetter) return null;
 
