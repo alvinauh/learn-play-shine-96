@@ -7,6 +7,7 @@ import { XpBar } from "./XpBar";
 import { MasteryBar } from "./MasteryBar";
 import { QuestionSlide, type SlideResult } from "./QuestionSlide";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
+import { PlayModeGame } from "@/components/games/PlayModeGame";
 import type { GameChallenge } from "@/components/games/CatchStarsGame";
 
 interface FeedSlide {
@@ -52,6 +53,7 @@ export function QuestionFeed({
     topic?: string;
     subject?: string;
   }>({ open: false });
+  const [mode, setMode] = useState<"read" | "play">("read");
   const seqRef = useRef(0);
   const loadingRef = useRef(false);
 
@@ -120,6 +122,18 @@ export function QuestionFeed({
     }
   };
 
+  // Play mode bubbles each resolved question up to the same HUD as the feed.
+  const handlePlayResult = (r: { correct: boolean; points: number; mastery?: number | null }) => {
+    setScore((s) => s + r.points);
+    if (typeof r.mastery === "number") setMastery(r.mastery);
+    if (r.correct) {
+      setStreak((s) => s + 1);
+      setXp((x) => x + r.points);
+    } else {
+      setStreak(0);
+    }
+  };
+
   const handlePenaltyComplete = (masteryScore?: number | null) => {
     // A game win credits partial mastery recovery — reflect it live, no refetch.
     if (typeof masteryScore === "number") setMastery(masteryScore);
@@ -136,14 +150,52 @@ export function QuestionFeed({
         <span className="rounded-full border border-border bg-card/70 px-3 py-1.5 text-sm font-bold tabular-nums text-foreground">
           {score.toLocaleString()}
         </span>
-        {headerRight && <div className="ml-auto">{headerRight}</div>}
+        {/* Read vs Play — same question stream, two ways to learn it. */}
+        <div className="ml-auto flex items-center gap-1 rounded-full border border-border bg-card/70 p-0.5 text-xs font-semibold">
+          <button
+            onClick={() => setMode("read")}
+            className={mode === "read"
+              ? "rounded-full bg-primary px-3 py-1 text-primary-foreground"
+              : "rounded-full px-3 py-1 text-muted-foreground"}
+          >
+            {lang === "ms" ? "Baca" : "Read"}
+          </button>
+          <button
+            onClick={() => setMode("play")}
+            className={mode === "play"
+              ? "rounded-full bg-primary px-3 py-1 text-primary-foreground"
+              : "rounded-full px-3 py-1 text-muted-foreground"}
+          >
+            🎮 {lang === "ms" ? "Main" : "Play"}
+          </button>
+        </div>
+        {headerRight && <div>{headerRight}</div>}
       </div>
       <XpBar xp={xp} />
       <MasteryBar mastery={mastery} lang={lang} />
 
-      {/* Vertical swipe feed — touch-action must NOT include pan-y or the browser
+      {/* Play mode — the learn-through-play game over the same question stream. */}
+      {mode === "play" ? (
+        <div
+          className="flex items-center justify-center overflow-hidden rounded-3xl bg-[#0b1022] p-4"
+          style={{ height: "76vh" }}
+        >
+          <PlayModeGame
+            studentId={studentId}
+            topic={topic}
+            subject={subject}
+            apiLang={apiLang}
+            lang={lang}
+            formLevel={formLevel}
+            questionType={questionType}
+            onResult={handlePlayResult}
+            onExit={() => setMode("read")}
+          />
+        </div>
+      ) : (
+      /* Vertical swipe feed — touch-action must NOT include pan-y or the browser
           claims the vertical drag as native scroll and embla's drag handler bails
-          (non-cancelable touchmove). pan-x lets embla capture the vertical swipe. */}
+          (non-cancelable touchmove). pan-x lets embla capture the vertical swipe. */
       <div className="touch-pan-x overflow-hidden rounded-3xl" ref={emblaRef}>
         <div className="flex touch-pan-x flex-col" style={{ height: "76vh" }}>
           {slides.map((s, i) => (
@@ -172,6 +224,7 @@ export function QuestionFeed({
           </div>
         </div>
       </div>
+      )}
 
       <PenaltyGameModal
         open={penalty.open}

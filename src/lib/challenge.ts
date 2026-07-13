@@ -11,6 +11,7 @@ export function buildChallengeFrom(
   options: { A: string; B: string; C: string; D: string } | undefined,
   correctRaw: string | null | undefined,
   questionType?: string,
+  extra?: Partial<GameChallenge>,
 ): GameChallenge | null {
   if (questionType && questionType !== "mcq") return null;
   if (!question || !options || !LETTERS.every((l) => options[l])) return null;
@@ -46,7 +47,7 @@ export function buildChallengeFrom(
   }
   if (!correctLetter) return null;
 
-  return { question, options, correctLetter };
+  return { question, options, correctLetter, ...extra };
 }
 
 /** Derive a challenge from a session object. NOTE: the backend strips

@@ -17,6 +17,13 @@ export interface GameChallenge {
   options: Partial<Record<Letter, string>>;
   /** Correct option letter, e.g. "C". */
   correctLetter: Letter;
+  /** Assessment-integrated Play mode: identify the source session so an answer
+   *  can be submitted back to the backend (mastery + event log). */
+  sessionId?: string;
+  /** One-line "why" shown as the teaching moment when the player picks wrong. */
+  explanation?: string;
+  topic?: string;
+  subject?: string;
 }
 
 interface Props {
