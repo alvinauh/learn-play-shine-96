@@ -24,7 +24,9 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
   const clearedRef = useRef(0);
   const endedRef = useRef(false);
   const gameActive = useRef(false);
+  const startedRef = useRef(false);
   const [cleared, setCleared] = useState(0);
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -33,6 +35,11 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
     if (!ctx) return;
 
     const jump = () => {
+      // First input starts the run so the world doesn't scroll before you're ready.
+      if (!startedRef.current) {
+        startedRef.current = true;
+        setStarted(true);
+      }
       if (dinoYRef.current >= GROUND - 40 - 0.1) dinoVyRef.current = -400;
     };
     const onKey = (e: KeyboardEvent) => {
@@ -62,9 +69,38 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
       onGameEnd(won);
     };
 
+    const drawGround = () => {
+      ctx.fillStyle = "#1e1b4b";
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "#a78bfa";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, GROUND);
+      ctx.lineTo(W, GROUND);
+      ctx.stroke();
+      ctx.fillStyle = "#22c55e";
+      ctx.fillRect(60, dinoYRef.current, 30, 40);
+      ctx.fillStyle = "#052e16";
+      ctx.fillRect(80, dinoYRef.current + 8, 4, 4);
+    };
+
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - prev) / 1000);
       prev = now;
+
+      // Ready gate: hold the world still until the first jump.
+      if (!startedRef.current) {
+        drawGround();
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 20px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Tap / Space to start", W / 2, H / 2);
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+
       elapsed += dt * 1000;
       speedRef.current = 200 + Math.min(150, elapsed / 100);
 
@@ -145,7 +181,7 @@ export function DinoRunnerGame({ onGameEnd }: Props) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="w-full max-w-[360px] text-sm font-bold text-white">
-        Cleared: {cleared}/{GOAL} · tap / space to jump
+        Cleared: {cleared}/{GOAL} · {started ? "tap / space to jump" : "tap / space to start"}
       </div>
       <canvas
         ref={canvasRef}

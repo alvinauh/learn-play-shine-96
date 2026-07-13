@@ -8,17 +8,21 @@ import {
   fetchChatHistory,
   sendChatMessage,
   type ChatMessage,
+  type TutorQuestionContext,
 } from "@/services/api";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   studentId: string;
-  lessonId: string;
+  /** Real lesson id when the student is on a lesson; omit in the question feed. */
+  lessonId?: string | null;
+  /** The question the student is currently looking at — grounds the tutor when there's no lesson. */
+  questionContext?: TutorQuestionContext;
   language?: "en" | "ms" | string;
 }
 
-export function TutorChatDrawer({ open, onClose, studentId, lessonId, language = "en" }: Props) {
+export function TutorChatDrawer({ open, onClose, studentId, lessonId, questionContext, language = "en" }: Props) {
   const isMs = language === "ms";
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -27,8 +31,16 @@ export function TutorChatDrawer({ open, onClose, studentId, lessonId, language =
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
+  const sessionId = questionContext?.session_id;
+
   useEffect(() => {
-    if (!open || !lessonId) return;
+    if (!open) return;
+    // Question mode (no lesson): start a fresh conversation for this question.
+    if (!lessonId) {
+      setMessages([]);
+      setError(null);
+      return;
+    }
     let cancelled = false;
     setLoadingHistory(true);
     setError(null);
@@ -48,7 +60,7 @@ export function TutorChatDrawer({ open, onClose, studentId, lessonId, language =
     return () => {
       cancelled = true;
     };
-  }, [open, lessonId, studentId]);
+  }, [open, lessonId, studentId, sessionId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -64,11 +76,18 @@ export function TutorChatDrawer({ open, onClose, studentId, lessonId, language =
       content: text,
       created_at: new Date().toISOString(),
     };
+    const priorTurns = messages;
     setMessages((m) => [...m, optimistic]);
     setInput("");
     setSending(true);
     try {
-      const { reply, message } = await sendChatMessage(studentId, lessonId, text);
+      const { reply, message } = await sendChatMessage(
+        studentId,
+        lessonId,
+        text,
+        questionContext,
+        priorTurns,
+      );
       const tutorMsg: ChatMessage = message ?? {
         role: "tutor",
         content: reply || (isMs ? "(Tiada balasan)" : "(No reply)"),

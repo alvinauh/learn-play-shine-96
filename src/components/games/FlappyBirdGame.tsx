@@ -24,8 +24,10 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
   const scoreRef = useRef(0);
   const endedRef = useRef(false);
   const gameActive = useRef(false);
+  const startedRef = useRef(false);
   const framesRef = useRef(0);
   const [score, setScore] = useState(0);
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -34,6 +36,11 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
     if (!ctx) return;
 
     const flap = () => {
+      // First input starts the world so idle time isn't an instant loss.
+      if (!startedRef.current) {
+        startedRef.current = true;
+        setStarted(true);
+      }
       birdVyRef.current = -280;
     };
     const onKey = (e: KeyboardEvent) => {
@@ -62,16 +69,54 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
       onGameEnd(won);
     };
 
+    const drawScene = (bx: number, r: number) => {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#7dd3fc");
+      sky.addColorStop(1, "#0c4a6e");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.fillStyle = "#166534";
+      for (const p of pipesRef.current) {
+        ctx.fillRect(p.x, 0, PIPE_W, p.gapY - GAP / 2);
+        ctx.fillRect(p.x, p.gapY + GAP / 2, PIPE_W, H);
+      }
+
+      ctx.fillStyle = "#facc15";
+      ctx.beginPath();
+      ctx.arc(bx, birdYRef.current, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.arc(bx + 6, birdYRef.current - 4, 3, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - prev) / 1000);
       prev = now;
+
+      const bx = 80;
+      const r = 20;
+
+      // Ready gate: hold the bird still and show a hint until the first flap.
+      if (!startedRef.current) {
+        drawScene(bx, r);
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 22px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Tap / Space", W / 2, H / 2 - 12);
+        ctx.fillText("to start", W / 2, H / 2 + 16);
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+
       framesRef.current += 1;
 
       birdVyRef.current += 500 * dt;
       birdYRef.current += birdVyRef.current * dt;
-
-      const bx = 80;
-      const r = 20;
 
       // pipes
       for (const p of pipesRef.current) {
@@ -142,7 +187,7 @@ export function FlappyBirdGame({ onGameEnd }: Props) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="w-full max-w-[360px] text-sm font-bold text-white">
-        Pipes: {score}/{GOAL} · tap / space to flap
+        Pipes: {score}/{GOAL} · {started ? "tap / space to flap" : "tap / space to start"}
       </div>
       <canvas
         ref={canvasRef}

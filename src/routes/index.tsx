@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   Play,
@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Trophy,
   Settings,
+  SlidersHorizontal,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -57,10 +59,12 @@ import { LogOut, BookOpen, Gamepad2 } from "lucide-react";
 import { LessonNotesModal } from "@/components/LessonNotesModal";
 import { TutorChatDrawer } from "@/components/TutorChatDrawer";
 import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
+import { QuestionFeed } from "@/components/feed/QuestionFeed";
 import { GameTopBar } from "@/components/GameTopBar";
 import { PraiseOverlay } from "@/components/PraiseOverlay";
 import { BossBattleIntro } from "@/components/BossBattleIntro";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
+import { buildChallenge } from "@/lib/challenge";
 import { StudyCoachModal } from "@/components/StudyCoachModal";
 import { StudyModeSelect, type StudyMode } from "@/components/StudyModeSelect";
 import { ProfileBanner } from "@/components/ProfileBanner";
@@ -353,6 +357,14 @@ function RateLimitWaitingCard({
 function StudentFeed() {
   const { t, lang, setLang } = useI18n();
   const { user, profile, loading: authLoading, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    console.log("[Skor] StudentFeed role check:", { authLoading, role: profile?.role });
+    if (!authLoading && profile && (profile.role === "teacher" || profile.role === "admin")) {
+      void navigate({ to: "/teacher" });
+    }
+  }, [authLoading, profile, navigate]);
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [videoBroll, setVideoBroll] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
@@ -900,6 +912,7 @@ function StudentFeed() {
   const [subPartAnswers, setSubPartAnswers] = useState<Record<string, string>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [examPrefsOpen, setExamPrefsOpen] = useState(false);
+  const [practiceBarOpen, setPracticeBarOpen] = useState(false);
   const { prefs, save } = useStudentPrefs();
 
   // When Supabase prefs load (cross-device), apply the saved language once.
@@ -1148,9 +1161,30 @@ function StudentFeed() {
           </section>
         )}
 
-        {!inDiagnostic && (<>
+        {!inDiagnostic && (
+        <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur">
+          {/* Compact summary trigger — collapses the setup chrome into one line */}
+          <button
+            type="button"
+            onClick={() => setPracticeBarOpen((v) => !v)}
+            aria-expanded={practiceBarOpen}
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left"
+          >
+            <SlidersHorizontal className="h-4 w-4 shrink-0 text-primary-glow" />
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+              {(subjects.find((s) => s.subject === activeSubject)?.display_label ?? activeSubject) || (activeLanguage === "ms" ? "Pilih subjek" : "Choose a subject")}
+              {activeTopic ? <span className="text-muted-foreground"> · {activeTopic}</span> : null}
+            </span>
+            <span className="hidden shrink-0 text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:inline">
+              {activeLanguage === "ms" ? "Tkt" : "Form"} {formLevel} · {activeLanguage === "ms" ? "BM" : "EN"}
+            </span>
+            <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", practiceBarOpen && "rotate-180")} />
+          </button>
+
+          {practiceBarOpen && (
+          <div className="flex flex-col gap-2 border-t border-border/60 p-3">
         {/* Form level segmented control */}
-        <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/60 p-1 backdrop-blur">
+        <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-card/40 p-1">
           <span className="px-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {activeLanguage === "ms" ? "Tingkatan" : "Form"}
           </span>
@@ -1233,9 +1267,31 @@ function StudentFeed() {
 
           </SelectContent>
         </Select>
-        </>)}
 
         {/* Language toggle */}
+        <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/40 px-4 py-2.5">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
+            <span className={cn(activeLanguage === "en" && "text-foreground font-semibold")}>English</span>
+            <span className="opacity-40">/</span>
+            <span className={cn(activeLanguage === "ms" && "text-foreground font-semibold")}>Bahasa Melayu</span>
+          </div>
+          <Switch
+            checked={activeLanguage === "ms"}
+            onCheckedChange={(checked) => {
+              const next: Lang = checked ? "ms" : "en";
+              handleLanguageChange(next);
+              void loadSession(activeSubject, activeTopic, next, false);
+            }}
+            aria-label="Toggle language"
+          />
+        </div>
+          </div>
+          )}
+        </div>
+        )}
+
+        {/* Language toggle — diagnostic */}
+        {inDiagnostic && (
         <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-card/60 px-4 py-2.5 backdrop-blur">
           <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
             <span className={cn(activeLanguage === "en" && "text-foreground font-semibold")}>English</span>
@@ -1247,15 +1303,15 @@ function StudentFeed() {
             onCheckedChange={(checked) => {
               const next: Lang = checked ? "ms" : "en";
               handleLanguageChange(next);
-              if (inDiagnostic) void loadDiagnosticSession();
-              else void loadSession(activeSubject, activeTopic, next, false);
+              void loadDiagnosticSession();
             }}
             aria-label="Toggle language"
           />
         </div>
+        )}
 
-        {/* Mnemonic intro — only for non-H5P Q1 with actual lyrics/video content */}
-        {session && !session.h5p_content && !hasSeenIntro && (
+        {/* Mnemonic intro — only for non-interactive Q1 with actual lyrics/video content */}
+        {session && !session.interactive && !session.h5p_content && !hasSeenIntro && (
           (Array.isArray(mnemonicLyrics) && mnemonicLyrics.some((l) => typeof l === "string" && l.trim().length > 0)) ||
           isValidUrl(videoBroll) ||
           isValidUrl(mediaUrl)
@@ -1265,12 +1321,12 @@ function StudentFeed() {
             videoBroll={videoBroll}
             voiceoverUrl={mediaUrl}
           />
-        ) : session && !session.h5p_content && diagramSvg ? (
+        ) : session && !session.interactive && !session.h5p_content && diagramSvg ? (
           /* Compact diagram panel — Q2+ continuity reference */
-          <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-3 shadow-card">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                📊 {activeLanguage === "ms" ? "Rajah Konsep" : "Concept Diagram"}
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                {activeLanguage === "ms" ? "Rajah Konsep" : "Concept Diagram"}
               </span>
               {(Array.isArray(mnemonicLyrics) && mnemonicLyrics.some((l) => typeof l === "string" && l.trim().length > 0)) || isValidUrl(videoBroll) ? (
                 <button
@@ -1282,7 +1338,7 @@ function StudentFeed() {
               ) : null}
             </div>
             <div
-              className="overflow-hidden rounded-lg [&_svg]:h-auto [&_svg]:w-full"
+              className="overflow-hidden rounded-xl bg-white p-2 [&_svg]:h-auto [&_svg]:w-full"
               dangerouslySetInnerHTML={{ __html: diagramSvg }}
             />
           </div>
@@ -1363,11 +1419,36 @@ function StudentFeed() {
         ) : isAwaitingQuestion ? (
           <RateLimitWaitingCard
             lang={activeLanguage}
-            onRetry={() => void loadSession(activeSubject, activeTopic, activeLanguage, false)}
+            onRetry={() => inDiagnostic ? void loadDiagnosticSession() : void loadSession(activeSubject, activeTopic, activeLanguage, false)}
           />
-        ) : session && session.h5p_content ? (
+        ) : session && !inDiagnostic && !prefs.examMode ? (
+          /* Shorts-style vertical feed — the primary free-practice loop */
+          <QuestionFeed
+            key={`${activeSubject}|${activeTopic}|${formLevel}`}
+            seed={session}
+            studentId={effectiveStudentId}
+            subject={session.subject ?? activeSubject}
+            topic={session.topic ?? activeTopic}
+            apiLang={langToApi(activeLanguage)}
+            lang={activeLanguage}
+            formLevel={formLevel}
+            questionType={session.question_type ?? "mcq"}
+            timerEnabled={true}
+            onOpenTutor={() => setTutorChatOpen(true)}
+            headerRight={
+              <button
+                onClick={() => save({ examMode: true })}
+                className="flex items-center gap-1.5 rounded-full border border-border bg-card/80 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                {activeLanguage === "ms" ? "Mod Peperiksaan" : "SPM Exam"}
+              </button>
+            }
+          />
+        ) : session && (session.interactive || session.h5p_content) && !inDiagnostic && !prefs.examMode ? (
           <InteractiveVideoPlayer
             h5pContent={session.h5p_content as Parameters<typeof InteractiveVideoPlayer>[0]["h5pContent"]}
+            interactive={session.interactive as Parameters<typeof InteractiveVideoPlayer>[0]["interactive"]}
             questionData={(session.question_data ?? {}) as Record<string, unknown>}
             sessionId={session.session_id ?? ""}
             studentId={effectiveStudentId}
@@ -1390,7 +1471,11 @@ function StudentFeed() {
               }
               setQuestionNumber((q) => q + 1);
               void refreshDiagnosticStatus();
-              void loadSession(activeSubject, activeTopic, activeLanguage, true);
+              if (inDiagnostic) {
+                void loadDiagnosticSession();
+              } else {
+                void loadSession(activeSubject, activeTopic, activeLanguage, true);
+              }
             }}
           />
         ) : (
@@ -1620,12 +1705,12 @@ function StudentFeed() {
                       <div className="rounded-2xl border-2 border-border/40 bg-card overflow-hidden">
                         {subParts.map((part, idx) => (
                           <div key={part.label} className={cn("p-4", idx < subParts.length - 1 && "border-b border-border/30")}>
-                            <div className="flex items-baseline justify-between gap-3 mb-2">
+                            <div className="flex items-start justify-between gap-3 mb-2">
                               <p className="flex-1 text-sm leading-relaxed text-foreground">
                                 <span className="font-bold text-primary mr-1.5">{part.label}</span>
                                 {part.question}
                               </p>
-                              <span className="shrink-0 rounded border border-border/40 bg-muted/40 px-2 py-0.5 text-[10px] font-bold text-muted-foreground whitespace-nowrap">
+                              <span className="mt-0.5 shrink-0 rounded border border-border/40 bg-muted/40 px-2 py-0.5 text-[10px] font-bold text-muted-foreground whitespace-nowrap">
                                 [{part.marks} {activeLanguage === "ms" ? "markah" : part.marks === 1 ? "mark" : "marks"}]
                               </span>
                             </div>
@@ -1911,7 +1996,16 @@ function StudentFeed() {
           open={tutorChatOpen}
           onClose={() => setTutorChatOpen(false)}
           studentId={effectiveStudentId}
-          lessonId={session.lesson_id ?? session.session_id}
+          lessonId={session.lesson_id ?? null}
+          questionContext={{
+            session_id: session.session_id,
+            question: session.question,
+            options: session.options,
+            correct_answer: session.correct,
+            topic: session.topic,
+            subject: session.subject,
+            passage: session.passage ?? session.stimulus,
+          }}
           language={activeLanguage}
         />
       )}
@@ -1942,6 +2036,9 @@ function StudentFeed() {
         studentId={effectiveStudentId}
         sessionId={session?.session_id}
         onComplete={handlePenaltyComplete}
+        challenge={buildChallenge(session)}
+        topic={session?.topic}
+        subject={session?.subject}
       />
       <StudyCoachModal
         open={coachOpen}

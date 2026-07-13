@@ -29,14 +29,14 @@ function LoginPage() {
   const [fullName, setFullName] = useState("");
   const [school, setSchool] = useState("");
   const [grade, setGrade] = useState("");
+  const [role, setRole] = useState<"student" | "teacher">("student");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (loading || !user) return;
-    if (profile?.role === "admin") void navigate({ to: "/admin" });
-    else if (profile?.role === "teacher") void navigate({ to: "/teacher" });
+    if (profile?.role === "admin" || profile?.role === "teacher") void navigate({ to: "/teacher" });
     else void navigate({ to: "/" });
   }, [user, profile, loading, navigate]);
 
@@ -60,6 +60,7 @@ function LoginPage() {
           full_name: fullName.trim(),
           school: school.trim() || undefined,
           grade: grade.trim() || undefined,
+          role,
         });
         if (error) setError(error);
       } else {
@@ -152,6 +153,26 @@ function LoginPage() {
                   onChange={(e) => setFullName(e.target.value)}
                   required
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label>I am a</Label>
+                <div className="inline-flex w-full rounded-full border border-border bg-background/40 p-1 text-xs">
+                  {(["student", "teacher"] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRole(r)}
+                      className={cn(
+                        "flex-1 rounded-full px-4 py-1.5 font-medium capitalize transition",
+                        role === r
+                          ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">

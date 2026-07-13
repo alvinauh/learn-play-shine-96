@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, Copy, Check, Users, ArrowLeft, X, AlertTriangle, Sparkles } from "lucide-react";
+import { Loader2, Plus, Copy, Check, Users, ArrowLeft, X, AlertTriangle, Sparkles, Trash2 } from "lucide-react";
 import {
   Radar,
   RadarChart,
@@ -53,6 +53,20 @@ export function ClassroomsPanel() {
   const [showInvite, setShowInvite] = useState<Classroom | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<StudentRow | null>(null);
   const [aiTaskStudent, setAiTaskStudent] = useState<{ student: StudentRow; subject: string | null } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Classroom | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (cls: Classroom) => {
+    setDeleting(true);
+    const { error } = await supabase.from("classrooms").delete().eq("id", cls.id);
+    setDeleting(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      setConfirmDelete(null);
+      void load();
+    }
+  };
 
   const load = async () => {
     if (!user) return;
@@ -110,7 +124,9 @@ export function ClassroomsPanel() {
       }));
       setStudents(rows);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load classrooms";
+      const msg = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message ?? "Failed to load classrooms";
       setError(msg);
     } finally {
       setLoading(false);
@@ -119,6 +135,21 @@ export function ClassroomsPanel() {
 
   useEffect(() => {
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Re-fetch when any student joins one of this teacher's classrooms
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("classrooms-panel-members")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "classroom_members" },
+        () => { void load(); },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -192,14 +223,24 @@ export function ClassroomsPanel() {
                       {roster.length === 1 ? "" : "s"}
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowInvite(cls)}
-                    className="rounded-lg"
-                  >
-                    <Plus className="h-4 w-4" /> Add student
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowInvite(cls)}
+                      className="rounded-lg"
+                    >
+                      <Plus className="h-4 w-4" /> Add student
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfirmDelete(cls)}
+                      className="rounded-lg border-destructive/40 text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 {roster.length === 0 ? (
                   <div className="px-5 py-8 text-center text-sm text-muted-foreground">
@@ -277,6 +318,31 @@ export function ClassroomsPanel() {
         classroomSubject={aiTaskStudent?.subject ?? null}
         onClose={() => setAiTaskStudent(null)}
       />
+
+      {/* Delete confirmation dialog */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <h3 className="font-display text-lg font-semibold">Delete classroom?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">"{confirmDelete.name}"</span> and all
+              its student memberships will be permanently deleted. This cannot be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setConfirmDelete(null)} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleDelete(confirmDelete)}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -140,6 +140,8 @@ export type Database = {
           name: string
           subject: string | null
           teacher_id: string
+          theme: string | null
+          wallpaper: string | null
         }
         Insert: {
           created_at?: string
@@ -148,6 +150,8 @@ export type Database = {
           name: string
           subject?: string | null
           teacher_id: string
+          theme?: string | null
+          wallpaper?: string | null
         }
         Update: {
           created_at?: string
@@ -156,6 +160,8 @@ export type Database = {
           name?: string
           subject?: string | null
           teacher_id?: string
+          theme?: string | null
+          wallpaper?: string | null
         }
         Relationships: []
       }

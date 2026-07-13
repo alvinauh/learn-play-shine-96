@@ -24,6 +24,7 @@ interface AuthContextValue {
     full_name: string;
     school?: string;
     grade?: string;
+    role?: "student" | "teacher";
   }) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -149,21 +150,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     full_name,
     school,
     grade,
+    role,
   }) => {
-    const redirectUrl =
-      typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
-    // Role is intentionally NOT sent from the client. The backend trigger
-    // always assigns role = 'student'; teacher/admin roles are granted
-    // server-side only.
+    const redirectUrl = import.meta.env.VITE_APP_URL
+      ? `${import.meta.env.VITE_APP_URL}/`
+      : typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
+    // Only 'student' or 'teacher' accepted from client — trigger ignores 'admin'.
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
-        data: { full_name, school, grade },
+        data: { full_name, school, grade, role: role ?? "student" },
       },
     });
-    return { error: error?.message ?? null };
+    if (!error) return { error: null };
+    const msg = error.message;
+    // Supabase returns "{}" or similar when the DB trigger fails (e.g. profiles table missing)
+    if (!msg || msg === "{}" || msg.startsWith("{")) {
+      return { error: "Sign-up failed (server error). Please contact support or try again later." };
+    }
+    return { error: msg };
   };
 
   const signOut = async () => {

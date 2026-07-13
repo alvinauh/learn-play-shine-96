@@ -187,11 +187,14 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
     // establishes a temporary session here so the user can update their password.
     if (path === "/reset-password") return;
     if (path === "/login") {
-      void navigate({ to: profile.role === "teacher" ? "/teacher" : "/" });
+      void navigate({ to: (profile.role === "teacher" || profile.role === "admin") ? "/teacher" : "/" });
       return;
     }
     if (profile.role === "student" && path.startsWith("/teacher")) {
       void navigate({ to: "/" });
+    }
+    if ((profile.role === "teacher" || profile.role === "admin") && path === "/") {
+      void navigate({ to: "/teacher" });
     }
   }, [user, profile, loading, path, isPublic, navigate]);
 

@@ -274,6 +274,7 @@ export interface SessionResponse {
   lesson_id?: string;
   lesson?: Lesson | null;
   h5p_content?: Record<string, unknown> | null;
+  interactive?: Record<string, unknown> | null;
   diagram_svg?: string | null;
   worked_example?: string | null;
   question_data?: Record<string, unknown> | null;
@@ -281,6 +282,7 @@ export interface SessionResponse {
   stimulus?: string;
   kbat_level?: string;
   answered_count?: number;
+  mastery_score?: number | null;
 }
 
 
@@ -360,6 +362,7 @@ interface StartSessionApiResponse {
   lesson_id?: string;
   lesson?: Lesson | null;
   h5p_content?: Record<string, unknown> | null;
+  interactive?: Record<string, unknown> | null;
   draft?: {
     question?: string;
     options?: string[];
@@ -452,6 +455,7 @@ function normalizeSessionResponse(
     lesson_id: data.lesson_id,
     lesson: (data as { lesson?: Lesson | null }).lesson ?? null,
     h5p_content: (data as { h5p_content?: Record<string, unknown> | null }).h5p_content ?? null,
+    interactive: (data as { interactive?: Record<string, unknown> | null }).interactive ?? null,
     diagram_svg: (data as { diagram_svg?: string | null }).diagram_svg ?? null,
     worked_example: (data as { worked_example?: string | null }).worked_example ?? null,
     question_data: (data.question_data ?? null) as Record<string, unknown> | null,
@@ -459,6 +463,7 @@ function normalizeSessionResponse(
     stimulus: data.question_data?.stimulus,
     kbat_level: (data as { kbat_level?: string }).kbat_level ?? data.question_data?.kbat_level,
     answered_count: (data as { answered_count?: number }).answered_count ?? 0,
+    mastery_score: (data as { mastery_score?: number | null }).mastery_score ?? null,
   };
 }
 
@@ -722,10 +727,22 @@ export interface ChatReply {
   message?: ChatMessage;
 }
 
+export interface TutorQuestionContext {
+  session_id?: string;
+  question?: string;
+  options?: { A?: string; B?: string; C?: string; D?: string };
+  correct_answer?: string;
+  topic?: string;
+  subject?: string;
+  passage?: string;
+}
+
 export async function sendChatMessage(
   studentId: string,
-  lessonId: string,
+  lessonId: string | null | undefined,
   message: string,
+  context?: TutorQuestionContext,
+  history?: ChatMessage[],
 ): Promise<ChatReply> {
   const safeStudentId =
     studentId && studentId !== "undefined"
@@ -734,7 +751,13 @@ export async function sendChatMessage(
   const res = await fetch(`${BASE_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ student_id: safeStudentId, lesson_id: lessonId, message }),
+    body: JSON.stringify({
+      student_id: safeStudentId,
+      lesson_id: lessonId || null,
+      message,
+      ...(context ?? {}),
+      history: (history ?? []).map((m) => ({ role: m.role, content: m.content })),
+    }),
     cache: "no-store",
   });
   if (!res.ok) throw new ApiResponseError(res.status);
@@ -781,6 +804,10 @@ export interface PenaltyGameResultResponse {
   points_awarded?: number;
   total_score?: number;
   game_wins?: number;
+  /** New mastery score after an assessment-integrated win credited recovery (0–1). */
+  mastery_score?: number | null;
+  /** Mastery delta applied by the win (0 when none). */
+  mastery_delta?: number;
 }
 
 export async function recordPenaltyGameResult(params: {
@@ -789,6 +816,9 @@ export async function recordPenaltyGameResult(params: {
   gameType: "catch_stars" | "dino_runner" | "flappy_bird";
   result: "win" | "loss";
   durationMs?: number;
+  /** Set for assessment-integrated games so a win credits partial mastery recovery. */
+  topic?: string;
+  subject?: string;
 }): Promise<PenaltyGameResultResponse | null> {
   try {
     const res = await fetch(`${BASE_URL}/penalty_game_result`, {
@@ -800,6 +830,8 @@ export async function recordPenaltyGameResult(params: {
         game_type: params.gameType,
         result: params.result,
         duration_ms: params.durationMs,
+        topic: params.topic,
+        subject: params.subject,
       }),
     });
     if (!res.ok) return null;

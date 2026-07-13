@@ -30,8 +30,26 @@ export interface H5PContent {
   };
 }
 
+/** Lean interactive-question schema (going-forward format; replaces the H5P blob). */
+export interface InteractiveBlob {
+  video_url?: string;
+  audio_url?: string;
+  audio_end_sec?: number;
+  question?: string;
+  options?: string[];
+  mcq_start_sec?: number;
+  drag?: {
+    sentence?: string;
+    distractors?: string[];
+    start_sec?: number;
+    end_sec?: number;
+  } | null;
+}
+
 interface InteractiveVideoPlayerProps {
-  h5pContent: H5PContent;
+  h5pContent?: H5PContent | null;
+  /** Preferred lean blob; when present, h5pContent is ignored. */
+  interactive?: InteractiveBlob | null;
   questionData: Record<string, unknown>;
   sessionId: string;
   studentId: string;
@@ -91,6 +109,7 @@ function parseDragText(textField: string, distractors: string): DragTextParsed {
 
 export function InteractiveVideoPlayer({
   h5pContent,
+  interactive,
   questionData,
   sessionId,
   studentId,
@@ -108,6 +127,30 @@ export function InteractiveVideoPlayer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const parsed = useMemo(() => {
+    // Preferred path: lean interactive blob.
+    if (interactive) {
+      const options = (interactive.options ?? []).filter((t) => t.length > 0);
+      const drag =
+        interactive.drag && interactive.drag.sentence
+          ? parseDragText(
+              interactive.drag.sentence,
+              (interactive.drag.distractors ?? []).join("\n"),
+            )
+          : null;
+      return {
+        videoUrl: interactive.video_url ?? "",
+        audioUrl: interactive.audio_url ?? "",
+        dragAt: interactive.drag?.start_sec ?? 0,
+        mcqAt: interactive.mcq_start_sec ?? 8,
+        questionText: stripHtml(interactive.question ?? ""),
+        options,
+        // Correct answers are graded server-side; never trust the client blob.
+        answerMeta: options.map((text) => ({ text, correct: false, feedback: "" })),
+        drag,
+      };
+    }
+
+    // Backward-compat: convert a legacy H5P blob (stored rows not yet migrated).
     const iv = h5pContent?.interactiveVideo;
     const videoUrl = iv?.video?.files?.[0]?.path ?? "";
     const interactions = iv?.assets?.interactions ?? [];
@@ -155,17 +198,13 @@ export function InteractiveVideoPlayer({
       answerMeta,
       drag,
     };
-  }, [h5pContent]);
+  }, [h5pContent, interactive]);
 
-  const noDiagramVideo =
-    !(h5pContent as any)?.interactiveVideo?.video?.files?.[0]?.path && !!diagramSvg;
+  const noDiagramVideo = !parsed.videoUrl && !!diagramSvg;
   const [phase, setPhase] = useState<"intro" | "drag" | "mcq">(() => {
     if (skipIntro || noDiagramVideo) {
-      // If DragText exists in the blob, enter drag phase first; otherwise jump straight to MCQ.
-      const hasDrag = (h5pContent as any)?.interactiveVideo?.assets?.interactions?.some(
-        (i: any) => i.action?.library?.startsWith("H5P.DragText"),
-      );
-      return hasDrag ? "drag" : "mcq";
+      // If a DragText step exists, enter drag phase first; otherwise jump straight to MCQ.
+      return parsed.drag ? "drag" : "mcq";
     }
     return "intro";
   });
@@ -347,7 +386,7 @@ export function InteractiveVideoPlayer({
           /* No video intro — show diagram as background, or gradient fallback */
           diagramSvg ? (
             <div
-              className="absolute inset-0 overflow-hidden bg-white [&_svg]:h-full [&_svg]:w-full [&_svg]:object-contain"
+              className="absolute inset-0 overflow-hidden bg-card [&_svg]:h-full [&_svg]:w-full [&_svg]:object-contain"
               dangerouslySetInnerHTML={{ __html: diagramSvg }}
             />
           ) : (
