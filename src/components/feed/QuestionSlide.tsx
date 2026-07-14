@@ -60,6 +60,9 @@ export function QuestionSlide({
   const [textAnswer, setTextAnswer] = useState("");
   const [checking, setChecking] = useState(false);
   const [feedback, setFeedback] = useState<AnswerResponse | null>(null);
+  // Optimistic verdict shown the instant a choice is tapped (from the prefetched
+  // correct answer), so the reward doesn't wait on the /submit_answer round-trip.
+  const [instant, setInstant] = useState<{ correct: boolean } | null>(null);
   const [pointsBurst, setPointsBurst] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
   const [gameChallenge, setGameChallenge] = useState<GameChallenge | null>(null);
@@ -88,7 +91,7 @@ export function QuestionSlide({
   // requires flying through the correct (unmarked) answer gate, so a win proves
   // knowledge → auto-submit as correct. A loss just closes; answer normally.
   const startGamify = () => {
-    if (!session.session_id || gamifyLoading || feedback) return;
+    if (!session.session_id || gamifyLoading || feedback || instant) return;
     // Instant open when prefetched (the common path).
     if (readyChallenge) {
       setGameChallenge(readyChallenge);
@@ -121,18 +124,40 @@ export function QuestionSlide({
     if (won && ch) void submit(ch.options[ch.correctLetter] ?? "", ch.correctLetter);
   };
 
-  // Countdown only while active + unanswered.
+  // Countdown only while active + unanswered (freezes the moment they answer).
   useEffect(() => {
-    if (!isActive || feedback || !timerEnabled) return;
+    if (!isActive || feedback || instant || !timerEnabled) return;
     const id = setInterval(() => setSecondsLeft((s) => (s <= 0 ? 0 : s - 0.1)), 100);
     return () => clearInterval(id);
-  }, [isActive, feedback, timerEnabled]);
+  }, [isActive, feedback, instant, timerEnabled]);
+
+  const fireBurst = (pts: number) => {
+    setPointsBurst(pts);
+    setTimeout(() => setPointsBurst(null), 1100);
+  };
 
   const submit = async (answerText: string, letter?: Letter) => {
     if (checking || feedback || answeredRef.current) return;
     answeredRef.current = true;
     setChecking(true);
     if (letter) setSelected(letter);
+
+    // Optimistic reward: if the correct answer was prefetched, show the verdict +
+    // haptic + points burst immediately, then reconcile with the server below.
+    let firedOptimistic = false;
+    const known = readyChallenge?.correctLetter;
+    if (letter && known) {
+      const optimisticCorrect = letter === known;
+      firedOptimistic = true;
+      setInstant({ correct: optimisticCorrect });
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate(optimisticCorrect ? 20 : [30, 20, 30]);
+      }
+      if (optimisticCorrect) {
+        fireBurst(totalPoints(undefined, streak, timerEnabled ? secondsLeft : QUESTION_SECONDS));
+      }
+    }
+
     try {
       const res = await submitAnswer(
         studentId, session.topic ?? "", "", answerText,
@@ -141,10 +166,11 @@ export function QuestionSlide({
       );
       const correct = res.is_correct ?? res.correct ?? false;
       const pts = correct ? totalPoints(res.points_awarded, streak, timerEnabled ? secondsLeft : QUESTION_SECONDS) : 0;
+      // Server is authoritative — reconcile if the optimistic guess was wrong.
+      setInstant({ correct });
       setFeedback({ ...res, correct });
-      if (correct) {
-        setPointsBurst(pts);
-        setTimeout(() => setPointsBurst(null), 1100);
+      if (correct && !firedOptimistic) {
+        fireBurst(pts);
       }
       onResult({
         correct, points: pts, mastery: res.mastery_score,
@@ -162,12 +188,17 @@ export function QuestionSlide({
       });
     } catch {
       answeredRef.current = false; // allow retry on network error
+      setInstant(null);            // clear the optimistic verdict so retry is clean
+      setSelected(null);
     } finally {
       setChecking(false);
     }
   };
 
   const bonus = timerEnabled ? speedBonus(secondsLeft) : 0;
+  // Prefer server truth, fall back to the optimistic verdict for instant visuals.
+  const verdict: boolean | null = feedback ? feedback.correct : instant ? instant.correct : null;
+  const answered = feedback != null || instant != null;
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/70 bg-gradient-feed">
@@ -211,7 +242,7 @@ export function QuestionSlide({
         </div>
 
         {/* "I'm bored, gamify this!" — only for MCQ, before answering */}
-        {isMcq && !feedback && isActive && session.session_id && (
+        {isMcq && !answered && isActive && session.session_id && (
           <button
             onClick={() => void startGamify()}
             disabled={gamifyLoading}
@@ -229,20 +260,20 @@ export function QuestionSlide({
               const text = session.options?.[letter];
               if (!text) return null;
               const isPicked = selected === letter;
-              const showCorrect = !!feedback && isPicked && feedback.correct;
-              const showWrong = !!feedback && isPicked && !feedback.correct;
+              const showCorrect = isPicked && verdict === true;
+              const showWrong = isPicked && verdict === false;
               return (
                 <button
                   key={letter}
-                  disabled={!!feedback || checking}
+                  disabled={answered || checking}
                   onClick={() => submit(text, letter)}
                   className={cn(
                     "group flex items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left backdrop-blur transition-all",
                     LETTER_TINT[letter],
-                    !feedback && "hover:scale-[1.01] hover:border-primary/70",
+                    !answered && "hover:scale-[1.01] hover:border-primary/70",
                     showCorrect && "border-emerald-400 bg-emerald-500/20 animate-answer-correct",
                     showWrong && "border-red-400 bg-red-500/20 animate-shake-x",
-                    feedback && !isPicked && "opacity-50",
+                    answered && !isPicked && "opacity-50",
                   )}
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/20 text-sm font-bold">
@@ -257,14 +288,14 @@ export function QuestionSlide({
               <Input
                 value={textAnswer}
                 onChange={(e) => setTextAnswer(e.target.value)}
-                disabled={!!feedback || checking}
+                disabled={answered || checking}
                 placeholder={lang === "ms" ? "Taip jawapan…" : "Type your answer…"}
                 className="h-14 rounded-2xl border-2 bg-card/60 px-4 text-base"
                 onKeyDown={(e) => { if (e.key === "Enter") void submit(textAnswer); }}
               />
               <Button
                 onClick={() => void submit(textAnswer)}
-                disabled={!!feedback || checking || !textAnswer.trim()}
+                disabled={answered || checking || !textAnswer.trim()}
                 size="lg"
                 className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
               >
@@ -274,26 +305,27 @@ export function QuestionSlide({
           )}
         </div>
 
-        {/* feedback strip */}
-        {feedback && (
+        {/* feedback strip — verdict + optional speed badge appear instantly from
+            the optimistic verdict; the explanation text streams in with the server. */}
+        {verdict !== null && (
           <div
             className={cn(
               "animate-slide-up-in shrink-0 rounded-2xl border p-3 text-sm",
-              feedback.correct
+              verdict
                 ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-200"
                 : "border-red-400/50 bg-red-500/10 text-red-200",
             )}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-bold">
-                {feedback.correct ? (lang === "ms" ? "Betul! 🎉" : "Correct! 🎉") : (lang === "ms" ? "Belum tepat" : "Not quite")}
+                {verdict ? (lang === "ms" ? "Betul! 🎉" : "Correct! 🎉") : (lang === "ms" ? "Belum tepat" : "Not quite")}
               </span>
-              {feedback.correct && bonus > 0 && (
+              {verdict && bonus > 0 && (
                 <span className="text-[10px] font-bold uppercase tracking-wider text-neon-green">+{bonus} speed</span>
               )}
             </div>
-            {feedback.feedback && <p className="mt-1 leading-relaxed text-foreground/85">{feedback.feedback}</p>}
-            {!feedback.correct && feedback.misconception && (
+            {feedback?.feedback && <p className="mt-1 leading-relaxed text-foreground/85">{feedback.feedback}</p>}
+            {verdict === false && feedback?.misconception && (
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">💡 {feedback.misconception}</p>
             )}
           </div>
@@ -313,7 +345,7 @@ export function QuestionSlide({
             onClick={onRequestNext}
             className={cn(
               "flex items-center gap-1 text-xs font-semibold text-primary-glow",
-              feedback ? "animate-swipe-hint" : "opacity-60",
+              answered ? "animate-swipe-hint" : "opacity-60",
             )}
           >
             <ChevronUp className="h-4 w-4" />

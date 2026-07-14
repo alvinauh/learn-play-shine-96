@@ -63,6 +63,13 @@ function TeacherDashboard() {
   const { t } = useI18n();
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // Clear the student-quiz preview flag so a normal dashboard visit still
+  // redirects teachers away from the student feed. (Set by the Student Quiz button.)
+  useEffect(() => {
+    sessionStorage.removeItem("kp_teacher_preview");
+  }, []);
+
   const [tab, setTab] = useState<"insights" | "classrooms" | "assignments">("insights");
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
 const [activeStudents, setActiveStudents] = useState<string>("-");
@@ -220,6 +227,7 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
             <LanguageSwitcher />
             <Link
               to="/"
+              onClick={() => sessionStorage.setItem("kp_teacher_preview", "1")}
               className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary-glow hover:bg-card/80 transition"
               aria-label="Go to student quiz"
             >
@@ -295,6 +303,22 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
             {error}
           </div>
         )}
+        {/* Class pulse — leads with the single biggest blocker so a teacher can act
+            in one glance + one tap, instead of scanning the patterns panel below. */}
+        {(() => {
+          const top = [...misconceptionClusters].sort(
+            (a, b) => b.student_count - a.student_count,
+          )[0];
+          if (!top) return null;
+          return (
+            <ClassPulseBanner
+              cluster={top}
+              busy={generatingPlan === top.error_category}
+              done={planResults[top.error_category]}
+              onAssign={() => void handleGenerateDifferentiatedPlan(top)}
+            />
+          );
+        })()}
         <section className="grid gap-4 md:grid-cols-3">
           <KpiCard
             icon={<Users className="h-5 w-5" />}
@@ -720,6 +744,58 @@ function MisconceptionClusterCard({
         </div>
       )}
     </li>
+  );
+}
+
+function ClassPulseBanner({
+  cluster,
+  busy,
+  done,
+  onAssign,
+}: {
+  cluster: MisconceptionCluster;
+  busy: boolean;
+  done?: DifferentiatedPlanResult;
+  onAssign: () => void;
+}) {
+  const n = cluster.student_count;
+  const topics = cluster.topics_affected.slice(0, 2).join(", ");
+  const moreTopics = cluster.topics_affected.length > 2 ? ` +${cluster.topics_affected.length - 2}` : "";
+  return (
+    <section className="rounded-2xl border border-destructive/40 bg-gradient-to-r from-destructive/15 to-warning/10 p-5 shadow-card">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3 min-w-0">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-destructive/20 text-destructive">
+            <AlertTriangle className="h-6 w-6" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-destructive">Class pulse — biggest blocker</p>
+            <p className="mt-0.5 font-display text-lg font-bold leading-snug text-foreground">
+              {n} student{n !== 1 ? "s" : ""} stuck on <span className="text-destructive">{cluster.error_category}</span>
+            </p>
+            {topics && (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{topics}{moreTopics}</p>
+            )}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          {done ? (
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-success/15 px-3 py-2 text-xs font-semibold text-success">
+              ✅ {done.tasks_assigned} task{done.tasks_assigned !== 1 ? "s" : ""} assigned
+            </span>
+          ) : (
+            <button
+              onClick={onAssign}
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {busy ? "Assigning…" : `Assign fix to all ${n}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

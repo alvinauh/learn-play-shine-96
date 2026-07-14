@@ -34,13 +34,27 @@ function isRateLimited(s: SessionResponse): boolean {
   return q.includes("API Rate Limit") || !q.trim();
 }
 
+// Streaks survive a reload (per student, this device) so a refresh mid-run
+// doesn't wipe the combo. Cross-device sync is a backend follow-up.
+function readStoredStreak(key: string): number {
+  try {
+    const v = Number(localStorage.getItem(key));
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function QuestionFeed({
   seed, studentId, subject, topic, apiLang, lang, formLevel, questionType, timerEnabled,
   headerRight, onOpenTutor,
 }: QuestionFeedProps) {
+  const streakKey = `kp_streak_${studentId}`;
+  const bestKey = `kp_beststreak_${studentId}`;
   const [slides, setSlides] = useState<FeedSlide[]>([{ key: "seed", session: seed }]);
   const [current, setCurrent] = useState(0);
-  const [streak, setStreak] = useState(0);
+  const [streak, setStreak] = useState<number>(() => readStoredStreak(streakKey));
+  const [bestStreak, setBestStreak] = useState<number>(() => readStoredStreak(bestKey));
   const [xp, setXp] = useState(0);
   const [score, setScore] = useState(0);
   const [mastery, setMastery] = useState<number | null>(
@@ -98,6 +112,17 @@ export function QuestionFeed({
   // Ensure at least one lookahead question is ready on mount.
   useEffect(() => { if (slides.length < 2) void fetchNext(); /* eslint-disable-next-line */ }, []);
 
+  // Persist the running streak + personal best across reloads.
+  useEffect(() => {
+    try { localStorage.setItem(streakKey, String(streak)); } catch { /* storage disabled */ }
+    setBestStreak((b) => (streak > b ? streak : b));
+  }, [streak, streakKey]);
+
+  useEffect(() => {
+    if (bestStreak <= 0) return;
+    try { localStorage.setItem(bestKey, String(bestStreak)); } catch { /* storage disabled */ }
+  }, [bestStreak, bestKey]);
+
   const handleResult = (r: SlideResult) => {
     setScore((s) => s + r.points);
     if (typeof r.mastery === "number") setMastery(r.mastery);
@@ -146,7 +171,7 @@ export function QuestionFeed({
     <div className="flex flex-col gap-3">
       {/* Gamification HUD */}
       <div className="flex items-center gap-3">
-        <StreakMeter streak={streak} />
+        <StreakMeter streak={streak} best={bestStreak} />
         <span className="rounded-full border border-border bg-card/70 px-3 py-1.5 text-sm font-bold tabular-nums text-foreground">
           {score.toLocaleString()}
         </span>
