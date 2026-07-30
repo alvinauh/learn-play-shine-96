@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { startSession, submitAnswer, fetchSessionChallenge, type QuestionType } from "@/services/api";
 import { buildChallengeFrom } from "@/lib/challenge";
 import type { GameChallenge } from "./CatchStarsGame";
+import { acquireKaplay, parkKaplay } from "./kaplay";
+
+const SCENE = "play-mode";
+const CANVAS_CLASS =
+  "w-full max-w-[360px] rounded-2xl border border-white/20 touch-none shadow-2xl";
 
 /**
  * Play mode — the learn-through-play loop. A continuous Flappy run where each
@@ -55,7 +60,7 @@ function isRateLimited(q: string | undefined): boolean {
 export function PlayModeGame({
   studentId, topic, subject, apiLang, lang, formLevel, questionType, onResult, onExit,
 }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const queueRef = useRef<GameChallenge[]>([]);
   const prefetchingRef = useRef(false);
   const resumeRef = useRef<(() => void) | null>(null);
@@ -133,20 +138,24 @@ export function PlayModeGame({
 
   // ---- game loop ----
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!container) return;
     let disposed = false;
     let cleanup = () => {};
 
     void (async () => {
-      const kaplay = (await import("kaplay")).default;
+      const { k, canvas } = await acquireKaplay();
       if (disposed) return;
-      const k = kaplay({
-        canvas, width: W, height: H, background: [186, 230, 253], // soft pastel sky
-        global: false, touchToMouse: true, crisp: false,
-        pixelDensity: Math.min(2, window.devicePixelRatio || 1),
-      });
+      canvas.className = CANVAS_CLASS;
+      container.appendChild(canvas);
       setReady(true);
+
+      // Build inside a scene so parkKaplay() (on unmount) tears down objects,
+      // timers, and input handlers without re-initialising Kaplay — which
+      // would corrupt the shared font atlas and blank the answer text.
+      k.scene(SCENE, () => {
+      // soft pastel sky base (repainted per-scene since we share one engine)
+      k.add([k.rect(W, H), k.pos(0, 0), k.color(186, 230, 253), k.z(-40)]);
       k.setGravity(0);
 
       let livesLeft = LIVES;
@@ -455,9 +464,12 @@ export function PlayModeGame({
         if (bird.pos.y < 8 || bird.pos.y > H - 8) loseLife();
       });
 
+      });
+      k.go(SCENE);
+
       cleanup = () => {
-        spawner?.cancel();
-        try { k.quit(); } catch { /* already torn down */ }
+        parkKaplay();
+        if (canvas.parentElement === container) container.removeChild(canvas);
       };
     })();
 
@@ -477,10 +489,7 @@ export function PlayModeGame({
         </span>
       </div>
 
-      <canvas
-        ref={canvasRef}
-        className="w-full max-w-[360px] rounded-2xl border border-white/20 touch-none shadow-2xl"
-      />
+      <div ref={containerRef} className="w-full max-w-[360px] leading-[0]" />
 
       {/* Teaching moment — shown when the player flies through a wrong answer. */}
       {teach && (
