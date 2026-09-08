@@ -18,8 +18,31 @@ import {
   Zap,
   BookOpen,
   UserX,
+  MessagesSquare,
+  Pencil,
+  Search,
+  UserPlus,
+  Check,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/**
+ * Fetch an /admin/* endpoint with the current user's Supabase access token.
+ * The backend verifies the token resolves to a role='admin' user — the UI role
+ * gate alone does not protect the API.
+ */
+async function adminFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+}
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -32,7 +55,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminConsole,
 });
 
-type Tab = "users" | "classrooms" | "errors" | "leaderboard" | "monitor";
+type Tab = "users" | "classrooms" | "errors" | "leaderboard" | "monitor" | "quality";
 
 interface UserRow {
   id: string;
@@ -90,6 +113,7 @@ function AdminConsole() {
     { key: "errors", label: "Error Log", icon: AlertTriangle },
     { key: "leaderboard", label: "Leaderboard", icon: Trophy },
     { key: "monitor", label: "Platform", icon: Activity },
+    { key: "quality", label: "Feedback Quality", icon: MessagesSquare },
   ];
 
   return (
@@ -158,6 +182,7 @@ function AdminConsole() {
         {tab === "errors" && <ErrorsPanel />}
         {tab === "leaderboard" && <LeaderboardPanel />}
         {tab === "monitor" && <MonitorPanel />}
+        {tab === "quality" && <FeedbackQualityPanel />}
       </main>
     </div>
   );
@@ -171,6 +196,7 @@ function UsersPanel() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -244,6 +270,17 @@ function UsersPanel() {
       )}
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSaved={(updated) => {
+            setRows((rs) => rs.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
+            setEditingUser(null);
+          }}
+        />
+      )}
+
       {!loading && !error && (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
@@ -255,6 +292,7 @@ function UsersPanel() {
                 <th className="py-2 pr-3">Role</th>
                 <th className="py-2 pr-3">Joined</th>
                 <th className="py-2 pr-3">ID</th>
+                <th className="py-2 pr-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -281,11 +319,20 @@ function UsersPanel() {
                   <td className="py-2 pr-3 font-mono text-[10px] text-muted-foreground">
                     {u.id.slice(0, 8)}
                   </td>
+                  <td className="py-2 pr-3">
+                    <button
+                      onClick={() => setEditingUser(u)}
+                      className="grid h-7 w-7 place-items-center rounded-md border border-border bg-card text-muted-foreground transition hover:text-foreground"
+                      title="Edit profile"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
+                  <td colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
                     No users match.
                   </td>
                 </tr>
@@ -298,12 +345,102 @@ function UsersPanel() {
   );
 }
 
+function EditUserModal({
+  user,
+  onClose,
+  onSaved,
+}: {
+  user: UserRow;
+  onClose: () => void;
+  onSaved: (updated: Partial<UserRow>) => void;
+}) {
+  const [fullName, setFullName] = useState(user.full_name ?? "");
+  const [school, setSchool] = useState(user.school ?? "");
+  const [grade, setGrade] = useState(user.grade ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    const { error } = await supabase.rpc("admin_update_profile", {
+      _target_user: user.id,
+      _full_name: fullName.trim(),
+      _school: school.trim(),
+      _grade: grade.trim(),
+    });
+    setSaving(false);
+    if (error) { setError(error.message); return; }
+    onSaved({
+      full_name: fullName.trim() || user.full_name,
+      school: school.trim() || null,
+      grade: grade.trim() || null,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
+        <h3 className="font-display text-lg font-semibold">Edit user</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{user.id.slice(0, 8)} · {user.role}</p>
+        <div className="mt-4 space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Full name</label>
+            <input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+              placeholder="Full name"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">School</label>
+            <input
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+              placeholder="SMK Taman Melawati"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Grade / Form</label>
+            <input
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+              placeholder="Form 4"
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+        <div className="mt-5 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg border border-border bg-card px-4 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => void save()}
+            disabled={saving || !fullName.trim()}
+            className="rounded-lg bg-gradient-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-glow transition disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---------------- Classrooms ---------------- */
 
 function ClassroomsPanel() {
   const [rows, setRows] = useState<ClassroomRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [managingClassroom, setManagingClassroom] = useState<ClassroomRow | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -377,6 +514,13 @@ function ClassroomsPanel() {
       )}
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
+      {managingClassroom && (
+        <ManageMembersModal
+          classroom={managingClassroom}
+          onClose={() => { setManagingClassroom(null); void load(); }}
+        />
+      )}
+
       {!loading && !error && (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
@@ -388,6 +532,7 @@ function ClassroomsPanel() {
                 <th className="py-2 pr-3">Members</th>
                 <th className="py-2 pr-3">Invite code</th>
                 <th className="py-2 pr-3">Created</th>
+                <th className="py-2 pr-3"></th>
                 <th className="py-2 pr-3"></th>
               </tr>
             </thead>
@@ -402,6 +547,14 @@ function ClassroomsPanel() {
                   <td className="py-2 pr-3 text-xs text-muted-foreground">
                     {new Date(c.created_at).toLocaleDateString()}
                   </td>
+                  <td className="py-2 pr-3">
+                    <button
+                      onClick={() => setManagingClassroom(c)}
+                      className="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition"
+                    >
+                      <UserPlus className="inline h-3.5 w-3.5 mr-1" />Members
+                    </button>
+                  </td>
                   <td className="py-2 pr-3 text-right">
                     <button
                       onClick={() => void remove(c.id)}
@@ -414,7 +567,7 @@ function ClassroomsPanel() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
                     No classrooms yet.
                   </td>
                 </tr>
@@ -424,6 +577,206 @@ function ClassroomsPanel() {
         </div>
       )}
     </section>
+  );
+}
+
+interface MemberRow {
+  student_id: string;
+  full_name: string;
+  school: string | null;
+  grade: string | null;
+  joined_at: string;
+}
+
+function ManageMembersModal({
+  classroom,
+  onClose,
+}: {
+  classroom: ClassroomRow;
+  onClose: () => void;
+}) {
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: string; full_name: string; school: string | null; grade: string | null }[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadMembers = async () => {
+    setLoading(true);
+    const { data: cm } = await supabase
+      .from("classroom_members")
+      .select("student_id, joined_at")
+      .eq("classroom_id", classroom.id)
+      .order("joined_at", { ascending: true });
+    const ids = (cm ?? []).map((m) => (m as { student_id: string; joined_at: string }).student_id);
+    if (ids.length === 0) { setMembers([]); setLoading(false); return; }
+    const { data: profs } = await supabase
+      .from("profiles")
+      .select("id, full_name, school, grade")
+      .in("id", ids);
+    const profMap = new Map((profs ?? []).map((p) => [p.id, p]));
+    setMembers(
+      (cm ?? []).map((m) => {
+        const row = m as { student_id: string; joined_at: string };
+        const prof = profMap.get(row.student_id);
+        return {
+          student_id: row.student_id,
+          full_name: prof?.full_name ?? "Unknown",
+          school: prof?.school ?? null,
+          grade: prof?.grade ?? null,
+          joined_at: row.joined_at,
+        };
+      }),
+    );
+    setLoading(false);
+  };
+
+  useEffect(() => { void loadMembers(); }, []);
+
+  useEffect(() => {
+    if (query.trim().length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name, school, grade")
+        .eq("role", "student")
+        .ilike("full_name", `%${query.trim()}%`)
+        .limit(20);
+      setSearchResults((data ?? []) as { id: string; full_name: string; school: string | null; grade: string | null }[]);
+      setSearching(false);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const addMember = async (studentId: string) => {
+    setAdding(studentId);
+    setError(null);
+    const { error } = await supabase
+      .from("classroom_members")
+      .insert({ classroom_id: classroom.id, student_id: studentId });
+    setAdding(null);
+    if (error && !error.message.toLowerCase().includes("duplicate") && !error.message.toLowerCase().includes("unique")) {
+      setError(error.message); return;
+    }
+    setAddedIds((prev) => new Set([...prev, studentId]));
+    void loadMembers();
+  };
+
+  const removeMember = async (studentId: string) => {
+    setRemoving(studentId);
+    await supabase
+      .from("classroom_members")
+      .delete()
+      .eq("classroom_id", classroom.id)
+      .eq("student_id", studentId);
+    setRemoving(null);
+    setMembers((ms) => ms.filter((m) => m.student_id !== studentId));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 backdrop-blur-sm pt-12 pb-8">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-xl mx-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-display text-lg font-semibold">Manage members</h3>
+            <p className="text-xs text-muted-foreground">{classroom.name} · {members.length} student{members.length === 1 ? "" : "s"}</p>
+          </div>
+          <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full border border-border text-muted-foreground hover:text-foreground transition">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Search & add */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search student by name to add…"
+              className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          {searching && (
+            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Searching…
+            </p>
+          )}
+          {searchResults.length > 0 && (
+            <ul className="mt-2 max-h-40 overflow-y-auto divide-y divide-border rounded-lg border border-border bg-background">
+              {searchResults.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{s.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{s.school ?? "—"} · {s.grade ?? "—"}</p>
+                  </div>
+                  {addedIds.has(s.id) ? (
+                    <span className="shrink-0 flex items-center gap-1 text-xs font-medium text-success">
+                      <Check className="h-3.5 w-3.5" /> Added
+                    </span>
+                  ) : (
+                    <button
+                      disabled={adding === s.id}
+                      onClick={() => void addMember(s.id)}
+                      className="shrink-0 rounded-md border border-border bg-card px-3 py-1 text-xs font-medium text-foreground hover:bg-accent transition disabled:opacity-50"
+                    >
+                      {adding === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+        </div>
+
+        {/* Current members */}
+        <div className="max-h-72 overflow-y-auto rounded-lg border border-border">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+            </div>
+          ) : members.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No students enrolled yet.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 text-left">Name</th>
+                  <th className="px-4 py-2 text-left">School</th>
+                  <th className="px-4 py-2 text-left">Grade</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((m) => (
+                  <tr key={m.student_id} className="border-t border-border/60">
+                    <td className="px-4 py-2 font-medium">{m.full_name}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{m.school ?? "—"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{m.grade ?? "—"}</td>
+                    <td className="px-4 py-2 text-right">
+                      <button
+                        disabled={removing === m.student_id}
+                        onClick={() => void removeMember(m.student_id)}
+                        className="rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1 text-xs text-destructive hover:bg-destructive/10 transition disabled:opacity-50"
+                        title="Remove from classroom"
+                      >
+                        {removing === m.student_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -641,8 +994,8 @@ function MonitorPanel() {
   const load = async () => {
     setLoading(true);
     const [m, i] = await Promise.all([
-      fetch(`${BASE_URL}/admin/monitor`).then((r) => r.json()).catch((e) => ({ error: String(e) })),
-      fetch(`${BASE_URL}/admin/insights?days=7`).then((r) => r.json()).catch(() => null),
+      adminFetch(`/admin/monitor`).then((r) => r.json()).catch((e) => ({ error: String(e) })),
+      adminFetch(`/admin/insights?days=7`).then((r) => r.json()).catch(() => null),
     ]);
     setMonitor(m as MonitorData);
     setInsights(i as InsightsData);
@@ -653,7 +1006,7 @@ function MonitorPanel() {
     setDigestSending(true);
     setDigestMsg(null);
     try {
-      const r = await fetch(`${BASE_URL}/admin/digest`, { method: "POST" });
+      const r = await adminFetch(`/admin/digest`, { method: "POST" });
       const d = await r.json() as { sent: boolean; preview?: string; error?: string };
       setDigestMsg(d.sent ? "Digest sent to Telegram." : (d.error ?? "Not sent — check TELEGRAM_BOT_TOKEN in .env"));
     } catch {
@@ -821,6 +1174,177 @@ function MonitorPanel() {
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Feedback Quality — dialogic-move breakdown of the generated teacher notes
+// ---------------------------------------------------------------------------
+
+interface FQCategory {
+  code: string;
+  label: string;
+  desc: string;
+  count: number;
+  pct: number;
+}
+interface FQCoded {
+  utterance: string;
+  label: string;
+  topic: string;
+  error_category: string;
+}
+interface FQResult {
+  scripts_analyzed: number;
+  total_acts: number;
+  coverage_pct: number;
+  distribution: FQCategory[];
+  underrepresented: string[];
+  coded_sample: FQCoded[];
+}
+
+function FeedbackQualityPanel() {
+  const [result, setResult] = useState<FQResult | null>(null);
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const d = await adminFetch(`/admin/feedback_quality`)
+      .then((r) => r.json())
+      .catch(() => null);
+    setResult((d?.result as FQResult) ?? null);
+    setCreatedAt(d?.created_at ?? null);
+    setLoading(false);
+  };
+
+  const run = async () => {
+    setRunning(true);
+    try {
+      const d = await adminFetch(`/admin/feedback_quality/run`, { method: "POST" }).then((r) => r.json());
+      setResult((d?.result as FQResult) ?? null);
+      setCreatedAt(d?.created_at ?? null);
+    } catch {
+      /* surfaced by empty state */
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const maxPct = useMemo(
+    () => Math.max(1, ...(result?.distribution ?? []).map((d) => d.pct)),
+    [result],
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-display text-lg font-semibold">Feedback Quality</h2>
+          <p className="text-xs text-muted-foreground">
+            Teaching-move breakdown of the AI-generated teacher intervention notes. High-value
+            moves like <em>Invites Reasoning</em> indicate dialogically rich scaffolds; a large
+            <em> Unclassified</em> share means the coding run under-covered.
+          </p>
+        </div>
+        <button
+          onClick={() => void run()}
+          disabled={running}
+          className="flex items-center gap-1.5 rounded-full bg-gradient-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-glow transition disabled:opacity-50"
+        >
+          {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {running ? "Auditing…" : "Run audit"}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading last audit…
+        </div>
+      ) : !result ? (
+        <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+          No audit yet. Click <span className="font-semibold text-foreground">Run audit</span> to
+          analyze the current teacher intervention notes.
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <FQStat label="Notes analyzed" value={String(result.scripts_analyzed)} />
+            <FQStat label="Utterances coded" value={String(result.total_acts)} />
+            <FQStat label="Coverage" value={`${result.coverage_pct}%`} />
+            <FQStat
+              label="Last run"
+              value={createdAt ? new Date(createdAt).toLocaleString() : "—"}
+            />
+          </div>
+
+          <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
+            <h3 className="mb-4 font-display text-sm font-semibold">Teaching-move distribution</h3>
+            <div className="space-y-2.5">
+              {result.distribution.map((d) => (
+                <div key={d.code} className="flex items-center gap-3">
+                  <div className="w-44 shrink-0 text-xs" title={d.desc}>
+                    <span className={d.code === "unclassified" ? "text-muted-foreground italic" : "font-medium"}>
+                      {d.label}
+                    </span>
+                  </div>
+                  <div className="h-4 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={cn(
+                        "h-full rounded-full",
+                        d.code === "unclassified" ? "bg-muted-foreground/40" : "bg-gradient-primary",
+                      )}
+                      style={{ width: `${(d.pct / maxPct) * 100}%` }}
+                    />
+                  </div>
+                  <div className="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                    {d.count} · {d.pct}%
+                  </div>
+                </div>
+              ))}
+            </div>
+            {result.underrepresented.length > 0 && (
+              <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-300">
+                <span className="font-semibold">Under-represented moves:</span>{" "}
+                {result.underrepresented.join(", ")}. Consider revising the intervention-script
+                prompt to include these.
+              </p>
+            )}
+          </section>
+
+          {result.coded_sample.length > 0 && (
+            <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
+              <h3 className="mb-4 font-display text-sm font-semibold">Coded sample</h3>
+              <ul className="space-y-2">
+                {result.coded_sample.slice(0, 15).map((c, i) => (
+                  <li key={i} className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                        {c.label}
+                      </span>
+                      {c.topic && <span className="text-[11px] text-muted-foreground">{c.topic}</span>}
+                    </div>
+                    <p className="text-xs text-foreground/80">{c.utterance}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function FQStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 text-lg font-bold">{value}</div>
     </div>
   );
 }

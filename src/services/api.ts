@@ -175,6 +175,8 @@ export interface SubjectWithTopics {
   curriculum: string;
   form: number | null;
   topics: string[];
+  /** Curated writing themes shown only in essay mode (language subjects only). */
+  essay_topics: string[];
 }
 
 /**
@@ -200,6 +202,7 @@ export async function fetchSubjects(formLevel?: number): Promise<SubjectWithTopi
       curriculum?: string;
       form?: number | null;
       topics?: string[];
+      essay_topics?: string[];
     }>;
   };
   console.log("[Skor API] /subjects raw response:", data);
@@ -212,6 +215,9 @@ export async function fetchSubjects(formLevel?: number): Promise<SubjectWithTopi
     const topics = Array.isArray(item?.topics)
       ? item!.topics!.map((t) => (typeof t === "string" ? t.trim() : "")).filter((t) => t.length > 0)
       : [];
+    const essayTopics = Array.isArray(item?.essay_topics)
+      ? item!.essay_topics!.map((t) => (typeof t === "string" ? t.trim() : "")).filter((t) => t.length > 0)
+      : [];
     out.push({
       display_label: (item?.display_label ?? item?.name ?? name).trim(),
       name: (item?.name ?? name).trim(),
@@ -219,6 +225,7 @@ export async function fetchSubjects(formLevel?: number): Promise<SubjectWithTopi
       curriculum: (item?.curriculum ?? "").trim(),
       form: item?.form ?? null,
       topics,
+      essay_topics: essayTopics,
     });
   }
   return out.filter((s) => s.subject.length > 0);
@@ -237,13 +244,41 @@ export interface LessonMindmapBranch {
   children?: string[];
 }
 
+export type LessonSlideLayout =
+  | "title"
+  | "objectives"
+  | "concept"
+  | "formula"
+  | "example"
+  | "mistakes"
+  | "recap";
+
+export interface LessonSlide {
+  layout?: LessonSlideLayout;
+  title?: string;
+  subtitle?: string;
+  bullets?: string[];
+  /** Short description of an ideal image/diagram for this slide. */
+  visual?: string;
+  /** Mermaid definition for a structured diagram (process/hierarchy/comparison). */
+  diagram?: string;
+  /** Real stock image (Pexels) chosen for this slide, when available. */
+  image_url?: string;
+  /** Teacher script — what to say aloud on this slide. */
+  notes?: string;
+}
+
 export interface Lesson {
   id?: string;
   title?: string;
+  subject?: string;
+  topic?: string;
   summary?: string;
   notes_markdown?: string;
   key_terms?: LessonKeyTerm[];
   worked_example?: string;
+  /** Presentation-ready deck authored by the lesson agent (8-12 slides). */
+  slides?: LessonSlide[];
   mindmap?: {
     root?: string;
     branches?: LessonMindmapBranch[];
@@ -288,12 +323,23 @@ export interface SessionResponse {
 
 
 
+export interface EssayDetail {
+  band?: string;
+  strengths?: string[];
+  improvements?: string[];
+  model_answer?: string;
+  model_structure?: string;
+}
+
 export interface AnswerResponse {
   correct: boolean;
   is_correct?: boolean;
   correct_answer: string;
   feedback: string;
   misconception?: string;
+  // Essay-only: the fuller marked report — strengths, improvements, band, the full
+  // model answer and a "how it should look" outline. Absent for MCQ/short-answer.
+  essay_detail?: EssayDetail | null;
   next_question?: SessionResponse;
   topic_complete?: boolean;
   next_topic?: string;
@@ -374,6 +420,112 @@ interface StartSessionApiResponse {
 }
 
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Google Classroom API helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function authHeader(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export interface GoogleCourse {
+  id: string;
+  name: string;
+  section: string;
+  enrollment_code: string;
+}
+
+export interface ImportRosterResult {
+  enrolled: { email: string; full_name: string; user_id: string }[];
+  unmatched: { email: string; full_name: string; reason: string }[];
+}
+
+export interface PushGradesResult {
+  succeeded: number;
+  failed: number;
+  coursework_id?: string;
+  reason?: string;
+}
+
+export async function getGoogleAuthUrl(): Promise<string> {
+  const headers = await authHeader();
+  const res = await fetch(`${BASE_URL}/google/auth_url`, {
+    method: "POST",
+    headers,
+    cache: "no-store",
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  const d = (await res.json()) as { url: string };
+  return d.url;
+}
+
+export async function getGoogleStatus(): Promise<{ connected: boolean; updated_at: string | null }> {
+  const headers = await authHeader();
+  const res = await fetch(`${BASE_URL}/google/status`, { headers, cache: "no-store" });
+  if (!res.ok) return { connected: false, updated_at: null };
+  return res.json() as Promise<{ connected: boolean; updated_at: string | null }>;
+}
+
+export async function listGoogleCourses(): Promise<GoogleCourse[]> {
+  const headers = await authHeader();
+  const res = await fetch(`${BASE_URL}/google/courses`, { headers, cache: "no-store" });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  const d = (await res.json()) as { courses: GoogleCourse[] };
+  return d.courses;
+}
+
+export async function importGoogleRoster(
+  googleCourseId: string,
+  classroomId: string,
+): Promise<ImportRosterResult> {
+  const headers = await authHeader();
+  const res = await fetch(`${BASE_URL}/google/import_roster`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ google_course_id: googleCourseId, classroom_id: classroomId }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<ImportRosterResult>;
+}
+
+export async function linkGoogleCourse(
+  classroomId: string,
+  googleCourseId: string,
+  googleCourseName: string,
+): Promise<void> {
+  const headers = await authHeader();
+  await fetch(`${BASE_URL}/google/link_course`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      classroom_id: classroomId,
+      google_course_id: googleCourseId,
+      google_course_name: googleCourseName,
+    }),
+    cache: "no-store",
+  });
+}
+
+export async function pushGradesToGoogle(classroomId: string): Promise<PushGradesResult> {
+  const headers = await authHeader();
+  const res = await fetch(`${BASE_URL}/google/push_grades`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ classroom_id: classroomId }),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<PushGradesResult>;
+}
+
+export async function disconnectGoogle(): Promise<void> {
+  const headers = await authHeader();
+  await fetch(`${BASE_URL}/google/disconnect`, { method: "DELETE", headers, cache: "no-store" });
+}
 
 async function postJSON<T>(path: string, body: unknown, bustCache: boolean = false, timeoutMs?: number): Promise<T> {
   const url = bustCache ? `${BASE_URL}${path}?t=${Date.now()}` : `${BASE_URL}${path}`;
@@ -532,6 +684,7 @@ export async function submitAnswer(
   language: string = "English",
   subject: string = "",
   sessionId?: string,
+  questionType: string = "mcq",
 ): Promise<AnswerResponse> {
   const safeStudentId =
     studentId && studentId !== "undefined"
@@ -547,11 +700,20 @@ export async function submitAnswer(
     language: language || "English",
   };
   if (sessionId) payload.session_id = sessionId;
+  // Essays are marked by a live LLM generation (band rubric, written feedback AND a
+  // worked "how it should look" model) which can legitimately take minutes — allow
+  // 9 min before aborting so a slow provider chain never truncates the report. MCQ/
+  // short answers stay at 60s. nginx proxy_read_timeout is 600s, so 9 min is safe.
+  const isEssay = questionType === "essay";
+  const timeoutMs = isEssay ? 540_000 : 60_000;
   try {
-    return await postJSON<AnswerResponse>("/submit_answer", payload, false, 60_000);
+    return await postJSON<AnswerResponse>("/submit_answer", payload, false, timeoutMs);
   } catch (err) {
-    console.warn("[Skor API] submitAnswer failed, using mock:", err);
-    if (!mock || err instanceof ApiResponseError) throw err;
+    console.warn("[Skor API] submitAnswer failed:", err);
+    // NEVER fabricate a grade for an essay — a mock "answer is C" verdict would
+    // silently mark a real composition wrong. Surface the failure so the student
+    // can retry and the real marking + feedback is preserved.
+    if (!mock || err instanceof ApiResponseError || isEssay) throw err;
     const correct = studentAnswer === "C";
     return {
       correct,
@@ -734,10 +896,13 @@ export interface ChatMessage {
   role: "student" | "tutor";
   content: string;
   created_at?: string;
+  audio_url?: string;
 }
 
 export interface ChatReply {
   reply: string;
+  audio_url?: string;
+  tts_lang?: string;
   message?: ChatMessage;
 }
 
@@ -749,6 +914,10 @@ export interface TutorQuestionContext {
   topic?: string;
   subject?: string;
   passage?: string;
+  // Set after the student has submitted — lets the tutor reference their answer + feedback
+  student_answer?: string;
+  is_correct?: boolean;
+  feedback?: string;
 }
 
 export async function sendChatMessage(
@@ -757,6 +926,7 @@ export async function sendChatMessage(
   message: string,
   context?: TutorQuestionContext,
   history?: ChatMessage[],
+  uiLanguage?: string,
 ): Promise<ChatReply> {
   const safeStudentId =
     studentId && studentId !== "undefined"
@@ -770,13 +940,14 @@ export async function sendChatMessage(
       lesson_id: lessonId || null,
       message,
       ...(context ?? {}),
+      language: uiLanguage || "English",
       history: (history ?? []).map((m) => ({ role: m.role, content: m.content })),
     }),
     cache: "no-store",
   });
   if (!res.ok) throw new ApiResponseError(res.status);
-  const data = (await res.json()) as { reply?: string; message?: ChatMessage; content?: string };
-  return { reply: data.reply ?? data.content ?? data.message?.content ?? "", message: data.message };
+  const data = (await res.json()) as { reply?: string; audio_url?: string; tts_lang?: string; message?: ChatMessage; content?: string };
+  return { reply: data.reply ?? data.content ?? data.message?.content ?? "", audio_url: data.audio_url, tts_lang: data.tts_lang, message: data.message };
 }
 
 export async function fetchChatHistory(
@@ -830,6 +1001,22 @@ export async function generateLesson(
   return postJSON<Lesson>("/generate_lesson", payload, true);
 }
 
+/**
+ * Fetch an already-generated lesson by id — no regeneration.
+ * GET /lesson/{id} spreads notes_json at the top level, so the response
+ * already carries notes_markdown / key_terms / worked_example / mindmap,
+ * exactly what LessonNotesModal reads. Used by the teacher AI Controller to
+ * preview a "Slides ready" artifact card without hitting /generate_lesson.
+ */
+export async function fetchLessonById(lessonId: string): Promise<Lesson> {
+  const res = await fetch(`${BASE_URL}/lesson/${encodeURIComponent(lessonId)}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return (await res.json()) as Lesson;
+}
+
 // ===== Penalty Game =====
 
 export interface PenaltyGameResultResponse {
@@ -845,7 +1032,7 @@ export interface PenaltyGameResultResponse {
 export async function recordPenaltyGameResult(params: {
   studentId: string;
   sessionId?: string;
-  gameType: "catch_stars" | "dino_runner" | "flappy_bird";
+  gameType: "catch_stars" | "dino_runner" | "flappy_bird" | "sentence_builder" | "connector_catch";
   result: "win" | "loss";
   durationMs?: number;
   /** Set for assessment-integrated games so a win credits partial mastery recovery. */
@@ -874,11 +1061,40 @@ export async function recordPenaltyGameResult(params: {
   }
 }
 
+// ===== Writing mini-game =====
+
+import type { WritingChallenge } from "@/components/games/writing";
+
+/** Fetch a writing-native mini-game payload for a composition penalty game. */
+export async function fetchWritingChallenge(params: {
+  subject: string;
+  topic: string;
+  language?: string;
+}): Promise<WritingChallenge | null> {
+  try {
+    const res = await fetch(`${BASE_URL}/writing_game_challenge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subject: params.subject,
+        topic: params.topic,
+        language: params.language ?? "English",
+      }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as WritingChallenge;
+  } catch (err) {
+    console.warn("[Skor API] fetchWritingChallenge failed:", err);
+    return null;
+  }
+}
+
 // ===== Leaderboard =====
 
 export interface LeaderboardEntry {
   rank: number;
   student_id: string;
+  student_name?: string | null;
   total_score: number;
   quiz_sessions: number;
   game_wins: number;
@@ -1020,6 +1236,7 @@ export async function deleteAssignment(id: string): Promise<{ success: boolean; 
 export interface AiTask {
   id: string;
   student_id: string;
+  student_name?: string;
   subject: string;
   topic: string;
   task_type: "quiz" | "lesson" | "practice";
@@ -1030,6 +1247,8 @@ export interface AiTask {
   status: "pending" | "in_progress" | "completed";
   assigned_at: string;
   due_at?: string | null;
+  lesson_id?: string | null;
+  quiz_id?: string | null;
 }
 
 export interface GenerateTaskResult {
@@ -1042,6 +1261,19 @@ export interface GenerateTaskResult {
   error_context: string[];
   priority_score: number;
   current_mastery: number;
+}
+
+/**
+ * Teacher view of the AI-personalised tasks (assigned_tasks table, enriched with student name).
+ * Throws on network/HTTP failure so callers can distinguish "backend down" from "no tasks yet"
+ * — do not swallow to `[]`, or an outage looks identical to an empty list.
+ */
+export async function fetchTeacherAiTasks(status?: string): Promise<AiTask[]> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await fetch(`${BASE_URL}/teacher/tasks${qs}`, { cache: "no-store" });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  const data = (await res.json()) as { tasks?: AiTask[] };
+  return data.tasks ?? [];
 }
 
 export async function fetchStudentAiTasks(studentId: string): Promise<AiTask[]> {
@@ -1060,6 +1292,14 @@ export async function fetchStudentAiTasks(studentId: string): Promise<AiTask[]> 
 
 export async function startAiTask(taskId: string): Promise<void> {
   await fetch(`${BASE_URL}/student/tasks/${encodeURIComponent(taskId)}/start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function completeAiTask(taskId: string, sessionId?: string): Promise<void> {
+  const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : "";
+  await fetch(`${BASE_URL}/student/tasks/${encodeURIComponent(taskId)}/complete${qs}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
   });
@@ -1096,6 +1336,48 @@ export async function assignAiTask(req: {
   });
   if (!res.ok) throw new ApiResponseError(res.status);
   return res.json() as Promise<{ task_id: string | null }>;
+}
+
+// ── Accommodations: teacher supplies condition → AI derives support + pace profile ──
+export type ConditionKey =
+  | "adhd" | "dyslexia" | "autism" | "dyscalculia" | "anxiety" | "low_working_memory" | "other";
+
+export interface PaceProfileResult {
+  session_length: number;
+  break_cadence: number;
+  difficulty_ramp: "gentle" | "normal" | "fast";
+  time_limits: "off" | "extended" | "normal";
+  feedback_style: "instant" | "paused_explanation";
+}
+
+export interface DeriveAccommodationsResult {
+  student_id: string;
+  accommodations: Record<string, boolean>;
+  pace_profile: PaceProfileResult;
+  rationale: string;
+  derived_by: "rules" | "ai";
+}
+
+/** Teacher-only: derive & save a student's accommodation + pace profile from their condition(s). */
+export async function deriveAccommodations(req: {
+  student_id: string;
+  conditions: ConditionKey[];
+  severity: "mild" | "moderate" | "significant";
+  notes?: string;
+}): Promise<DeriveAccommodationsResult> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Not signed in");
+  const res = await fetch(`${BASE_URL}/derive_accommodations`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<DeriveAccommodationsResult>;
 }
 
 export interface MasteryEntry {
@@ -1138,6 +1420,73 @@ export async function fetchStudentDashboard(studentId: string): Promise<StudentD
   const res = await fetch(`${BASE_URL}/student_dashboard/${studentId}`);
   if (!res.ok) throw new ApiResponseError(res.status);
   return res.json() as Promise<StudentDashboard>;
+}
+
+// --- Teacher AI Controller (chat-driven dashboard) ---
+
+export interface TeacherChatArtifact {
+  type: "lesson" | "quiz" | "assignment";
+  lesson_id?: string;
+  quiz_id?: string;
+  topic?: string;
+  subject?: string;
+  title?: string;
+  num_questions?: number;
+  question_type?: string;
+  task_type?: string;
+  student_count?: number;
+  students?: string[];
+}
+
+export interface TeacherChatReply {
+  reply: string;
+  artifacts: TeacherChatArtifact[];
+  steps?: number;
+}
+
+export interface TeacherChatMessage {
+  id?: string;
+  role: "teacher" | "assistant";
+  content: string;
+  artifacts?: TeacherChatArtifact[];
+  created_at?: string;
+}
+
+const TEACHER_THREAD_DEFAULT = "00000000-0000-0000-0000-000000000001";
+
+export async function sendTeacherChat(
+  message: string,
+  threadId: string = TEACHER_THREAD_DEFAULT,
+): Promise<TeacherChatReply> {
+  // The planner loop may generate lessons/quizzes — allow a generous timeout.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 180_000);
+  try {
+    const res = await fetch(`${BASE_URL}/teacher/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, thread_id: threadId }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new ApiResponseError(res.status);
+    const data = (await res.json()) as Partial<TeacherChatReply>;
+    return { reply: data.reply ?? "", artifacts: data.artifacts ?? [], steps: data.steps };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function fetchTeacherChatHistory(
+  threadId: string = TEACHER_THREAD_DEFAULT,
+): Promise<TeacherChatMessage[]> {
+  const res = await fetch(
+    `${BASE_URL}/teacher/chat/history?thread_id=${encodeURIComponent(threadId)}`,
+    { method: "GET", cache: "no-store" },
+  );
+  if (!res.ok) throw new ApiResponseError(res.status);
+  const data = (await res.json()) as { messages?: TeacherChatMessage[] };
+  return data.messages ?? [];
 }
 
 
