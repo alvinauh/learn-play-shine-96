@@ -108,9 +108,9 @@ function LoginPage() {
     <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[oklch(0.11_0.025_280)] px-4 py-10">
       {/* Animated aurora background */}
       <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
-        <div className="animate-aurora-drift absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-indigo-600/30 blur-[110px]" />
-        <div className="animate-aurora-drift-2 absolute -right-20 bottom-0 h-[420px] w-[420px] rounded-full bg-fuchsia-600/25 blur-[100px]" />
-        <div className="animate-aurora-drift-3 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[300px] rounded-full bg-violet-700/20 blur-[80px]" />
+        <div className="animate-aurora-drift absolute -left-32 -top-32 h-[550px] w-[550px] rounded-full bg-indigo-600/45 blur-[110px]" />
+        <div className="animate-aurora-drift-2 absolute -right-20 bottom-0 h-[480px] w-[480px] rounded-full bg-fuchsia-600/40 blur-[100px]" />
+        <div className="animate-aurora-drift-3 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[350px] w-[350px] rounded-full bg-violet-700/30 blur-[80px]" />
         {/* subtle top center glow */}
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400/40 to-transparent" />
       </div>

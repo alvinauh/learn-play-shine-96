@@ -122,9 +122,9 @@ function StudentDashboard() {
     <div className="relative min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#0a0118_0%,#130328_60%,#0a0118_100%)] text-white">
       {/* Aurora background orbs */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true" data-nonessential>
-        <div className="animate-aurora-drift absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-indigo-600/25 blur-[100px]" />
-        <div className="animate-aurora-drift-2 absolute -right-20 top-1/4 h-[400px] w-[400px] rounded-full bg-fuchsia-600/20 blur-[90px]" />
-        <div className="animate-aurora-drift-3 absolute bottom-0 left-1/3 h-[350px] w-[350px] rounded-full bg-violet-700/20 blur-[80px]" />
+        <div className="animate-aurora-drift absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-indigo-600/40 blur-[120px]" />
+        <div className="animate-aurora-drift-2 absolute -right-20 top-1/4 h-[500px] w-[500px] rounded-full bg-fuchsia-600/35 blur-[100px]" />
+        <div className="animate-aurora-drift-3 absolute bottom-0 left-1/3 h-[450px] w-[450px] rounded-full bg-violet-700/30 blur-[90px]" />
       </div>
 
       {/* Header */}
@@ -191,46 +191,52 @@ function StudentDashboard() {
       </div>
 
       <main className="relative z-10 mx-auto max-w-6xl space-y-6 px-4 py-8">
-        {/* Stats hero */}
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div style={{ animationDelay: "0ms" }}>
+        {/* Welcome hero */}
+        <section className="animate-fade-slide-up">
+          <h1 className="font-display text-3xl font-extrabold tracking-tight md:text-4xl">
+            <span className="text-white/40">{isBM ? "Selamat datang, " : "Hey, "}</span>
+            <span className="text-gradient-primary">{profile?.full_name?.split(" ")[0] ?? (isBM ? "Pelajar" : "Student")} 👋</span>
+          </h1>
+          <p className="mt-1 text-sm text-white/40">
+            {isBM ? "Semak kemajuan dan terus belajar hari ini." : "Here's your progress at a glance. Keep it up."}
+          </p>
+        </section>
+
+        {/* Bento stats grid */}
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {/* Hero card — Total Score spans 2 cols on desktop */}
+          <div className="col-span-2 md:col-span-1 animate-fade-slide-up" style={{ animationDelay: "60ms" }}>
             <StatCard
               icon={<Trophy className="h-5 w-5 text-amber-300" />}
               label={isBM ? "Jumlah Skor" : "Total Score"}
               value={loading ? null : totalScore.toLocaleString()}
-              glowColor="bg-amber-500/20"
-              textGradient="text-gradient-gold"
-              borderColor="bg-amber-500/15 ring-1 ring-amber-400/30 text-amber-300"
+              accent="amber"
+              hero
             />
           </div>
-          <div style={{ animationDelay: "80ms" }}>
+          <div className="animate-fade-slide-up" style={{ animationDelay: "120ms" }}>
             <StatCard
               icon={<Flame className="h-5 w-5 text-rose-300" />}
-              label={isBM ? "Streak Kemenangan" : "Win Streak"}
+              label={isBM ? "Streak" : "Win Streak"}
               value={loading ? null : String(streak)}
-              glowColor="bg-rose-500/20"
-              textGradient="text-gradient-rose"
-              borderColor="bg-rose-500/15 ring-1 ring-rose-400/30 text-rose-300"
+              accent="rose"
             />
           </div>
-          <div style={{ animationDelay: "160ms" }}>
+          <div className="animate-fade-slide-up" style={{ animationDelay: "180ms" }}>
             <StatCard
               icon={<TrendingUp className="h-5 w-5 text-indigo-300" />}
-              label={isBM ? "Kedudukan" : "Leaderboard Rank"}
+              label={isBM ? "Kedudukan" : "Rank"}
               value={loading ? null : rank ? `#${rank}` : "—"}
-              glowColor="bg-indigo-500/20"
-              textGradient="text-gradient-primary"
-              borderColor="bg-indigo-500/15 ring-1 ring-indigo-400/30 text-indigo-300"
+              accent="indigo"
             />
           </div>
-          <div style={{ animationDelay: "240ms" }}>
+          <div className="col-span-2 md:col-span-3 animate-fade-slide-up" style={{ animationDelay: "240ms" }}>
             <StatCard
               icon={<Target className="h-5 w-5 text-emerald-300" />}
-              label={isBM ? "Soalan Dijawab" : "Questions Answered"}
+              label={isBM ? "Soalan Dijawab Hari Ini" : "Questions Answered Today"}
               value={loading ? null : String(diagnostic?.questions_answered ?? 0)}
-              glowColor="bg-emerald-500/20"
-              textGradient="text-gradient-emerald"
-              borderColor="bg-emerald-500/15 ring-1 ring-emerald-400/30 text-emerald-300"
+              accent="emerald"
+              wide
             />
           </div>
         </section>
@@ -393,44 +399,59 @@ function StudentDashboard() {
   );
 }
 
+const ACCENT_STYLES = {
+  amber:  { bg: "from-amber-500/25 to-orange-600/10",  border: "border-amber-400/30",  glow: "bg-amber-400",   icon: "bg-amber-500/20 ring-amber-400/40",  text: "text-gradient-gold"    },
+  rose:   { bg: "from-rose-500/25 to-pink-600/10",     border: "border-rose-400/30",   glow: "bg-rose-400",    icon: "bg-rose-500/20 ring-rose-400/40",    text: "text-gradient-rose"    },
+  indigo: { bg: "from-indigo-500/25 to-violet-600/10", border: "border-indigo-400/30", glow: "bg-indigo-400",  icon: "bg-indigo-500/20 ring-indigo-400/40", text: "text-gradient-primary" },
+  emerald:{ bg: "from-emerald-500/20 to-teal-600/10",  border: "border-emerald-400/30",glow: "bg-emerald-400", icon: "bg-emerald-500/20 ring-emerald-400/40",text: "text-gradient-emerald" },
+} as const;
+
 function StatCard({
   icon,
   label,
   value,
-  glowColor,
-  textGradient,
-  borderColor,
+  accent,
+  hero = false,
+  wide = false,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string | null;
-  glowColor: string;
-  textGradient: string;
-  borderColor: string;
+  accent: keyof typeof ACCENT_STYLES;
+  hero?: boolean;
+  wide?: boolean;
 }) {
+  const s = ACCENT_STYLES[accent];
   return (
-    <div className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07] animate-fade-slide-up">
-      {/* Ambient glow behind card */}
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-0 -z-10 rounded-2xl blur-2xl animate-glow-breathe transition-opacity duration-300 group-hover:opacity-70",
-          glowColor,
-        )}
-      />
+    <div
+      className={cn(
+        "group relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 backdrop-blur-xl",
+        "transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_40px_-8px_rgba(0,0,0,0.5)]",
+        s.bg, s.border,
+        hero && "md:p-7",
+        wide && "flex items-center gap-6",
+      )}
+    >
+      {/* Decorative glow blob top-right */}
+      <div className={cn("pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full opacity-30 blur-2xl transition-opacity duration-300 group-hover:opacity-60 animate-glow-breathe", s.glow)} />
+
       {/* Icon */}
-      <div className={cn("mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl", borderColor)}>
+      <div className={cn("inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1", s.icon, wide ? "mb-0" : "mb-3")}>
         {icon}
       </div>
-      {/* Value */}
-      {value === null ? (
-        <Skeleton className="mb-1 h-8 w-20 bg-white/15" />
-      ) : (
-        <div className={cn("text-3xl font-extrabold leading-none tracking-tight animate-number-pop", textGradient)}>
-          {value}
-        </div>
-      )}
-      {/* Label */}
-      <div className="mt-2 text-[11px] font-semibold uppercase tracking-widest text-white/45">{label}</div>
+
+      <div className={wide ? "flex-1" : undefined}>
+        {/* Value */}
+        {value === null ? (
+          <Skeleton className={cn("bg-white/15", hero ? "h-12 w-28" : "h-9 w-16")} />
+        ) : (
+          <div className={cn("font-extrabold leading-none tracking-tight", s.text, hero ? "text-5xl md:text-6xl" : wide ? "text-3xl" : "text-4xl")}>
+            {value}
+          </div>
+        )}
+        {/* Label */}
+        <div className={cn("font-semibold uppercase tracking-widest text-white/50", hero ? "mt-3 text-xs" : "mt-2 text-[11px]")}>{label}</div>
+      </div>
     </div>
   );
 }
