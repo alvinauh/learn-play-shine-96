@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { setViewAsStudent } from "@/lib/viewAs";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   fetchLeaderboard,
@@ -118,9 +119,16 @@ function StudentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#0a0118_0%,#1a0533_60%,#0a0118_100%)] text-white">
+    <div className="relative min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#0a0118_0%,#130328_60%,#0a0118_100%)] text-white">
+      {/* Aurora background orbs */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true" data-nonessential>
+        <div className="animate-aurora-drift absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-indigo-600/25 blur-[100px]" />
+        <div className="animate-aurora-drift-2 absolute -right-20 top-1/4 h-[400px] w-[400px] rounded-full bg-fuchsia-600/20 blur-[90px]" />
+        <div className="animate-aurora-drift-3 absolute bottom-0 left-1/3 h-[350px] w-[350px] rounded-full bg-violet-700/20 blur-[80px]" />
+      </div>
+
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-black/40 backdrop-blur-xl">
+      <header className="sticky top-0 z-20 border-b border-white/[0.07] bg-black/30 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500">
@@ -137,6 +145,18 @@ function StudentDashboard() {
           </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
+            {(profile?.role === "teacher" || profile?.role === "admin") && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setViewAsStudent(false);
+                  void navigate({ to: "/teacher" });
+                }}
+                className="bg-primary/15 text-primary-glow hover:bg-primary/25"
+              >
+                {isBM ? "Papan Guru" : "Teacher view"}
+              </Button>
+            )}
             <Button
               size="sm"
               variant="ghost"
@@ -160,7 +180,7 @@ function StudentDashboard() {
       </header>
 
       {/* Profile Banner */}
-      <div className="mx-auto max-w-6xl px-4 pt-4">
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pt-4">
         <div className="overflow-hidden rounded-2xl">
           <ProfileBanner
             banner={prefs.banner}
@@ -170,37 +190,53 @@ function StudentDashboard() {
         </div>
       </div>
 
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <main className="relative z-10 mx-auto max-w-6xl space-y-6 px-4 py-8">
         {/* Stats hero */}
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatCard
-            icon={<Trophy className="h-5 w-5" />}
-            label={isBM ? "Jumlah Skor" : "Total Score"}
-            value={loading ? null : totalScore.toLocaleString()}
-            tint="from-amber-500/30 to-orange-500/10 border-amber-400/40"
-          />
-          <StatCard
-            icon={<Flame className="h-5 w-5" />}
-            label={isBM ? "Streak Kemenangan" : "Win Streak"}
-            value={loading ? null : String(streak)}
-            tint="from-rose-500/30 to-red-500/10 border-rose-400/40"
-          />
-          <StatCard
-            icon={<TrendingUp className="h-5 w-5" />}
-            label={isBM ? "Kedudukan" : "Leaderboard Rank"}
-            value={loading ? null : rank ? `#${rank}` : "—"}
-            tint="from-indigo-500/30 to-blue-500/10 border-indigo-400/40"
-          />
-          <StatCard
-            icon={<Target className="h-5 w-5" />}
-            label={isBM ? "Soalan Dijawab" : "Questions Answered"}
-            value={loading ? null : String(diagnostic?.questions_answered ?? 0)}
-            tint="from-emerald-500/30 to-teal-500/10 border-emerald-400/40"
-          />
+          <div style={{ animationDelay: "0ms" }}>
+            <StatCard
+              icon={<Trophy className="h-5 w-5 text-amber-300" />}
+              label={isBM ? "Jumlah Skor" : "Total Score"}
+              value={loading ? null : totalScore.toLocaleString()}
+              glowColor="bg-amber-500/20"
+              textGradient="text-gradient-gold"
+              borderColor="bg-amber-500/15 ring-1 ring-amber-400/30 text-amber-300"
+            />
+          </div>
+          <div style={{ animationDelay: "80ms" }}>
+            <StatCard
+              icon={<Flame className="h-5 w-5 text-rose-300" />}
+              label={isBM ? "Streak Kemenangan" : "Win Streak"}
+              value={loading ? null : String(streak)}
+              glowColor="bg-rose-500/20"
+              textGradient="text-gradient-rose"
+              borderColor="bg-rose-500/15 ring-1 ring-rose-400/30 text-rose-300"
+            />
+          </div>
+          <div style={{ animationDelay: "160ms" }}>
+            <StatCard
+              icon={<TrendingUp className="h-5 w-5 text-indigo-300" />}
+              label={isBM ? "Kedudukan" : "Leaderboard Rank"}
+              value={loading ? null : rank ? `#${rank}` : "—"}
+              glowColor="bg-indigo-500/20"
+              textGradient="text-gradient-primary"
+              borderColor="bg-indigo-500/15 ring-1 ring-indigo-400/30 text-indigo-300"
+            />
+          </div>
+          <div style={{ animationDelay: "240ms" }}>
+            <StatCard
+              icon={<Target className="h-5 w-5 text-emerald-300" />}
+              label={isBM ? "Soalan Dijawab" : "Questions Answered"}
+              value={loading ? null : String(diagnostic?.questions_answered ?? 0)}
+              glowColor="bg-emerald-500/20"
+              textGradient="text-gradient-emerald"
+              borderColor="bg-emerald-500/15 ring-1 ring-emerald-400/30 text-emerald-300"
+            />
+          </div>
         </section>
 
         {/* Teacher Feedback */}
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+        <section className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-5 backdrop-blur-xl animate-fade-slide-up" style={{ animationDelay: "300ms" }}>
           <div className="mb-4 flex items-center gap-2">
             <MessageSquareHeart className="h-5 w-5 text-fuchsia-300" />
             <h2 className="text-lg font-bold">
@@ -281,7 +317,7 @@ function StudentDashboard() {
 
         {/* Two-column: alerts + leaderboard preview */}
         <section className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-5 backdrop-blur-xl animate-fade-slide-up" style={{ animationDelay: "380ms" }}>
             <div className="mb-3 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-300" />
               <h3 className="font-bold">{isBM ? "Topik untuk Diberi Perhatian" : "Topics to Watch"}</h3>
@@ -305,7 +341,7 @@ function StudentDashboard() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-5 backdrop-blur-xl animate-fade-slide-up" style={{ animationDelay: "460ms" }}>
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-amber-300" />
@@ -323,19 +359,26 @@ function StudentDashboard() {
               <ol className="space-y-1.5">
                 {leaderboard.slice(0, 5).map((e) => {
                   const me = e.student_id === studentId;
+                  const medal = e.rank === 1 ? "🥇" : e.rank === 2 ? "🥈" : e.rank === 3 ? "🥉" : null;
                   return (
                     <li
                       key={e.student_id}
                       className={cn(
-                        "flex items-center justify-between rounded-lg px-3 py-2 text-sm",
-                        me ? "border border-indigo-400/40 bg-indigo-500/20" : "bg-black/20",
+                        "flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors duration-150",
+                        me
+                          ? "border border-indigo-400/30 bg-indigo-500/15 ring-1 ring-inset ring-indigo-400/10"
+                          : "bg-white/[0.03] hover:bg-white/[0.06]",
                       )}
                     >
-                      <span className="flex items-center gap-2">
-                        <span className="w-6 text-center font-bold text-white/70">#{e.rank}</span>
-                        <span className="truncate">{me ? (isBM ? "Anda" : "You") : e.student_id.slice(0, 8)}</span>
+                      <span className="flex items-center gap-2.5">
+                        <span className="w-7 text-center text-base leading-none">
+                          {medal ?? <span className="text-[11px] font-bold text-white/40">#{e.rank}</span>}
+                        </span>
+                        <span className={cn("truncate", me && "font-semibold text-indigo-200")}>
+                          {me ? (isBM ? "Anda" : "You") : e.student_id.slice(0, 8)}
+                        </span>
                       </span>
-                      <span className="font-semibold text-amber-200">{e.total_score.toLocaleString()}</span>
+                      <span className="font-bold tabular-nums text-gradient-gold">{e.total_score.toLocaleString()}</span>
                     </li>
                   );
                 })}
@@ -354,24 +397,40 @@ function StatCard({
   icon,
   label,
   value,
-  tint,
+  glowColor,
+  textGradient,
+  borderColor,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string | null;
-  tint: string;
+  glowColor: string;
+  textGradient: string;
+  borderColor: string;
 }) {
   return (
-    <div className={cn("rounded-2xl border bg-gradient-to-br p-4 backdrop-blur", tint)}>
-      <div className="mb-2 flex items-center gap-2 text-white/80">
+    <div className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07] animate-fade-slide-up">
+      {/* Ambient glow behind card */}
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-0 -z-10 rounded-2xl blur-2xl animate-glow-breathe transition-opacity duration-300 group-hover:opacity-70",
+          glowColor,
+        )}
+      />
+      {/* Icon */}
+      <div className={cn("mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl", borderColor)}>
         {icon}
-        <span className="text-[11px] font-semibold uppercase tracking-wide">{label}</span>
       </div>
+      {/* Value */}
       {value === null ? (
-        <Skeleton className="h-7 w-16 bg-white/20" />
+        <Skeleton className="mb-1 h-8 w-20 bg-white/15" />
       ) : (
-        <div className="text-2xl font-extrabold">{value}</div>
+        <div className={cn("text-3xl font-extrabold leading-none tracking-tight animate-number-pop", textGradient)}>
+          {value}
+        </div>
       )}
+      {/* Label */}
+      <div className="mt-2 text-[11px] font-semibold uppercase tracking-widest text-white/45">{label}</div>
     </div>
   );
 }
