@@ -20,6 +20,17 @@ export const easeOutBack = (t: number) => {
 };
 export const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
+/**
+ * Respect the `reduce_motion` accommodation (and OS prefers-reduced-motion). When on,
+ * games skip particle bursts + screen shake. The flag is set on <html data-reduce-motion="1">
+ * by useStudentPrefs when the student's profile enables reduce_motion.
+ */
+export function motionEnabled(): boolean {
+  if (typeof document !== "undefined" && document.documentElement.dataset.reduceMotion === "1") return false;
+  if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return false;
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Particles — one pooled system per game. Emit bursts on catch / hit / win.
 // ---------------------------------------------------------------------------
@@ -48,6 +59,7 @@ export class Particles {
     colors: string[],
     opts: { speed?: number; gravity?: number; size?: number; life?: number } = {},
   ) {
+    if (!motionEnabled()) return;   // reduce_motion: no confetti bursts
     const speed = opts.speed ?? 220;
     const gravity = opts.gravity ?? 620;
     const size = opts.size ?? 6;
@@ -110,6 +122,7 @@ export class Shake {
   private trauma = 0;
   private t = 0;
   add(amount: number) {
+    if (!motionEnabled()) return;   // reduce_motion: no screen shake
     this.trauma = clamp(this.trauma + amount, 0, 1);
   }
   update(dt: number) {

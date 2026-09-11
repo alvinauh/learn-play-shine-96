@@ -4,15 +4,25 @@ import { ChevronUp, Gamepad2, Loader2, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { submitAnswer, fetchSessionChallenge, type AnswerResponse, type SessionResponse } from "@/services/api";
 import { buildChallengeFrom } from "@/lib/challenge";
-import type { GameChallenge } from "@/components/games/CatchStarsGame";
+import { CatchStarsGame, type GameChallenge } from "@/components/games/CatchStarsGame";
 import { FlappyAnswerGame } from "@/components/games/FlappyAnswerGame";
 import { QUESTION_SECONDS, speedBonus, totalPoints } from "@/lib/gameProgress";
 import { SpeedTimer } from "./SpeedTimer";
+import { EssayMarkingCountdown } from "@/components/EssayMarkingCountdown";
 
 type Letter = "A" | "B" | "C" | "D";
 const LETTERS: Letter[] = ["A", "B", "C", "D"];
+
+// Games playable with an MCQ challenge (both steer toward the correct answer
+// gate/tile, so a win proves knowledge → auto-submit as correct).
+type GameKind = "flappy" | "catch";
+const GAME_OPTIONS: { kind: GameKind; emoji: string; label: { en: string; ms: string } }[] = [
+  { kind: "flappy", emoji: "🐦", label: { en: "Answer Flappy", ms: "Flappy Jawapan" } },
+  { kind: "catch", emoji: "⭐", label: { en: "Catch the Answer", ms: "Tangkap Jawapan" } },
+];
 const LETTER_TINT: Record<Letter, string> = {
   A: "border-red-400/60 bg-red-500/10",
   B: "border-blue-400/60 bg-blue-500/10",
@@ -28,6 +38,7 @@ export interface SlideResult {
   nextTopic?: string;
   triggerPenalty?: boolean;
   sessionId?: string;
+  coinsAwarded?: number;
   /** The just-answered MCQ rebuilt with its correct answer (from feedback, which
    *  is NOT stripped) so the penalty game can replay it. Null for non-MCQ. */
   challenge?: GameChallenge | null;
@@ -42,17 +53,25 @@ interface QuestionSlideProps {
   streak: number;
   lang: string;
   timerEnabled: boolean;
+  /** A penalty game is queued for this slide, awaiting the student's tap. The
+   *  game is NOT auto-opened so the graded feedback stays readable first. */
+  penaltyPending?: boolean;
+  /** How many skip tokens the student currently holds. */
+  skipTokens?: number;
   onResult: (r: SlideResult) => void;
-  onOpenTutor: (sessionId?: string) => void;
+  onOpenTutor: (session: SessionResponse) => void;
   onRequestNext: () => void;
+  onLaunchPenalty?: () => void;
+  onSkip?: (sessionId?: string, topic?: string, subject?: string) => void;
 }
 
 export function QuestionSlide({
   session, isActive, studentId, subject, apiLang, streak, lang, timerEnabled,
-  onResult, onOpenTutor, onRequestNext,
+  penaltyPending, skipTokens = 0, onResult, onOpenTutor, onRequestNext, onLaunchPenalty, onSkip,
 }: QuestionSlideProps) {
   const qType = session.question_type ?? "mcq";
   const isMcq = qType === "mcq" || qType === "listening";
+  const isEssay = qType === "essay";
   const interactive = session.interactive as { video_url?: string } | null | undefined;
   const videoUrl = typeof interactive?.video_url === "string" ? interactive.video_url : "";
 
@@ -66,6 +85,8 @@ export function QuestionSlide({
   const [pointsBurst, setPointsBurst] = useState<number | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
   const [gameChallenge, setGameChallenge] = useState<GameChallenge | null>(null);
+  // Which game the student picked. null while the picker is showing.
+  const [gameKind, setGameKind] = useState<GameKind | null>(null);
   const [readyChallenge, setReadyChallenge] = useState<GameChallenge | null>(null);
   const [gamifyLoading, setGamifyLoading] = useState(false);
   const answeredRef = useRef(false);
@@ -87,9 +108,10 @@ export function QuestionSlide({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, isMcq, session.session_id, feedback]);
 
-  // "I'm bored, gamify this!" — play the current MCQ as Answer Flappy. Winning
-  // requires flying through the correct (unmarked) answer gate, so a win proves
-  // knowledge → auto-submit as correct. A loss just closes; answer normally.
+  // "I'm bored, gamify this!" — resolve the MCQ challenge, then show a picker so
+  // the student chooses which game to play it as. Winning any of them requires
+  // steering into the correct answer, so a win proves knowledge → auto-submit as
+  // correct. A loss just closes; answer normally.
   const startGamify = () => {
     if (!session.session_id || gamifyLoading || feedback || instant) return;
     // Instant open when prefetched (the common path).
@@ -121,6 +143,7 @@ export function QuestionSlide({
   const handleGamifyEnd = (won: boolean) => {
     const ch = gameChallenge;
     setGameChallenge(null);
+    setGameKind(null);
     if (won && ch) void submit(ch.options[ch.correctLetter] ?? "", ch.correctLetter);
   };
 
@@ -162,7 +185,7 @@ export function QuestionSlide({
       const res = await submitAnswer(
         studentId, session.topic ?? "", "", answerText,
         (session.question_data ?? {}) as Record<string, unknown>,
-        undefined, apiLang, session.subject ?? subject, session.session_id,
+        undefined, apiLang, session.subject ?? subject, session.session_id, qType,
       );
       const correct = res.is_correct ?? res.correct ?? false;
       const pts = correct ? totalPoints(res.points_awarded, streak, timerEnabled ? secondsLeft : QUESTION_SECONDS) : 0;
@@ -177,8 +200,7 @@ export function QuestionSlide({
         topicComplete: res.topic_complete, nextTopic: res.next_topic,
         triggerPenalty: res.trigger_penalty_game === true,
         sessionId: session.session_id,
-        // Feedback carries the correct answer (session payload strips it), so the
-        // penalty game can replay this exact question.
+        coinsAwarded: (res as unknown as Record<string, unknown>).coins_awarded as number | undefined,
         challenge: buildChallengeFrom(
           session.question,
           session.options,
@@ -190,6 +212,13 @@ export function QuestionSlide({
       answeredRef.current = false; // allow retry on network error
       setInstant(null);            // clear the optimistic verdict so retry is clean
       setSelected(null);
+      if (!isMcq) {
+        toast.error(
+          lang === "ms"
+            ? "Penandaan mengambil masa terlalu lama. Jawapan anda selamat — tekan Hantar untuk cuba lagi."
+            : "Marking took too long. Your answer is safe — tap Submit to try again.",
+        );
+      }
     } finally {
       setChecking(false);
     }
@@ -201,7 +230,18 @@ export function QuestionSlide({
   const answered = feedback != null || instant != null;
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/70 bg-gradient-feed">
+    <div
+      className={cn(
+        // The active card comes into focus while off-center cards recede — a
+        // Shorts-style depth cue that doubles as the slide enter/exit motion
+        // (symmetric: fades + scales in when it becomes active, out when it
+        // leaves). Transform/opacity only, so it's GPU-cheap and inherits the
+        // reduce-motion accommodation for free.
+        "relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/70 bg-gradient-feed",
+        "transition-[transform,opacity,filter] duration-300 ease-out will-change-transform",
+        isActive ? "scale-100 opacity-100 blur-0" : "scale-[0.94] opacity-50 blur-[1.5px]",
+      )}
+    >
       {/* Ambient background: concept video (muted loop) or subtle gradient */}
       {videoUrl ? (
         <video
@@ -212,7 +252,7 @@ export function QuestionSlide({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/40 via-background/70 to-background" />
 
       {/* Content */}
-      <div className="relative flex h-full flex-col gap-2.5 p-4">
+      <div className="relative flex h-full flex-col gap-2 p-3 sm:gap-2.5 sm:p-4">
         {/* top row: kbat chip + timer */}
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -229,8 +269,18 @@ export function QuestionSlide({
         </div>
 
         {/* stimulus + question — scrollable region so long prompts never push the
-            answer choices out of the column; answers/feedback below stay pinned */}
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+            answer choices out of the column; answers/feedback below stay pinned.
+            Once an essay is graded, this prompt collapses to a capped, scrollable
+            strip so it stops competing for height with the essay report below —
+            otherwise the report gets squeezed to ~0px and the format can't be
+            scrolled to. */}
+        <div
+          className={cn(
+            "min-h-0 overflow-y-auto overscroll-contain pr-1",
+            isEssay && answered ? "max-h-[18vh] flex-none" : "flex-1",
+          )}
+          style={{ touchAction: "pan-y" }}
+        >
           {session.stimulus && (
             <div className="mb-2.5 rounded-xl border-l-2 border-primary/60 bg-primary/5 px-3 py-2 text-sm leading-relaxed text-foreground/90">
               {session.stimulus}
@@ -254,7 +304,7 @@ export function QuestionSlide({
         )}
 
         {/* answers */}
-        <div className="flex shrink-0 flex-col gap-2">
+        <div className={cn("shrink-0 flex flex-col", answered ? "gap-1.5" : "gap-2")}>
           {isMcq ? (
             LETTERS.map((letter) => {
               const text = session.options?.[letter];
@@ -268,53 +318,86 @@ export function QuestionSlide({
                   disabled={answered || checking}
                   onClick={() => submit(text, letter)}
                   className={cn(
-                    "group flex items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left backdrop-blur transition-all",
+                    "group flex items-center rounded-2xl border-2 px-3 text-left backdrop-blur transition-all",
+                    answered ? "gap-2 py-1.5" : "gap-3 py-3 px-4",
                     LETTER_TINT[letter],
                     !answered && "hover:scale-[1.01] hover:border-primary/70",
                     showCorrect && "border-emerald-400 bg-emerald-500/20 animate-answer-correct",
                     showWrong && "border-red-400 bg-red-500/20 animate-shake-x",
-                    answered && !isPicked && "opacity-50",
+                    answered && !isPicked && "opacity-40",
                   )}
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/20 text-sm font-bold">
+                  <span className={cn(
+                    "flex shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/20 font-bold",
+                    answered ? "h-6 w-6 text-[10px]" : "h-8 w-8 text-sm",
+                  )}>
                     {letter}
                   </span>
-                  <span className="text-sm font-medium leading-snug">{text}</span>
+                  <span className={cn("font-medium leading-snug", answered ? "text-xs" : "text-sm")}>{text}</span>
                 </button>
               );
             })
           ) : (
             <div className="flex flex-col gap-2">
-              <Input
-                value={textAnswer}
-                onChange={(e) => setTextAnswer(e.target.value)}
-                disabled={answered || checking}
-                placeholder={lang === "ms" ? "Taip jawapan…" : "Type your answer…"}
-                className="h-14 rounded-2xl border-2 bg-card/60 px-4 text-base"
-                onKeyDown={(e) => { if (e.key === "Enter") void submit(textAnswer); }}
-              />
-              <Button
-                onClick={() => void submit(textAnswer)}
-                disabled={answered || checking || !textAnswer.trim()}
-                size="lg"
-                className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
-              >
-                {checking ? <Loader2 className="h-5 w-5 animate-spin" /> : lang === "ms" ? "Hantar" : "Submit"}
-              </Button>
+              {isEssay ? (
+                // Essays need room to write — multi-line textarea; Enter inserts a
+                // newline, submission is via the button (or Ctrl/Cmd+Enter).
+                <Textarea
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  disabled={answered || checking}
+                  placeholder={lang === "ms" ? "Tulis karangan anda di sini…" : "Write your essay here…"}
+                  rows={8}
+                  className={cn(
+                    "resize-y rounded-2xl border-2 bg-card/60 px-4 py-3 text-base leading-relaxed",
+                    // After grading, collapse the answer to a compact scrollable
+                    // preview so the essay report below has room to expand.
+                    answered ? "max-h-20 min-h-0 overflow-y-auto opacity-70" : "min-h-[10rem]",
+                  )}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit(textAnswer);
+                  }}
+                />
+              ) : (
+                <Input
+                  value={textAnswer}
+                  onChange={(e) => setTextAnswer(e.target.value)}
+                  disabled={answered || checking}
+                  placeholder={lang === "ms" ? "Taip jawapan…" : "Type your answer…"}
+                  className="h-14 rounded-2xl border-2 bg-card/60 px-4 text-base"
+                  onKeyDown={(e) => { if (e.key === "Enter") void submit(textAnswer); }}
+                />
+              )}
+              {/* Once graded, drop the (now-disabled) Submit button so the
+                  essay report can claim the reclaimed vertical space. */}
+              {!answered && (
+                <Button
+                  onClick={() => void submit(textAnswer)}
+                  disabled={checking || !textAnswer.trim()}
+                  size="lg"
+                  className="h-12 rounded-2xl bg-gradient-primary font-bold shadow-glow"
+                >
+                  {checking ? <Loader2 className="h-5 w-5 animate-spin" /> : lang === "ms" ? "Hantar" : "Submit"}
+                </Button>
+              )}
             </div>
           )}
         </div>
 
         {/* feedback strip — verdict + optional speed badge appear instantly from
-            the optimistic verdict; the explanation text streams in with the server. */}
+            the optimistic verdict; the explanation text streams in with the server.
+            touch-action pan-y overrides the embla container's pan-x so the user
+            can scroll long feedback by touch on mobile. */}
         {verdict !== null && (
           <div
             className={cn(
-              "animate-slide-up-in shrink-0 rounded-2xl border p-3 text-sm",
+              "animate-slide-up-in overflow-y-auto overscroll-contain rounded-2xl border p-3 text-sm",
+              "max-h-[30vh]",
               verdict
                 ? "border-emerald-400/50 bg-emerald-500/10 text-emerald-200"
                 : "border-red-400/50 bg-red-500/10 text-red-200",
             )}
+            style={{ touchAction: "pan-y" }}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="font-bold">
@@ -324,23 +407,123 @@ export function QuestionSlide({
                 <span className="text-[10px] font-bold uppercase tracking-wider text-neon-green">+{bonus} speed</span>
               )}
             </div>
-            {feedback?.feedback && <p className="mt-1 leading-relaxed text-foreground/85">{feedback.feedback}</p>}
-            {verdict === false && feedback?.misconception && (
+            {/* For essays the detailed feedback lives inside the scrollable
+                report below, so the strip stays a compact verdict badge and
+                doesn't hog the column (it never shrinks). */}
+            {!isEssay && feedback?.feedback && <p className="mt-1 leading-relaxed text-foreground/85">{feedback.feedback}</p>}
+            {!isEssay && verdict === false && feedback?.misconception && (
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">💡 {feedback.misconception}</p>
             )}
           </div>
         )}
 
-        {/* footer: tutor + swipe hint */}
-        <div className="flex shrink-0 items-center justify-between pt-1">
+        {/* Essay report — for essays we show more than a one-line critique: the
+            band/marks, what worked, what to fix, and (crucially) a worked model of
+            HOW THE ESSAY SHOULD LOOK so the student has a format to aim for. */}
+        {isEssay && feedback?.essay_detail && (
+          <div className="animate-slide-up-in min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl border border-fuchsia-400/30 bg-fuchsia-500/5 p-3 text-sm" style={{ touchAction: "pan-y" }}>
+            {feedback.feedback && (
+              <p className="leading-relaxed text-foreground/90">{feedback.feedback}</p>
+            )}
+            {(feedback.essay_detail.band || feedback.marks_awarded != null) && (
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-fuchsia-200">
+                {feedback.essay_detail.band && <span>{lang === "ms" ? "Band" : "Band"} {feedback.essay_detail.band}</span>}
+                {feedback.marks_awarded != null && feedback.max_marks != null && (
+                  <span className="rounded-full bg-fuchsia-500/20 px-2 py-0.5">
+                    {feedback.marks_awarded}/{feedback.max_marks} {lang === "ms" ? "markah" : "marks"}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {!!feedback.essay_detail.strengths?.length && (
+              <div>
+                <p className="font-semibold text-emerald-300">{lang === "ms" ? "Kekuatan" : "Strengths"}</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-foreground/85">
+                  {feedback.essay_detail.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {!!feedback.essay_detail.improvements?.length && (
+              <div>
+                <p className="font-semibold text-amber-300">{lang === "ms" ? "Penambahbaikan" : "Improvements"}</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-foreground/85">
+                  {feedback.essay_detail.improvements.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {feedback.essay_detail.model_structure && (
+              <div>
+                <p className="font-semibold text-primary-glow">
+                  {lang === "ms" ? "Cara ia sepatutnya kelihatan" : "How it should look"}
+                </p>
+                <p className="mt-1 whitespace-pre-line leading-relaxed text-foreground/85">
+                  {feedback.essay_detail.model_structure}
+                </p>
+              </div>
+            )}
+
+            {feedback.essay_detail.model_answer && (
+              <details className="rounded-xl border border-white/10 bg-black/20 p-2">
+                <summary className="cursor-pointer font-semibold text-primary-glow">
+                  {lang === "ms" ? "Contoh jawapan model" : "Model answer example"}
+                </summary>
+                <p className="mt-2 whitespace-pre-line leading-relaxed text-foreground/80">
+                  {feedback.essay_detail.model_answer}
+                </p>
+              </details>
+            )}
+          </div>
+        )}
+
+        {/* Penalty game gate — appears under the feedback so the student reads
+            their graded feedback FIRST, then taps to play (or just swipes on).
+            The game never auto-covers the feedback. */}
+        {penaltyPending && (
           <button
-            onClick={() => onOpenTutor(session.session_id)}
+            onClick={onLaunchPenalty}
+            className="animate-slide-up-in flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-indigo-500 px-4 py-3 text-sm font-bold text-white shadow-glow transition hover:opacity-90 active:scale-95"
+          >
+            <Gamepad2 className="h-4 w-4" />
+            {lang === "ms"
+              ? "Dah baca maklum balas? Main untuk pulih 🎮"
+              : "Read your feedback? Play to recover 🎮"}
+          </button>
+        )}
+
+        {/* footer: tutor · skip · swipe hint */}
+        <div className="flex shrink-0 items-center justify-between pt-0">
+          <button
+            onClick={() => onOpenTutor(session)}
             disabled={!session.session_id}
             className="flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-primary-glow disabled:opacity-40"
           >
             <MessageCircle className="h-4 w-4" />
             {lang === "ms" ? "Tanya Tutor" : "Ask Tutor"}
           </button>
+
+          {/* Skip button — only before answering, only when student has tokens */}
+          {!answered && isActive && onSkip && (
+            <button
+              onClick={() => onSkip(session.session_id, session.topic ?? undefined, session.subject ?? subject)}
+              disabled={skipTokens < 1}
+              title={skipTokens < 1
+                ? (lang === "ms" ? "Tiada token langkau" : "No skip tokens — buy in Perk Shop")
+                : (lang === "ms" ? `Langkau soalan (${skipTokens} token)` : `Skip question (${skipTokens} token${skipTokens !== 1 ? "s" : ""})`)}
+              className={cn(
+                "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition",
+                skipTokens > 0
+                  ? "border border-amber-400/60 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 active:scale-95"
+                  : "border border-border/30 text-muted-foreground/40 cursor-not-allowed",
+              )}
+            >
+              ⏭ {lang === "ms" ? "Langkau" : "Skip"}
+              {skipTokens > 0 && <span className="tabular-nums">({skipTokens})</span>}
+            </button>
+          )}
+
           <button
             onClick={onRequestNext}
             className={cn(
@@ -354,16 +537,45 @@ export function QuestionSlide({
         </div>
       </div>
 
-      {/* "Gamify this" overlay — play the current MCQ as Answer Flappy */}
+      {/* Essay marking countdown — essays are graded by a live LLM call that can
+          take minutes; show remaining time before the 5-min timeout. */}
+      <EssayMarkingCountdown active={checking && !isMcq} lang={lang} totalSeconds={540} />
+
+      {/* "Gamify this" overlay — pick a game, then play the current MCQ as it */}
       {gameChallenge && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/85 p-3 backdrop-blur-sm">
           <button
-            onClick={() => setGameChallenge(null)}
+            onClick={() => { setGameChallenge(null); setGameKind(null); }}
             className="self-end rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80 hover:bg-white/20"
           >
             {lang === "ms" ? "Batal ✕" : "Cancel ✕"}
           </button>
-          <FlappyAnswerGame challenge={gameChallenge} onGameEnd={handleGamifyEnd} />
+
+          {!gameKind ? (
+            /* Game picker */
+            <div className="flex w-full max-w-sm flex-col items-center gap-4">
+              <p className="text-center text-base font-bold text-white">
+                {lang === "ms" ? "Pilih permainan 🎮" : "Choose a game 🎮"}
+              </p>
+              <div className="grid w-full grid-cols-2 gap-3">
+                {GAME_OPTIONS.map((g) => (
+                  <button
+                    key={g.kind}
+                    onClick={() => setGameKind(g.kind)}
+                    className="flex flex-col items-center gap-2 rounded-2xl border border-fuchsia-400/50 bg-gradient-to-br from-fuchsia-500/20 to-indigo-500/20 px-4 py-5 text-sm font-bold text-fuchsia-100 transition hover:from-fuchsia-500/30 hover:to-indigo-500/30 hover:scale-[1.03]"
+                  >
+                    <span className="text-3xl">{g.emoji}</span>
+                    {lang === "ms" ? g.label.ms : g.label.en}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : gameKind === "catch" ? (
+            <CatchStarsGame challenge={gameChallenge} onGameEnd={handleGamifyEnd} />
+          ) : (
+            <FlappyAnswerGame challenge={gameChallenge} onGameEnd={handleGamifyEnd} />
+          )}
+
           <p className="text-center text-xs text-white/60">
             {lang === "ms"
               ? "Menang = jawapan betul dihantar. Kalah? Jawab biasa."

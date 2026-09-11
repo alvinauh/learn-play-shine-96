@@ -72,12 +72,14 @@ export function PlayModeGame({
   const [teach, setTeach] = useState<{ challenge: GameChallenge; chosen: Letter } | null>(null);
   const [over, setOver] = useState(false);
   const [buffering, setBuffering] = useState(true);
+  const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
   const [runId, setRunId] = useState(0); // bump to restart the game loop from scratch
 
   const restart = () => {
     resumeRef.current = null;
     setLives(LIVES); setAnswered(0); setCorrect(0);
     setTeach(null); setOver(false); setBuffering(true);
+    setCurrentQuestion(null);
     void refill();
     setRunId((n) => n + 1);
   };
@@ -401,6 +403,7 @@ export function PlayModeGame({
         }
         setBuffering(false);
         current = next;
+        setCurrentQuestion(next.question);
 
         const letters = (["A", "B", "C", "D"] as Letter[]).filter((l) => next.options[l]);
         const correctL = next.correctLetter;
@@ -488,6 +491,12 @@ export function PlayModeGame({
           {ready ? (buffering ? t("memuat…", "loading…") : t("ketuk", "tap")) : t("memuat…", "loading…")}
         </span>
       </div>
+
+      {currentQuestion && (
+        <div className="w-full rounded-xl bg-black/60 px-3 py-2 text-center text-xs font-semibold leading-snug text-white ring-1 ring-white/20 backdrop-blur-sm line-clamp-2">
+          {currentQuestion}
+        </div>
+      )}
 
       <div ref={containerRef} className="w-full max-w-[360px] leading-[0]" />
 

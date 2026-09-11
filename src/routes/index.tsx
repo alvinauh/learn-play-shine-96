@@ -44,6 +44,7 @@ import {
   type SubjectWithTopics,
   type DiagnosticStatus,
   type CoachNarrative,
+  type TutorQuestionContext,
 } from "@/services/api";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,17 +61,20 @@ import { LessonNotesModal } from "@/components/LessonNotesModal";
 import { TutorChatDrawer } from "@/components/TutorChatDrawer";
 import { InteractiveVideoPlayer } from "@/components/InteractiveVideoPlayer";
 import { QuestionFeed } from "@/components/feed/QuestionFeed";
+import { LoadingGame, useWaitGame } from "@/components/LoadingGame";
 import { GameTopBar } from "@/components/GameTopBar";
 import { PraiseOverlay } from "@/components/PraiseOverlay";
 import { BossBattleIntro } from "@/components/BossBattleIntro";
 import { PenaltyGameModal } from "@/components/PenaltyGameModal";
 import { buildChallenge } from "@/lib/challenge";
+import { isViewingAsStudent, setViewAsStudent } from "@/lib/viewAs";
 import { StudyCoachModal } from "@/components/StudyCoachModal";
 import { StudyModeSelect, type StudyMode } from "@/components/StudyModeSelect";
 import { ProfileBanner } from "@/components/ProfileBanner";
 import { DiagnosticHeaderBar } from "@/components/DiagnosticHeaderBar";
 import { DiagnosticCompleteScreen } from "@/components/DiagnosticCompleteScreen";
 import { KbatProgressBar } from "@/components/KbatProgressBar";
+import { EssayMarkingCountdown } from "@/components/EssayMarkingCountdown";
 import { toast } from "sonner";
 
 
@@ -360,8 +364,14 @@ function StudentFeed() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log("[Skor] StudentFeed role check:", { authLoading, role: profile?.role });
-    if (!authLoading && profile && (profile.role === "teacher" || profile.role === "admin")) {
+    // Teachers/admins are normally bounced to their dashboard, unless they've
+    // switched to "view as student" via the swap toggle.
+    if (
+      !authLoading &&
+      profile &&
+      (profile.role === "teacher" || profile.role === "admin") &&
+      !isViewingAsStudent()
+    ) {
       void navigate({ to: "/teacher" });
     }
   }, [authLoading, profile, navigate]);
@@ -385,6 +395,10 @@ function StudentFeed() {
   const [bossIntroOpen, setBossIntroOpen] = useState(false);
   const [bossIntroMastery, setBossIntroMastery] = useState(0);
   const [penaltyOpen, setPenaltyOpen] = useState(false);
+  // A penalty game is available for the just-answered (wrong) question, but it's
+  // NOT auto-opened — the graded feedback stays on screen and the student taps
+  // "Play a game" in the feedback sheet (or "Next Question" to skip it).
+  const [penaltyAvailable, setPenaltyAvailable] = useState(false);
   const [wrongFlash, setWrongFlash] = useState<Letter | null>(null);
   const [correctFlash, setCorrectFlash] = useState<Letter | null>(null);
   const [diagramSvg, setDiagramSvg] = useState<string | null>(null);
@@ -403,7 +417,13 @@ function StudentFeed() {
   const [textAnswer, setTextAnswer] = useState<string>("");
   const [studyPackOpen, setStudyPackOpen] = useState(false);
   const [tutorChatOpen, setTutorChatOpen] = useState(false);
+  const [tutorSession, setTutorSession] = useState<SessionResponse | null>(null);
   const [formLevel, setFormLevel] = useState<4 | 5>(4);
+
+  // Play-a-game-while-loading gate for the free-practice question fetch: after a
+  // 6s wait it shows the game, and once the question is ready it keeps running
+  // until the student loses, then reveals the feed.
+  const loadGate = useWaitGame(loading && !session);
 
   // ===== Study Mode =====
   const [studyMode, setStudyMode] = useState<StudyMode | null>(null);
@@ -487,6 +507,22 @@ function StudentFeed() {
   const topicsForSubject = (subject: string): string[] => {
     const found = subjects.find((s) => s.subject === subject);
     return found?.topics ?? [];
+  };
+
+  const essayTopicsForSubject = (subject: string): string[] => {
+    const found = subjects.find((s) => s.subject === subject);
+    return found?.essay_topics ?? [];
+  };
+
+  // In essay mode, language subjects expose a SEPARATE curated set of writing
+  // themes (not the general syllabus topics, which aren't essay-appropriate).
+  // Falls back to the general topic list for content subjects / other modes.
+  const selectableTopics = (subject: string, qType: QuestionType): string[] => {
+    if (qType === "essay") {
+      const essay = essayTopicsForSubject(subject);
+      if (essay.length > 0) return essay;
+    }
+    return topicsForSubject(subject);
   };
 
   const mock: MockBundle = {
@@ -592,7 +628,7 @@ function StudentFeed() {
 
   const handleSubjectChange = (subject: string) => {
     if (subject === activeSubject) return;
-    const firstTopic = topicsForSubject(subject)[0] ?? "";
+    const firstTopic = selectableTopics(subject, questionType)[0] ?? "";
     setActiveSubject(subject);
     setActiveTopic(firstTopic);
     setDynamicTopic(null);
@@ -775,6 +811,7 @@ function StudentFeed() {
     setSelected(null);
     setCorrectFlash(null);
     setWrongFlash(null);
+    setPenaltyAvailable(false);
     setLastPoints(0);
     setQuestionNumber((q) => q + 1);
     if (studyMode === "diagnostic") {
@@ -816,6 +853,7 @@ function StudentFeed() {
         apiLanguage,
         session.subject ?? activeSubject,
         session.session_id,
+        session.question_type ?? "mcq",
       );
 
       const isCorrect = res.is_correct ?? res.correct;
@@ -880,11 +918,11 @@ function StudentFeed() {
       } else {
         if (letter) setWrongFlash(letter);
         if (wasBoss) setIsBossMode(false);
-        if (trigger) {
-          setTimeout(() => setPenaltyOpen(true), 1000);
-        } else {
-          setTimeout(() => void advanceToNext(enriched), 2000);
-        }
+        // Keep the graded feedback on screen — the student reads it, then taps
+        // "Next Question" to proceed or "Play a game" (when a penalty is earned)
+        // to recover. Never flash the feedback away into an auto-opened game or
+        // an auto-advance.
+        setPenaltyAvailable(trigger);
       }
     } catch (err) {
       console.error("[Skor] submitAnswer error:", err);
@@ -958,16 +996,39 @@ function StudentFeed() {
   const handleQuestionTypeChange = (next: QuestionType) => {
     if (next === questionType) return;
     setQuestionType(next);
-    void loadSession(activeSubject, activeTopic, activeLanguage, false, next);
+    // Essay mode may swap the topic list to the curated writing themes. If the
+    // current topic isn't valid for the new mode, snap to the first available one.
+    const nextTopics = selectableTopics(activeSubject, next);
+    const nextTopic =
+      nextTopics.includes(activeTopic) ? activeTopic : (nextTopics[0] ?? activeTopic);
+    if (nextTopic !== activeTopic) setActiveTopic(nextTopic);
+    void loadSession(activeSubject, nextTopic, activeLanguage, false, next);
   };
 
   const handleNext = async () => {
     await advanceToNext(feedback);
   };
 
-  const handlePenaltyComplete = () => {
+  const handlePenaltyComplete = (won: boolean, _mastery?: number | null) => {
     setPenaltyOpen(false);
-    void advanceToNext(feedback);
+    if (won) {
+      void advanceToNext(feedback);
+      return;
+    }
+    // Loss: send the student back to the SAME question. They must answer it
+    // correctly before earning another game round — clear the wrong-answer
+    // feedback so the question is answerable again.
+    setFeedback(null);
+    setSelected(null);
+    setChecking(null);
+    setCorrectFlash(null);
+    setWrongFlash(null);
+    setPenaltyAvailable(false);
+    setTextAnswer("");
+    setSubPartAnswers({});
+    toast.message("Let's nail this question first 💪", {
+      description: "Answer it correctly to keep going.",
+    });
   };
 
   const showMaintenanceState = !loading && !session && !!error;
@@ -1027,6 +1088,13 @@ function StudentFeed() {
       {/* Ambient glow */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,oklch(0.65_0.24_295/0.35),transparent_60%)]" />
 
+      {/* Essay marking countdown — live LLM grading can take minutes; show the
+          remaining time before the 5-min timeout instead of a bare spinner. */}
+      <EssayMarkingCountdown
+        active={submittingText && session?.question_type === "essay"}
+        lang={activeLanguage}
+      />
+
       {/* Top bar */}
       <header className="relative z-10 flex items-center justify-between px-5 pt-5">
         <div className="flex items-center gap-2">
@@ -1045,6 +1113,18 @@ function StudentFeed() {
               void loadSession(activeSubject, activeTopic, next, false);
             }}
           />
+          {(profile?.role === "teacher" || profile?.role === "admin") && (
+            <button
+              onClick={() => {
+                setViewAsStudent(false);
+                void navigate({ to: "/teacher" });
+              }}
+              className="flex items-center gap-1.5 rounded-full border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary-glow hover:bg-primary/20 transition"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              {activeLanguage === "ms" ? "Papan Guru" : "Teacher view"}
+            </button>
+          )}
           <Link
             to="/leaderboard"
             className="grid h-9 w-9 place-items-center rounded-full border border-border/60 bg-card/60 text-yellow-400 hover:text-yellow-300 transition"
@@ -1235,10 +1315,11 @@ function StudentFeed() {
             </SelectTrigger>
             <SelectContent>
               {[
-                ...(activeSubject ? topicsForSubject(activeSubject) : []),
+                ...(activeSubject ? selectableTopics(activeSubject, questionType) : []),
                 ...(dynamicTopic &&
                 activeSubject &&
-                !topicsForSubject(activeSubject).includes(dynamicTopic)
+                questionType !== "essay" &&
+                !selectableTopics(activeSubject, questionType).includes(dynamicTopic)
                   ? [dynamicTopic]
                   : []),
               ].map((topic) => (
@@ -1421,6 +1502,23 @@ function StudentFeed() {
             lang={activeLanguage}
             onRetry={() => inDiagnostic ? void loadDiagnosticSession() : void loadSession(activeSubject, activeTopic, activeLanguage, false)}
           />
+        ) : loadGate.active && !inDiagnostic && !prefs.examMode ? (
+          /* Question is still generating. Under 6s → a brief spinner; past 6s →
+             a game to play. Once the question arrives the game keeps running
+             until the student loses (loadGate stays active while holding), then
+             the feed below takes over. */
+          loadGate.showGame ? (
+            <LoadingGame
+              key={loadGate.round}
+              lang={activeLanguage}
+              onRoundEnd={loadGate.onGameEnd}
+            />
+          ) : (
+            <div className="flex h-[76vh] flex-col items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-xs">{activeLanguage === "ms" ? "Memuatkan soalan…" : "Loading question…"}</span>
+            </div>
+          )
         ) : session && !inDiagnostic && !prefs.examMode ? (
           /* Shorts-style vertical feed — the primary free-practice loop */
           <QuestionFeed
@@ -1434,7 +1532,7 @@ function StudentFeed() {
             formLevel={formLevel}
             questionType={session.question_type ?? "mcq"}
             timerEnabled={true}
-            onOpenTutor={() => setTutorChatOpen(true)}
+            onOpenTutor={(s) => { setTutorSession(s); setTutorChatOpen(true); }}
             headerRight={
               <button
                 onClick={() => save({ examMode: true })}
@@ -1962,6 +2060,28 @@ function StudentFeed() {
                 </div>
               </div>
             )}
+            {/* Penalty earned (every 3rd wrong) — offered as a tap, never
+                auto-opened, so the graded feedback above stays readable. */}
+            {penaltyAvailable && !feedback?.topic_complete && (
+              <Button
+                onClick={() => setPenaltyOpen(true)}
+                size="lg"
+                variant="outline"
+                className="h-14 w-full rounded-2xl border-2 border-fuchsia-400/60 bg-gradient-to-r from-fuchsia-500/15 to-indigo-500/15 text-base font-bold text-fuchsia-100 hover:from-fuchsia-500/25 hover:to-indigo-500/25"
+              >
+                <Gamepad2 className="mr-1 h-5 w-5" />
+                {activeLanguage === "ms" ? "Main untuk pulih 🎮" : "Play to recover 🎮"}
+              </Button>
+            )}
+            <Button
+              onClick={() => setTutorChatOpen(true)}
+              size="lg"
+              variant="outline"
+              className="h-12 w-full rounded-2xl border border-primary/40 bg-primary/5 text-sm font-semibold text-primary-glow hover:bg-primary/10"
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              {activeLanguage === "ms" ? "Tanya tutor — kenapa jawapan ini?" : "Ask tutor — why this answer?"}
+            </Button>
             <Button
               onClick={handleNext}
               size="lg"
@@ -1969,7 +2089,9 @@ function StudentFeed() {
                 "h-14 w-full rounded-2xl text-base font-bold shadow-glow hover:opacity-95",
                 feedback?.topic_complete
                   ? "bg-[linear-gradient(135deg,oklch(0.78_0.24_145),oklch(0.65_0.22_175))] text-background"
-                  : "bg-gradient-primary",
+                  : penaltyAvailable
+                    ? "bg-card/80 text-foreground/90 hover:bg-card"
+                    : "bg-gradient-primary",
               )}
             >
               {feedback?.topic_complete && feedback.next_topic
@@ -1991,21 +2113,34 @@ function StudentFeed() {
           onLessonUpdate={(fresh) => setSession((s) => s ? { ...s, lesson: fresh } : s)}
         />
       )}
-      {session?.session_id && (
+      {(tutorSession ?? session)?.session_id && (
         <TutorChatDrawer
           open={tutorChatOpen}
           onClose={() => setTutorChatOpen(false)}
           studentId={effectiveStudentId}
-          lessonId={session.lesson_id ?? null}
-          questionContext={{
-            session_id: session.session_id,
-            question: session.question,
-            options: session.options,
-            correct_answer: session.correct,
-            topic: session.topic,
-            subject: session.subject,
-            passage: session.passage ?? session.stimulus,
-          }}
+          lessonId={(tutorSession ?? session)?.lesson_id ?? null}
+          questionContext={(() => {
+            const s = tutorSession ?? session!;
+            const ctx: TutorQuestionContext = {
+              session_id: s.session_id,
+              question: s.question,
+              options: s.options,
+              correct_answer: s.correct,
+              topic: s.topic,
+              subject: s.subject,
+              passage: s.passage ?? s.stimulus,
+            };
+            // In the non-feed path (tutorSession null), we have access to the
+            // student's submitted answer and graded feedback from parent state.
+            if (!tutorSession) {
+              ctx.student_answer = selected
+                ? `${selected}. ${(session!.options as Record<string, string>)?.[selected] ?? ""}`
+                : (textAnswer.trim() || undefined);
+              ctx.is_correct = feedback?.correct;
+              ctx.feedback = feedback?.feedback;
+            }
+            return ctx;
+          })()}
           language={activeLanguage}
         />
       )}

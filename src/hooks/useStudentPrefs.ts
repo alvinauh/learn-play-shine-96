@@ -17,6 +17,35 @@ export interface ExamPrefs {
   bilingualLabels: boolean;
 }
 
+/**
+ * Comfort & accessibility accommodations. These are NEUTRAL, user/teacher-toggleable
+ * preferences — never a diagnosis the app infers. All default OFF so adding them changes
+ * no existing behaviour (Phase A). Later phases wire each flag into the feed / games /
+ * question generator. See SPECIAL_NEEDS_PLAN.md / SPECIAL_NEEDS_RESEARCH.md.
+ */
+export interface AccommodationPrefs {
+  reduce_motion: boolean;       // fewer animations / no screen-shake or particles
+  high_contrast: boolean;       // higher-contrast, calmer colours
+  dyslexia_font: boolean;       // dyslexia-friendly typeface + wider spacing
+  read_aloud: boolean;          // read questions & options aloud (edge-tts)
+  focus_mode: boolean;          // one thing on screen at a time, fewer distractions
+  extended_time: boolean;       // remove countdowns / extra time
+  no_timed_games: boolean;      // skip timed arcade games; use a calm reinforcement instead
+  break_reminders: boolean;     // suggest a short break every so often
+  simplified_language: boolean; // shorter, plainer question wording
+  worked_example_first: boolean;// show a worked example before harder questions
+}
+
+/** Condition-derived pacing (set by a teacher via /derive_accommodations). Read-only on the
+ * student side; the assessment engine + client honour it. Defaults = current app behaviour. */
+export interface PaceProfile {
+  session_length: number;                              // questions before a suggested break
+  break_cadence: number;                               // suggest a break every N (0 = off)
+  difficulty_ramp: "gentle" | "normal" | "fast";
+  time_limits: "off" | "extended" | "normal";
+  feedback_style: "instant" | "paused_explanation";
+}
+
 export interface StudentPrefs {
   avatar: string;
   theme: ThemeKey;
@@ -26,6 +55,8 @@ export interface StudentPrefs {
   examPrefs: ExamPrefs;
   banner: string;
   lang: Lang;
+  accommodations: AccommodationPrefs;
+  pace_profile: PaceProfile;
 }
 
 const DEFAULT_EXAM_PREFS: ExamPrefs = {
@@ -34,6 +65,27 @@ const DEFAULT_EXAM_PREFS: ExamPrefs = {
   showMarks: true,
   lineStyle: "ruled",
   bilingualLabels: true,
+};
+
+export const DEFAULT_ACCOMMODATIONS: AccommodationPrefs = {
+  reduce_motion: false,
+  high_contrast: false,
+  dyslexia_font: false,
+  read_aloud: false,
+  focus_mode: false,
+  extended_time: false,
+  no_timed_games: false,
+  break_reminders: false,
+  simplified_language: false,
+  worked_example_first: false,
+};
+
+export const DEFAULT_PACE_PROFILE: PaceProfile = {
+  session_length: 10,
+  break_cadence: 0,
+  difficulty_ramp: "normal",
+  time_limits: "normal",
+  feedback_style: "instant",
 };
 
 const DEFAULT: StudentPrefs = {
@@ -45,7 +97,44 @@ const DEFAULT: StudentPrefs = {
   examPrefs: DEFAULT_EXAM_PREFS,
   banner: "galaxy",
   lang: "en",
+  accommodations: DEFAULT_ACCOMMODATIONS,
+  pace_profile: DEFAULT_PACE_PROFILE,
 };
+
+/**
+ * Presentation metadata for the accommodation toggles — shared by the student settings
+ * sheet and the teacher's per-student editor so both stay in sync. Neutral labels only.
+ */
+export const ACCOMMODATION_GROUPS: {
+  group: string;
+  items: { key: keyof AccommodationPrefs; label: string; hint: string }[];
+}[] = [
+  {
+    group: "Display",
+    items: [
+      { key: "reduce_motion", label: "Reduce motion", hint: "Fewer animations and effects" },
+      { key: "high_contrast", label: "High contrast", hint: "Calmer, higher-contrast colours" },
+      { key: "dyslexia_font", label: "Easy-reading font", hint: "Clearer letters and spacing" },
+    ],
+  },
+  {
+    group: "Reading & questions",
+    items: [
+      { key: "read_aloud", label: "Read aloud", hint: "Hear the question and answers" },
+      { key: "simplified_language", label: "Simpler wording", hint: "Shorter, plainer questions" },
+      { key: "worked_example_first", label: "Show an example first", hint: "See a worked example before hard questions" },
+    ],
+  },
+  {
+    group: "Pacing & focus",
+    items: [
+      { key: "focus_mode", label: "Focus mode", hint: "One thing on screen at a time" },
+      { key: "extended_time", label: "Extra time", hint: "Remove countdowns and timers" },
+      { key: "no_timed_games", label: "Skip timed games", hint: "Use a calm activity instead" },
+      { key: "break_reminders", label: "Break reminders", hint: "Suggest a short break now and then" },
+    ],
+  },
+];
 
 const STORAGE_KEY = "kp_prefs";
 
@@ -117,7 +206,15 @@ export const BANNERS: { key: string; label: string; gradient: string }[] = [
 function readFromStorage(): StudentPrefs {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...DEFAULT, ...(JSON.parse(raw) as Partial<StudentPrefs>) } : DEFAULT;
+    if (!raw) return DEFAULT;
+    const parsed = JSON.parse(raw) as Partial<StudentPrefs>;
+    return {
+      ...DEFAULT,
+      ...parsed,
+      // nested objects: always fill missing keys from defaults
+      accommodations: { ...DEFAULT_ACCOMMODATIONS, ...(parsed.accommodations ?? {}) },
+      pace_profile: { ...DEFAULT_PACE_PROFILE, ...(parsed.pace_profile ?? {}) },
+    };
   } catch {
     return DEFAULT;
   }
@@ -148,7 +245,20 @@ export function useStudentPrefs() {
       // DB wins for avatar / theme / banner; merge over localStorage values
       const dbPrefs = data.preferences as Partial<StudentPrefs>;
       setPrefs((prev) => {
-        const merged: StudentPrefs = { ...prev, ...dbPrefs };
+        const merged: StudentPrefs = {
+          ...prev,
+          ...dbPrefs,
+          accommodations: {
+            ...DEFAULT_ACCOMMODATIONS,
+            ...prev.accommodations,
+            ...(dbPrefs.accommodations ?? {}),
+          },
+          pace_profile: {
+            ...DEFAULT_PACE_PROFILE,
+            ...prev.pace_profile,
+            ...(dbPrefs.pace_profile ?? {}),
+          },
+        };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
         return merged;
       });
@@ -164,6 +274,24 @@ export function useStudentPrefs() {
     const root = document.documentElement;
     Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
   }, [prefs.theme]);
+
+  // Apply sensory/presentation accommodations globally via <html> classes + a data flag
+  // (gameKit reads data-reduce-motion to skip particles/shake). See styles.css.
+  useEffect(() => {
+    const a = prefs.accommodations;
+    const root = document.documentElement;
+    root.classList.toggle("reduce-motion", !!a.reduce_motion);
+    root.classList.toggle("high-contrast", !!a.high_contrast);
+    root.classList.toggle("dyslexia-font", !!a.dyslexia_font);
+    root.classList.toggle("focus-mode", !!a.focus_mode);
+    if (a.reduce_motion) root.dataset.reduceMotion = "1";
+    else delete root.dataset.reduceMotion;
+  }, [
+    prefs.accommodations.reduce_motion,
+    prefs.accommodations.high_contrast,
+    prefs.accommodations.dyslexia_font,
+    prefs.accommodations.focus_mode,
+  ]);
 
   const save = (next: Partial<StudentPrefs>) => {
     setPrefs((prev) => {
@@ -183,5 +311,21 @@ export function useStudentPrefs() {
     });
   };
 
-  return { prefs, save };
+  const setAccommodation = (key: keyof AccommodationPrefs, value: boolean) => {
+    setPrefs((prev) => {
+      const accommodations = { ...prev.accommodations, [key]: value };
+      const merged: StudentPrefs = { ...prev, accommodations };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      const userId = userIdRef.current;
+      if (userId) {
+        supabase
+          .from("profiles")
+          .upsert({ id: userId, preferences: merged as unknown as Json }, { onConflict: "id" })
+          .then(() => { /* intentionally ignored */ });
+      }
+      return merged;
+    });
+  };
+
+  return { prefs, save, setAccommodation };
 }

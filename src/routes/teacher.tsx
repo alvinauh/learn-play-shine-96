@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import {
   Users,
@@ -26,6 +26,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useI18n } from "@/lib/i18n";
+import { setViewAsStudent } from "@/lib/viewAs";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   fetchTeacherInsights,
@@ -43,7 +44,7 @@ import {
 } from "@/services/api";
 import { ClassroomsPanel } from "@/components/teacher/ClassroomsPanel";
 import { AssignmentsPanel } from "@/components/teacher/AssignmentsPanel";
-import { supabase } from "@/integrations/supabase/client";
+import { AiControllerPanel } from "@/components/teacher/AiControllerPanel";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -60,17 +61,17 @@ export const Route = createFileRoute("/teacher")({
 });
 
 function TeacherDashboard() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
 
-  // Clear the student-quiz preview flag so a normal dashboard visit still
-  // redirects teachers away from the student feed. (Set by the Student Quiz button.)
+  // Landing on the teacher dashboard means they're back in teacher mode — clear
+  // the "view as student" swap so the student routes bounce them here again.
   useEffect(() => {
-    sessionStorage.removeItem("kp_teacher_preview");
+    setViewAsStudent(false);
   }, []);
 
-  const [tab, setTab] = useState<"insights" | "classrooms" | "assignments">("insights");
+  const [tab, setTab] = useState<"ai" | "insights" | "classrooms" | "assignments">("ai");
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
 const [activeStudents, setActiveStudents] = useState<string>("-");
   const [classAverageMastery, setClassAverageMastery] = useState<string>("-");
@@ -83,10 +84,8 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
   const [studentDiagnostics, setStudentDiagnostics] = useState<StudentDiagnostic[]>([]);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [taskResults, setTaskResults] = useState<Record<string, GenerateTaskResult>>({});
-  const [studentNames, setStudentNames] = useState<Record<string, string>>({});
   const [generatingPlan, setGeneratingPlan] = useState<string | null>(null);
   const [planResults, setPlanResults] = useState<Record<string, DifferentiatedPlanResult>>({});
-  const studentNamesFetched = useRef(false);
 
   const unauthorized = !!profile && profile.role !== "teacher" && profile.role !== "admin";
 
@@ -128,25 +127,9 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
           setFlaggedStudents(Array.isArray(data?.flagged_students) ? data.flagged_students : []);
           setMisconceptionClusters(Array.isArray(data?.misconception_clusters) ? data.misconception_clusters : []);
           setStudentDiagnostics(Array.isArray(data?.student_diagnostics) ? data.student_diagnostics : []);
-
-          // Enrich alert student names from Supabase profiles (once per session)
-          const alerts = Array.isArray(data?.recent_alerts) ? data.recent_alerts : [];
-          if (!studentNamesFetched.current && alerts.length > 0) {
-            studentNamesFetched.current = true;
-            const ids = [...new Set(alerts.map((a) => a.student_id).filter(Boolean))] as string[];
-            supabase
-              .from("profiles")
-              .select("id, full_name")
-              .in("id", ids)
-              .then(({ data: profs }) => {
-                if (cancelled || !profs) return;
-                const map: Record<string, string> = {};
-                for (const p of profs) {
-                  if (p.full_name) map[p.id] = p.full_name;
-                }
-                setStudentNames(map);
-              });
-          }
+          // Names come pre-resolved from the API (backend uses the service-role
+          // key). We do NOT fetch profiles client-side: RLS (profiles_select_own)
+          // only lets a user read their OWN row, so a teacher would get nothing.
         })
         .catch((err) => {
           if (cancelled || !initial) return;
@@ -227,12 +210,12 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
             <LanguageSwitcher />
             <Link
               to="/"
-              onClick={() => sessionStorage.setItem("kp_teacher_preview", "1")}
+              onClick={() => setViewAsStudent(true)}
               className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary-glow hover:bg-card/80 transition"
-              aria-label="Go to student quiz"
+              aria-label="Switch to the student view"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              Student Quiz
+              {lang === "ms" ? "Lihat sebagai pelajar" : lang === "zh" ? "以学生身份查看" : "View as student"}
             </Link>
             <Link
               to="/leaderboard"
@@ -266,6 +249,7 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
       <main className="mx-auto max-w-7xl space-y-6 px-6 py-8">
         <nav className="inline-flex rounded-full border border-border bg-card/60 p-1 text-sm">
           {([
+            { key: "ai", label: "AI Controller", icon: Sparkles },
             { key: "insights", label: "Insights", icon: LayoutDashboard },
             { key: "classrooms", label: "My Classrooms", icon: School },
             { key: "assignments", label: "Assigned Tasks", icon: ClipboardList },
@@ -274,19 +258,21 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
               key={key}
               onClick={() => setTab(key)}
               className={cn(
-                "flex items-center gap-2 rounded-full px-4 py-1.5 font-medium transition",
+                "flex items-center gap-2 rounded-full px-3 py-1.5 font-medium transition sm:px-4",
                 tab === key
                   ? "bg-gradient-primary text-primary-foreground shadow-glow"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon className="h-4 w-4" />
-              {label}
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </nav>
 
-        {tab === "classrooms" ? (
+        {tab === "ai" ? (
+          <AiControllerPanel />
+        ) : tab === "classrooms" ? (
           <ClassroomsPanel />
         ) : tab === "assignments" ? (
           <AssignmentsPanel />
@@ -470,7 +456,7 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
                       {s.rank}
                     </span>
                     <span className="flex-1 truncate text-sm font-medium">
-                      Student #{tail || (i + 1)}
+                      {s.student_name || `Student #${tail || (i + 1)}`}
                     </span>
                     {s.game_wins > 0 && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-600">

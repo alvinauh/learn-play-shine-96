@@ -26,14 +26,16 @@ interface AuthContextValue {
     grade?: string;
     role?: "student" | "teacher";
   }) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// Resolves to null after ms — lets us race Supabase calls that might hang
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+// Resolves to null after ms — lets us race Supabase calls that might hang.
+// Accepts PromiseLike so Supabase's thenable query builder (PostgrestBuilder) works.
+function withTimeout<T>(promise: PromiseLike<T>, ms: number): Promise<T | null> {
   return Promise.race([
     promise,
     new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
@@ -101,20 +103,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Set up listener FIRST
     const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
       if (newSession?.user) {
+        setSession(newSession);
+        setUser(newSession.user);
         // Defer profile fetch to avoid deadlock
         setTimeout(() => void loadProfile(newSession.user.id), 0);
-      } else {
-        setProfile(null);
-        // Session expired or signed out — redirect to login
-        if (event === "SIGNED_OUT" || (event === "TOKEN_REFRESHED" && !newSession)) {
-          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-            window.location.href = "/login";
-          }
-        }
+        return;
       }
+      // Event carried no session. A genuine sign-out clears everything and lets
+      // RouteGuard navigate to /login CLIENT-SIDE — never a full-page reload,
+      // which would nuke in-flight work (e.g. a 1–2 min essay-marking request)
+      // and dump the student back on the study-mode screen mid-submission.
+      if (event === "SIGNED_OUT") {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+      // Any OTHER null-session event (notably a TOKEN_REFRESHED refresh-race that
+      // can fire during a long request) is TRANSIENT: verify with the server
+      // before tearing the user out of the app. This race is what caused essay
+      // submissions to bounce back to the study-mode screen while marking.
+      void supabase.auth.getSession().then(({ data }) => {
+        if (!data.session) {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+        }
+        // else: session still valid — ignore the spurious event, keep working.
+      });
     });
 
     // Then check existing session
@@ -173,6 +190,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: msg };
   };
 
+  const signInWithGoogle: AuthContextValue["signInWithGoogle"] = async () => {
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/` : undefined;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo },
+    });
+    return { error: error?.message ?? null };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
@@ -184,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, profile, loading, signIn, signUp, signOut, refreshProfile }}
+      value={{ user, session, profile, loading, signIn, signUp, signInWithGoogle, signOut, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>

@@ -12,11 +12,15 @@ import {
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
+import { toast } from "sonner";
+
 import appCss from "../styles.css?url";
 import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { isViewingAsStudent } from "@/lib/viewAs";
 import { supabase } from "@/integrations/supabase/client";
 import { installGlobalErrorLogger } from "@/lib/log-app-error";
+import { Toaster } from "@/components/ui/sonner";
 
 
 function NotFoundComponent() {
@@ -142,6 +146,7 @@ function RootComponent() {
           <RouteGuard>
             <Outlet />
           </RouteGuard>
+          <Toaster />
         </AuthProvider>
       </I18nProvider>
     </QueryClientProvider>
@@ -158,26 +163,42 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
   const isPublic = PUBLIC_PATHS.has(path);
 
   useEffect(() => {
+    // Capture an invite code the instant it appears in the URL — before the
+    // login redirect / email-confirmation round-trip strips the query string.
+    // Stashed in localStorage and consumed below once a student profile loads.
+    if (typeof window !== "undefined") {
+      const invite = new URLSearchParams(window.location.search).get("invite");
+      if (invite?.trim()) {
+        localStorage.setItem("kp_pending_invite", invite.trim());
+        const url = new URL(window.location.href);
+        url.searchParams.delete("invite");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
+
     if (loading) return;
     if (!user) {
       if (!isPublic) void navigate({ to: "/login" });
       return;
     }
-    // Signed in: consume invite code if present in URL
+    // Signed in as a student: consume any pending invite (survives redirects).
+    // Only students self-enroll — the RPC inserts auth.uid() as the member, so
+    // a teacher/admin opening the link would enroll themselves; skip them.
     if (typeof window !== "undefined" && profile?.role === "student") {
-      const params = new URLSearchParams(window.location.search);
-      const invite = params.get("invite");
-      if (invite) {
+      const pending = localStorage.getItem("kp_pending_invite");
+      if (pending) {
+        localStorage.removeItem("kp_pending_invite");
         void (async () => {
-          // Use the RPC (SECURITY DEFINER) so the insert succeeds regardless of RLS policies
-          const { error } = await supabase.rpc("join_classroom_by_code", { _code: invite.trim() });
+          // RPC is SECURITY DEFINER + idempotent (ON CONFLICT DO NOTHING).
+          const { data, error } = await supabase.rpc("join_classroom_by_code", { _code: pending });
           if (error) {
             console.warn("[Skor] invite-link join failed:", error.message);
+            toast.error("Couldn't join the class — check the invite code with your teacher.");
+            return;
           }
-          // Clean URL
-          const url = new URL(window.location.href);
-          url.searchParams.delete("invite");
-          window.history.replaceState({}, "", url.toString());
+          const row = Array.isArray(data) ? data[0] : data;
+          const name = (row?.classroom_name as string) ?? "the class";
+          toast.success(row?.already_member ? `You're already in ${name}.` : `Joined ${name}!`);
         })();
       }
     }
@@ -193,7 +214,15 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
     if (profile.role === "student" && path.startsWith("/teacher")) {
       void navigate({ to: "/" });
     }
-    if ((profile.role === "teacher" || profile.role === "admin") && path === "/") {
+    // Teachers/admins are bounced from the student routes to their dashboard,
+    // UNLESS they've deliberately switched to "view as student" (the swap
+    // toggle). This is also why a teacher/admin never silently lands on the
+    // student view: without the toggle they're always routed to /teacher.
+    if (
+      (profile.role === "teacher" || profile.role === "admin") &&
+      (path === "/" || path === "/dashboard") &&
+      !isViewingAsStudent()
+    ) {
       void navigate({ to: "/teacher" });
     }
   }, [user, profile, loading, path, isPublic, navigate]);

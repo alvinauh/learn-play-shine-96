@@ -1459,8 +1459,10 @@ export async function sendTeacherChat(
   threadId: string = TEACHER_THREAD_DEFAULT,
 ): Promise<TeacherChatReply> {
   // The planner loop may generate lessons/quizzes — allow a generous timeout.
+  // 300s matches the Cloud Run request timeout; lesson generation with provider
+  // fallbacks can take 2-3 minutes without the 402-cooldown fix (llm_client.py).
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 180_000);
+  const timer = setTimeout(() => controller.abort(), 300_000);
   try {
     const res = await fetch(`${BASE_URL}/teacher/chat`, {
       method: "POST",

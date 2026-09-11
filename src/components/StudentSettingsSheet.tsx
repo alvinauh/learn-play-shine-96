@@ -6,6 +6,7 @@ import {
   THEMES,
   AVATARS,
   BANNERS,
+  ACCOMMODATION_GROUPS,
   type ThemeKey,
   type FontSize,
 } from "@/hooks/useStudentPrefs";
@@ -43,7 +44,7 @@ interface Props {
 }
 
 export function StudentSettingsSheet({ open, onClose, onOpenExamPrefs }: Props) {
-  const { prefs, save } = useStudentPrefs();
+  const { prefs, save, setAccommodation } = useStudentPrefs();
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -189,6 +190,38 @@ export function StudentSettingsSheet({ open, onClose, onOpenExamPrefs }: Props) 
                 <ChevronRight className="h-4 w-4" />
               </button>
             )}
+          </div>
+        </section>
+
+        {/* Comfort & Accessibility */}
+        <section className="mb-6">
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Comfort &amp; Accessibility
+          </div>
+          <p className="mb-3 text-[10px] text-muted-foreground">
+            Turn on whatever helps you learn best. You can change these any time.
+          </p>
+          <div className="space-y-4">
+            {ACCOMMODATION_GROUPS.map(({ group, items }) => (
+              <div key={group}>
+                <div className="mb-2 text-[10px] font-semibold text-muted-foreground/80">{group}</div>
+                <div className="rounded-xl border border-border bg-card/60 overflow-hidden divide-y divide-border">
+                  {items.map(({ key, label, hint }) => (
+                    <div key={key} className="flex items-center justify-between px-4 py-2.5">
+                      <div className="pr-3">
+                        <div className="text-sm font-semibold">{label}</div>
+                        <div className="text-xs text-muted-foreground">{hint}</div>
+                      </div>
+                      <Switch
+                        checked={prefs.accommodations[key]}
+                        onCheckedChange={(v) => setAccommodation(key, v)}
+                        aria-label={label}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 

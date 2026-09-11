@@ -9,36 +9,19 @@ import {
   easeOutBack,
   clamp,
 } from "@/lib/gameKit";
-
-type Letter = "A" | "B" | "C" | "D";
-
-export interface GameChallenge {
-  question: string;
-  options: Partial<Record<Letter, string>>;
-  /** Correct option letter, e.g. "C". */
-  correctLetter: Letter;
-  /** Assessment-integrated Play mode: identify the source session so an answer
-   *  can be submitted back to the backend (mastery + event log). */
-  sessionId?: string;
-  /** One-line "why" shown as the teaching moment when the player picks wrong. */
-  explanation?: string;
-  topic?: string;
-  subject?: string;
-}
+import { shuffled, type WritingChallenge } from "./writing";
 
 interface Props {
   onGameEnd: (won: boolean) => void;
-  /** When provided, the game becomes assessment-integrated: catch the correct answer. */
-  challenge?: GameChallenge | null;
+  challenge: WritingChallenge;
 }
 
 const W = 360;
 const H = 460;
-const GOAL = 5; // correct catches to win
+const GOAL = 3; // correct connectors to win
 const LIVES = 3;
-const TILE_W = 150;
-const TILE_H = 46;
-const BASKET_W = 104;
+const TILE_H = 44;
+const BASKET_W = 108;
 const BASKET_H = 22;
 const BASKET_Y = H - 46;
 
@@ -46,31 +29,25 @@ interface Tile {
   x: number;
   y: number;
   vy: number;
-  letter: Letter;
   text: string;
   correct: boolean;
-  spawn: number; // for pop-in animation
+  w: number;
+  spawn: number;
   dead?: boolean;
 }
 
-const LETTER_COLORS: Record<Letter, string> = {
-  A: "#38bdf8",
-  B: "#a78bfa",
-  C: "#fb7185",
-  D: "#34d399",
-};
-
-function truncate(s: string, n: number) {
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
-}
-
-export function CatchStarsGame({ onGameEnd, challenge }: Props) {
+/**
+ * Connector Catch — a writing-native reinforcement game. A sentence is missing its
+ * cohesive connector (however / therefore / so / because…). The correct connector and
+ * plausible wrong ones fall; steer the basket to catch the RIGHT one and dodge the rest.
+ * Tests cohesion and logical linking — writing skill, not recall.
+ */
+export function ConnectorCatchGame({ onGameEnd, challenge }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [progress, setProgress] = useState(0);
   const [lives, setLives] = useState(LIVES);
   const [combo, setCombo] = useState(0);
 
-  // refs mirror state for the rAF loop (avoids stale closures)
   const basketXRef = useRef(W / 2);
   const tilesRef = useRef<Tile[]>([]);
   const progressRef = useRef(0);
@@ -79,6 +56,8 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
   const lastSpawnRef = useRef(0);
   const endedRef = useRef(false);
   const activeRef = useRef(false);
+
+  const conn = challenge.connector;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -91,11 +70,9 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
     const floats = new FloatingText();
     const sfx = new Sfx();
 
-    const letters = (["A", "B", "C", "D"] as Letter[]).filter(
-      (l) => challenge?.options?.[l],
-    );
-    const pool: Letter[] = letters.length ? letters : ["A", "B", "C", "D"];
-    const correct: Letter = challenge?.correctLetter ?? "A";
+    const correct = (conn?.answer ?? "so").trim();
+    const distractors = (conn?.distractors ?? ["but", "although", "because"]).map((d) => d.trim());
+    const pool = shuffled([correct, ...distractors].filter(Boolean));
 
     const onMove = (clientX: number) => {
       const r = canvas.getBoundingClientRect();
@@ -117,6 +94,11 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
     let prev = performance.now();
     let bgPhase = 0;
 
+    const measure = (txt: string) => {
+      ctx.font = "700 15px system-ui, sans-serif";
+      return Math.max(64, ctx.measureText(txt).width + 30);
+    };
+
     const end = (won: boolean) => {
       if (!activeRef.current || endedRef.current) return;
       endedRef.current = true;
@@ -130,33 +112,27 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
       } else {
         sfx.lose();
       }
-      // let the final burst play before handing back
       setTimeout(() => onGameEnd(won), 650);
     };
 
     const spawnTile = (now: number) => {
-      // 45% chance the tile is the correct answer, else a distractor
-      const wantCorrect = pool.length === 1 || Math.random() < 0.45;
-      let letter: Letter;
+      const wantCorrect = pool.length === 1 || Math.random() < 0.42;
+      let text: string;
       if (wantCorrect) {
-        letter = correct;
+        text = correct;
       } else {
-        const distractors = pool.filter((l) => l !== correct);
-        letter = distractors.length
-          ? distractors[(Math.random() * distractors.length) | 0]
-          : correct;
+        const wrong = pool.filter((p) => p !== correct);
+        text = wrong.length ? wrong[(Math.random() * wrong.length) | 0] : correct;
       }
-      const text = challenge
-        ? truncate(challenge.options[letter] ?? letter, 22)
-        : "⭐";
-      const speedBoost = progressRef.current * 8;
+      const w = measure(text);
+      const speedBoost = progressRef.current * 10;
       tilesRef.current.push({
-        x: TILE_W / 2 + Math.random() * (W - TILE_W),
+        x: w / 2 + Math.random() * (W - w),
         y: -TILE_H,
-        vy: 92 + Math.random() * 46 + speedBoost,
-        letter,
+        vy: 88 + Math.random() * 42 + speedBoost,
         text,
-        correct: letter === correct,
+        correct: text === correct,
+        w,
         spawn: now,
       });
     };
@@ -164,52 +140,29 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
     const drawTile = (t: Tile, now: number) => {
       const age = (now - t.spawn) / 1000;
       const pop = easeOutBack(clamp(age / 0.18, 0, 1));
-      const w = TILE_W * (0.5 + 0.5 * pop);
+      const w = t.w * (0.5 + 0.5 * pop);
       const h = TILE_H * (0.5 + 0.5 * pop);
       const x = t.x - w / 2;
       const y = t.y - h / 2;
-      const col = challenge ? LETTER_COLORS[t.letter] : "#fde047";
+      // Neutral colour — the player must READ the word, not colour-match.
+      const col = "#e0e7ff";
 
       ctx.save();
-      // glow
-      ctx.shadowColor = col;
-      ctx.shadowBlur = 16;
-      const g = ctx.createLinearGradient(x, y, x, y + h);
-      g.addColorStop(0, "rgba(255,255,255,0.16)");
-      g.addColorStop(1, "rgba(0,0,0,0.28)");
+      ctx.shadowColor = "rgba(129,140,248,0.7)";
+      ctx.shadowBlur = 14;
       roundRect(ctx, x, y, w, h, 12);
       ctx.fillStyle = col;
       ctx.fill();
       ctx.shadowBlur = 0;
-      roundRect(ctx, x, y, w, h, 12);
-      ctx.fillStyle = g;
-      ctx.fill();
       ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgba(255,255,255,0.55)";
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
       ctx.stroke();
 
-      if (challenge) {
-        // letter badge
-        ctx.fillStyle = "rgba(0,0,0,0.35)";
-        ctx.beginPath();
-        ctx.arc(x + 18, y + h / 2, 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#fff";
-        ctx.font = "800 15px system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(t.letter, x + 18, y + h / 2 + 1);
-        // option text
-        ctx.textAlign = "left";
-        ctx.font = "700 14px system-ui, sans-serif";
-        ctx.fillStyle = "#0f172a";
-        ctx.fillText(t.text, x + 36, y + h / 2 + 1);
-      } else {
-        ctx.font = "26px serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("⭐", t.x, t.y);
-      }
+      ctx.fillStyle = "#1e1b4b";
+      ctx.font = "700 15px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(t.text, t.x, t.y + 1);
       ctx.restore();
     };
 
@@ -218,14 +171,11 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
       prev = now;
       bgPhase += dt;
 
-      // spawn
-      const spawnGap = challenge ? 760 : 800;
-      if (now - lastSpawnRef.current > spawnGap) {
+      if (now - lastSpawnRef.current > 820) {
         lastSpawnRef.current = now;
         spawnTile(now);
       }
 
-      // update tiles + collision
       const bx = basketXRef.current;
       const bTop = BASKET_Y;
       for (const t of tilesRef.current) {
@@ -234,7 +184,7 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
           !t.dead &&
           t.y + TILE_H / 2 >= bTop &&
           t.y - TILE_H / 2 <= bTop + BASKET_H &&
-          Math.abs(t.x - bx) <= BASKET_W / 2 + TILE_W / 2 - 10
+          Math.abs(t.x - bx) <= BASKET_W / 2 + t.w / 2 - 10
         ) {
           t.dead = true;
           if (t.correct) {
@@ -243,11 +193,8 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
             setCombo(comboRef.current);
             setProgress(progressRef.current);
             sfx.coin(comboRef.current);
-            particles.burst(t.x, t.y, 18, ["#34d399", "#a7f3d0", "#facc15"], {
-              speed: 240,
-            });
-            const label =
-              comboRef.current >= 3 ? `COMBO x${comboRef.current}` : "+1";
+            particles.burst(t.x, t.y, 18, ["#34d399", "#a7f3d0", "#facc15"], { speed: 240 });
+            const label = comboRef.current >= 3 ? `COMBO x${comboRef.current}` : "+1";
             floats.spawn(t.x, t.y - 10, label, "#bbf7d0", comboRef.current >= 3 ? 20 : 24);
             shake.add(0.12);
           } else {
@@ -257,58 +204,48 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
             setLives(livesRef.current);
             sfx.buzz();
             particles.burst(t.x, t.y, 14, ["#f87171", "#fca5a5"], { speed: 200 });
-            floats.spawn(t.x, t.y - 10, "MISS", "#fecaca", 22);
+            floats.spawn(t.x, t.y - 10, "WRONG", "#fecaca", 20);
             shake.add(0.5);
           }
         }
       }
-      tilesRef.current = tilesRef.current.filter(
-        (t) => !t.dead && t.y < H + TILE_H,
-      );
+      tilesRef.current = tilesRef.current.filter((t) => !t.dead && t.y < H + TILE_H);
 
       particles.update(dt);
       floats.update(dt);
       shake.update(dt);
 
-      // ---- draw ----
       const [sx, sy] = shake.offset();
       ctx.save();
       ctx.translate(sx, sy);
 
-      verticalGradient(ctx, W, H, "#0b1a3a", "#231045");
-      // parallax twinkle
+      verticalGradient(ctx, W, H, "#07203a", "#0b3a2e");
       ctx.fillStyle = "rgba(255,255,255,0.5)";
-      for (let i = 0; i < 22; i++) {
+      for (let i = 0; i < 20; i++) {
         const tx = (i * 53) % W;
-        const ty = (i * 97 + bgPhase * 22) % H;
-        const tw = (Math.sin(bgPhase * 3 + i) + 1) * 1.1;
-        ctx.globalAlpha = 0.25 + 0.25 * Math.sin(bgPhase * 2 + i);
+        const ty = (i * 97 + bgPhase * 20) % H;
+        const tw = (Math.sin(bgPhase * 3 + i) + 1) * 1.0;
+        ctx.globalAlpha = 0.2 + 0.22 * Math.sin(bgPhase * 2 + i);
         ctx.fillRect(tx, ty, tw, tw);
       }
       ctx.globalAlpha = 1;
 
       for (const t of tilesRef.current) drawTile(t, now);
 
-      // basket / net
       const grad = ctx.createLinearGradient(0, bTop, 0, bTop + BASKET_H);
-      grad.addColorStop(0, "#fbbf24");
-      grad.addColorStop(1, "#b45309");
+      grad.addColorStop(0, "#22d3ee");
+      grad.addColorStop(1, "#0e7490");
       roundRect(ctx, bx - BASKET_W / 2, bTop, BASKET_W, BASKET_H, 8);
       ctx.fillStyle = grad;
       ctx.fill();
       ctx.strokeStyle = "rgba(255,255,255,0.7)";
       ctx.lineWidth = 2;
       ctx.stroke();
-      // basket rim highlight
-      ctx.fillStyle = "rgba(255,255,255,0.35)";
-      roundRect(ctx, bx - BASKET_W / 2 + 4, bTop + 3, BASKET_W - 8, 5, 3);
-      ctx.fill();
 
       particles.draw(ctx);
       floats.draw(ctx);
       ctx.restore();
 
-      // ---- end conditions ----
       if (progressRef.current >= GOAL) return end(true);
       if (livesRef.current <= 0) return end(false);
       raf = requestAnimationFrame(loop);
@@ -328,19 +265,17 @@ export function CatchStarsGame({ onGameEnd, challenge }: Props) {
 
   return (
     <div className="flex w-full max-w-[360px] flex-col items-center gap-2">
-      {challenge && (
-        <div className="w-full rounded-xl bg-white/10 px-3 py-2 text-center text-sm font-semibold text-white ring-1 ring-white/15">
-          Catch the correct answer 🧺
-          <div className="mt-1 text-[13px] font-normal text-white/80 line-clamp-3">
-            {challenge.question}
-          </div>
+      <div className="w-full rounded-xl bg-white/10 px-3 py-2 text-center text-sm font-semibold text-white ring-1 ring-white/15">
+        Catch the right connector 🔗
+        <div className="mt-1 text-[13px] font-normal leading-snug text-white/85">
+          {conn?.before} <span className="rounded bg-white/20 px-2 font-bold text-amber-200">____</span> {conn?.after}
         </div>
-      )}
+      </div>
       <div className="flex w-full items-center justify-between text-sm font-bold text-white">
         <span>🎯 {progress}/{GOAL}</span>
         <span className="text-rose-300">
-          {"❤".repeat(lives)}
-          {"·".repeat(LIVES - lives)}
+          {"❤".repeat(Math.max(0, lives))}
+          {"·".repeat(Math.max(0, LIVES - lives))}
         </span>
         <span className="text-amber-300">{combo >= 2 ? `🔥x${combo}` : ""}</span>
       </div>

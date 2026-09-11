@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Target, BookOpen, Sparkles, School, ClipboardList, LayoutDashboard } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,7 @@ export function StudyModeSelect({
 }: Props) {
   const { lang } = useI18n();
   const isMs = lang === "ms";
+  const navigate = useNavigate();
   const [progress, setProgress] = useState<DiagnosticProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<StudyMode | null>(initialMode ?? null);
@@ -99,7 +100,7 @@ export function StudyModeSelect({
             {/* Diagnostic */}
             <button
               type="button"
-              onClick={() => setSelected("diagnostic")}
+              onClick={() => onStart("diagnostic")}
               className={cn(
                 "rounded-xl border-2 p-5 text-left transition",
                 selected === "diagnostic"
@@ -161,7 +162,7 @@ export function StudyModeSelect({
             {/* Free practice */}
             <button
               type="button"
-              onClick={() => setSelected("free_practice")}
+              onClick={() => onStart("free_practice")}
               className={cn(
                 "rounded-xl border-2 p-5 text-left transition",
                 selected === "free_practice"
@@ -292,6 +293,20 @@ export function StudyModeSelect({
                       type="button"
                       onClick={() => {
                         void startAiTask(t.id);
+                        // A lesson task with a generated deck opens the slide deck
+                        // (deck + tutor + practice CTA live on the lesson page).
+                        if (t.task_type === "lesson" && t.lesson_id) {
+                          void navigate({
+                            to: "/lesson/$lessonId",
+                            params: { lessonId: t.lesson_id },
+                            search: {
+                              taskId: t.id,
+                              subject: t.subject,
+                              topic: t.topic,
+                            },
+                          });
+                          return;
+                        }
                         onStartAssignment?.({
                           id: t.id,
                           classroom_id: "",

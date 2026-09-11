@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Loader2, Plus, Trash2, ClipboardList, AlertTriangle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Plus, Trash2, ClipboardList, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,9 @@ import {
   fetchAssignmentsForTeacher,
   createAssignment,
   deleteAssignment,
+  fetchTeacherAiTasks,
   type Assignment,
+  type AiTask,
 } from "@/services/api";
 import { toast } from "sonner";
 
@@ -32,14 +34,18 @@ export function AssignmentsPanel() {
   const { user } = useAuth();
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [aiTasks, setAiTasks] = useState<AiTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   const load = async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
+    setAiError(null);
     try {
       const { data: cls, error: e1 } = await supabase
         .from("classrooms")
@@ -47,13 +53,27 @@ export function AssignmentsPanel() {
         .order("created_at", { ascending: false });
       if (e1) throw e1;
       setClassrooms((cls ?? []) as Classroom[]);
-      const tasks = await fetchAssignmentsForTeacher(user.id);
-      setAssignments(tasks);
+      // Load the two sources independently: an AI-task backend outage must not blank
+      // out the teacher-created assignments (and vice versa).
+      const [tasksRes, aiRes] = await Promise.allSettled([
+        fetchAssignmentsForTeacher(user.id),
+        fetchTeacherAiTasks(),
+      ]);
+      if (tasksRes.status === "fulfilled") setAssignments(tasksRes.value);
+      else setError(tasksRes.reason instanceof Error ? tasksRes.reason.message : "Failed to load assignments");
+      if (aiRes.status === "fulfilled") setAiTasks(aiRes.value);
+      else setAiError("Couldn't reach the AI-tasks service — showing none. Try refreshing.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load assignments");
     } finally {
       setLoading(false);
     }
+  };
+
+  const refresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -62,6 +82,28 @@ export function AssignmentsPanel() {
   }, [user?.id]);
 
   const classroomName = (id: string) => classrooms.find((c) => c.id === id)?.name ?? "—";
+
+  // Unified feed: manual classroom assignments (assignments table) + AI-personalised
+  // per-student tasks (assigned_tasks table), tagged by source and sorted newest-first.
+  // AI-controller output lands here too, so it no longer hides in a separate section.
+  type MergedItem =
+    | { kind: "manual"; id: string; ts: number; data: Assignment }
+    | { kind: "ai"; id: string; ts: number; data: AiTask };
+  const merged = useMemo<MergedItem[]>(() => {
+    const m: MergedItem[] = assignments.map((a) => ({
+      kind: "manual",
+      id: a.id,
+      ts: a.created_at ? new Date(a.created_at).getTime() : 0,
+      data: a,
+    }));
+    const ai: MergedItem[] = aiTasks.map((t) => ({
+      kind: "ai",
+      id: t.id,
+      ts: t.assigned_at ? new Date(t.assigned_at).getTime() : 0,
+      data: t,
+    }));
+    return [...m, ...ai].sort((x, y) => y.ts - x.ts);
+  }, [assignments, aiTasks]);
 
   const handleDelete = async (id: string) => {
     const res = await deleteAssignment(id);
@@ -77,16 +119,26 @@ export function AssignmentsPanel() {
         <div>
           <h2 className="font-display text-lg font-semibold">Assigned Tasks</h2>
           <p className="text-sm text-muted-foreground">
-            {assignments.length} task{assignments.length === 1 ? "" : "s"} assigned across your classrooms
+            {merged.length} task{merged.length === 1 ? "" : "s"} — classroom assignments and AI-personalised tasks
           </p>
         </div>
-        <Button
-          onClick={() => setShowCreate(true)}
-          disabled={classrooms.length === 0}
-          className="rounded-xl bg-gradient-primary shadow-glow hover:opacity-95"
-        >
-          <Plus className="h-4 w-4" /> New task
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void refresh()}
+            disabled={refreshing || loading}
+            className="rounded-xl"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+          <Button
+            onClick={() => setShowCreate(true)}
+            disabled={classrooms.length === 0}
+            className="rounded-xl bg-gradient-primary shadow-glow hover:opacity-95"
+          >
+            <Plus className="h-4 w-4" /> New task
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -94,67 +146,117 @@ export function AssignmentsPanel() {
           <AlertTriangle className="h-4 w-4" /> {error}
         </div>
       )}
+      {aiError && (
+        <div className="flex items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4" /> {aiError}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
         </div>
-      ) : classrooms.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card/40 p-10 text-center">
-          <ClipboardList className="mx-auto h-8 w-8 text-muted-foreground" />
-          <h3 className="mt-3 font-display text-lg font-semibold">Create a classroom first</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            You need at least one classroom to assign tasks to students.
-          </p>
-        </div>
-      ) : assignments.length === 0 ? (
+      ) : merged.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/40 p-10 text-center">
           <ClipboardList className="mx-auto h-8 w-8 text-muted-foreground" />
           <h3 className="mt-3 font-display text-lg font-semibold">No tasks yet</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create your first task — students in the classroom will see it under "Assigned Tasks".
+            {classrooms.length === 0
+              ? "Create a classroom, then assign tasks — or use the AI Controller to assign personalised tasks."
+              : "Create a task with \"New task\", or use the AI Controller to assign personalised tasks to students."}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {assignments.map((a) => (
-            <div
-              key={a.id}
-              className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border bg-card p-5 shadow-card"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-display text-base font-semibold">{a.title}</h3>
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {classroomName(a.classroom_id)}
-                  </span>
-                  {a.subject && (
-                    <span className="text-xs text-muted-foreground">{a.subject}</span>
+          {merged.map((item) =>
+            item.kind === "manual" ? (
+              <div
+                key={item.id}
+                className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border bg-card p-5 shadow-card"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Classroom
+                    </span>
+                    <h3 className="font-display text-base font-semibold">{item.data.title}</h3>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {classroomName(item.data.classroom_id)}
+                    </span>
+                    {item.data.subject && (
+                      <span className="text-xs text-muted-foreground">{item.data.subject}</span>
+                    )}
+                    {item.data.topic && (
+                      <span className="text-xs text-muted-foreground">· {item.data.topic}</span>
+                    )}
+                    {item.data.form_level && (
+                      <span className="text-xs text-muted-foreground">· Form {item.data.form_level}</span>
+                    )}
+                  </div>
+                  {item.data.instructions && (
+                    <p className="mt-2 text-sm text-muted-foreground">{item.data.instructions}</p>
                   )}
-                  {a.topic && <span className="text-xs text-muted-foreground">· {a.topic}</span>}
-                  {a.form_level && (
-                    <span className="text-xs text-muted-foreground">· Form {a.form_level}</span>
+                  {item.data.due_at && (
+                    <p className="mt-2 text-xs text-warning">
+                      Due {new Date(item.data.due_at).toLocaleString()}
+                    </p>
                   )}
                 </div>
-                {a.instructions && (
-                  <p className="mt-2 text-sm text-muted-foreground">{a.instructions}</p>
-                )}
-                {a.due_at && (
-                  <p className="mt-2 text-xs text-warning">
-                    Due {new Date(a.due_at).toLocaleString()}
-                  </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleDelete(item.data.id)}
+                  className="rounded-lg text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div
+                key={item.id}
+                className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border bg-card p-5 shadow-card"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+                      AI · {item.data.student_name ?? "Student"}
+                    </span>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+                      {item.data.task_type}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                        item.data.status === "completed"
+                          ? "bg-success/10 text-success"
+                          : item.data.status === "in_progress"
+                            ? "bg-warning/10 text-warning"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {item.data.status.replace("_", " ")}
+                    </span>
+                    {item.data.subject && (
+                      <span className="text-xs text-muted-foreground">{item.data.subject}</span>
+                    )}
+                    {item.data.topic && (
+                      <span className="text-xs text-muted-foreground">· {item.data.topic}</span>
+                    )}
+                  </div>
+                  {item.data.instructions && (
+                    <p className="mt-2 text-sm text-muted-foreground">{item.data.instructions}</p>
+                  )}
+                  {item.data.teacher_note && (
+                    <p className="mt-1 text-xs italic text-muted-foreground">{item.data.teacher_note}</p>
+                  )}
+                </div>
+                {item.data.assigned_at && (
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(item.data.assigned_at).toLocaleDateString()}
+                  </span>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void handleDelete(a.id)}
-                className="rounded-lg text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       )}
 

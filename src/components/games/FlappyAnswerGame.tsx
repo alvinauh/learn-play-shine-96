@@ -315,7 +315,7 @@ export function FlappyAnswerGame({ onGameEnd, challenge }: Props) {
       {challenge && (
         <div className="w-full rounded-xl bg-white/10 px-3 py-2 text-center text-sm font-semibold text-white ring-1 ring-white/15">
           Steer through the correct answer 🐤
-          <div className="mt-1 text-[13px] font-normal text-white/80 line-clamp-2">
+          <div className="mt-1 text-[13px] font-normal text-white/80 line-clamp-3">
             {challenge.question}
           </div>
         </div>
