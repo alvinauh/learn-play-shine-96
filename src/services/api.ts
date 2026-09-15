@@ -103,8 +103,11 @@ export interface TeacherInsightsResponse {
 }
 
 
-export async function fetchTeacherInsights(): Promise<TeacherInsightsResponse> {
-  const res = await fetch(`${BASE_URL}/teacher_insights?t=${Date.now()}`, {
+export async function fetchTeacherInsights(forceRefresh = false): Promise<TeacherInsightsResponse> {
+  const url = forceRefresh
+    ? `${BASE_URL}/teacher_insights?force_refresh=true`
+    : `${BASE_URL}/teacher_insights?t=${Date.now()}`;
+  const res = await fetch(url, {
     method: "GET",
     cache: "no-store",
   });
@@ -335,6 +338,7 @@ export interface AnswerResponse {
   correct: boolean;
   is_correct?: boolean;
   correct_answer: string;
+  queued?: boolean;       // true when answer was saved offline; server hasn't graded it yet
   feedback: string;
   misconception?: string;
   // Essay-only: the fuller marked report — strengths, improvements, band, the full
@@ -700,11 +704,38 @@ export async function submitAnswer(
     language: language || "English",
   };
   if (sessionId) payload.session_id = sessionId;
+
+  // Offline guard — queue the answer and return immediately.
+  // Essays cannot be queued (marking requires the full LLM stack server-side).
+  const isEssay = questionType === "essay";
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    if (isEssay) {
+      throw new Error("Essays require an internet connection to mark. Please reconnect and try again.");
+    }
+    const { enqueueAnswer } = await import("@/lib/syncQueue");
+    await enqueueAnswer({
+      student_id: safeStudentId,
+      topic: topic || "Kinematics",
+      subject: subject || "",
+      curriculum: curriculum ?? "",
+      language: language || "English",
+      student_answer: studentAnswer ?? "",
+      draft: draft ?? {},
+      question_type: questionType,
+      ...(sessionId ? { session_id: sessionId } : {}),
+    });
+    return {
+      correct: false,
+      correct_answer: "",
+      feedback: "📶 Tiada sambungan internet. Jawapan disimpan dan akan dihantar bila sambungan pulih.",
+      queued: true,
+    };
+  }
+
   // Essays are marked by a live LLM generation (band rubric, written feedback AND a
   // worked "how it should look" model) which can legitimately take minutes — allow
   // 9 min before aborting so a slow provider chain never truncates the report. MCQ/
   // short answers stay at 60s. nginx proxy_read_timeout is 600s, so 9 min is safe.
-  const isEssay = questionType === "essay";
   const timeoutMs = isEssay ? 540_000 : 60_000;
   try {
     return await postJSON<AnswerResponse>("/submit_answer", payload, false, timeoutMs);
@@ -1489,6 +1520,68 @@ export async function fetchTeacherChatHistory(
   if (!res.ok) throw new ApiResponseError(res.status);
   const data = (await res.json()) as { messages?: TeacherChatMessage[] };
   return data.messages ?? [];
+}
+
+// ── Question History Audit ─────────────────────────────────────────────────
+
+export interface HistoryRecord {
+  id: string;
+  topic: string;
+  subject: string;
+  kbat_level: string;
+  is_correct: boolean;
+  created_at: string;
+  question_text: string;
+  question_type: string;
+  options_json: Record<string, string> | null;
+  correct_answer: string | null;
+  student_answer: string | null;
+  feedback_text: string | null;
+  error_category: string | null;
+  root_cause: string | null;
+  time_spent_seconds: number | null;
+  session_id: string | null;
+  // teacher view only
+  student_id?: string;
+}
+
+export interface HistoryResponse {
+  total: number;
+  offset: number;
+  limit: number;
+  records: HistoryRecord[];
+}
+
+export async function fetchQuestionHistory(
+  studentId: string,
+  opts?: { subject?: string; topic?: string; limit?: number; offset?: number },
+): Promise<HistoryResponse> {
+  const safe = studentId && studentId !== "undefined"
+    ? studentId
+    : "00000000-0000-0000-0000-000000000001";
+  const p = new URLSearchParams({ limit: String(opts?.limit ?? 40), offset: String(opts?.offset ?? 0) });
+  if (opts?.subject) p.set("subject", opts.subject);
+  if (opts?.topic) p.set("topic", opts.topic);
+  const res = await fetch(`${BASE_URL}/question_history/${encodeURIComponent(safe)}?${p}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<HistoryResponse>;
+}
+
+export async function fetchClassQuestionHistory(
+  opts?: { subject?: string; topic?: string; limit?: number; offset?: number },
+): Promise<HistoryResponse> {
+  const p = new URLSearchParams({ limit: String(opts?.limit ?? 60), offset: String(opts?.offset ?? 0) });
+  if (opts?.subject) p.set("subject", opts.subject);
+  if (opts?.topic) p.set("topic", opts.topic);
+  const res = await fetch(`${BASE_URL}/class_question_history?${p}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  if (!res.ok) throw new ApiResponseError(res.status);
+  return res.json() as Promise<HistoryResponse>;
 }
 
 
