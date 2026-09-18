@@ -47,6 +47,7 @@ import {
 import { ClassroomsPanel } from "@/components/teacher/ClassroomsPanel";
 import { AssignmentsPanel } from "@/components/teacher/AssignmentsPanel";
 import { AiControllerPanel } from "@/components/teacher/AiControllerPanel";
+import { CommandCentrePanel } from "@/components/teacher/CommandCentrePanel";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +74,7 @@ function TeacherDashboard() {
     setViewAsStudent(false);
   }, []);
 
-  const [tab, setTab] = useState<"ai" | "insights" | "classrooms" | "assignments">("ai");
+  const [tab, setTab] = useState<"ai" | "insights" | "classrooms" | "assignments" | "centre">("ai");
   const [classMastery, setClassMastery] = useState<ClassMasteryItem[]>([]);
 const [activeStudents, setActiveStudents] = useState<string>("-");
   const [classAverageMastery, setClassAverageMastery] = useState<string>("-");
@@ -265,6 +266,7 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
         <nav className="inline-flex rounded-full border border-border bg-card/60 p-1 text-sm">
           {([
             { key: "ai", label: "AI Controller", icon: Sparkles },
+            { key: "centre", label: "Command Centre", icon: BookOpen },
             { key: "insights", label: "Insights", icon: LayoutDashboard },
             { key: "classrooms", label: "My Classrooms", icon: School },
             { key: "assignments", label: "Assigned Tasks", icon: ClipboardList },
@@ -287,6 +289,8 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
 
         {tab === "ai" ? (
           <AiControllerPanel />
+        ) : tab === "centre" ? (
+          <CommandCentrePanel />
         ) : tab === "classrooms" ? (
           <ClassroomsPanel />
         ) : tab === "assignments" ? (
