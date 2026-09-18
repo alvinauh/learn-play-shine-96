@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Sparkles,
   BookOpen,
+  Settings,
 } from "lucide-react";
 import {
   Radar,
@@ -230,6 +231,13 @@ const [activeStudents, setActiveStudents] = useState<string>("-");
               aria-label="Content Library"
             >
               <BookOpen className="h-4 w-4" />
+            </Link>
+            <Link
+              to="/settings"
+              className="grid h-9 w-9 place-items-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition"
+              aria-label="Settings"
+            >
+              <Settings className="h-4 w-4" />
             </Link>
             <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">● {t.live}</span>
             {profile?.full_name && (
