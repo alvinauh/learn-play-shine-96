@@ -500,7 +500,7 @@ function SettingsPage() {
     const schools: Record<string, SchoolEntry> = {};
     for (const row of rows) {
       const kodSekolah = String(row.kod_sekolah ?? "");
-      const namaSekolah = String(row.nama_sekolah ?? kodSekolah || "Unknown School");
+      const namaSekolah = String(row.nama_sekolah ?? (kodSekolah || "Unknown School"));
       const schoolKey = kodSekolah || namaSekolah;
       const namakelas = String(row.namakelas ?? "Uncategorised");
       const classKey = kodSekolah ? `${namakelas} · ${kodSekolah}` : namakelas;
