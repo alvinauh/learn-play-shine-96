@@ -193,7 +193,16 @@ function SettingsPage() {
     setIntLoading(true);
     try {
       const res = await adminFetch("/admin/integrations");
-      if (res.ok) setIntegrations(await res.json());
+      if (res.ok) {
+        const list: Integration[] = await res.json();
+        setIntegrations(list);
+        // Restore staging preview for any postgres connector with existing pulled data
+        for (const int of list) {
+          if (int.connection_type === "postgres" && int.last_sync_status === "ok") {
+            void fetchStagingData(int.id);
+          }
+        }
+      }
     } finally {
       setIntLoading(false);
     }
