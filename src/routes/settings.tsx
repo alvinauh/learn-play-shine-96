@@ -421,7 +421,12 @@ function SettingsPage() {
         setStagingData(d => ({ ...d, [id]: json }));
         // Auto-select all classes when data arrives
         const classes = new Set(
-          json.rows.map(r => String((r as Record<string, unknown>).namakelas ?? "")).filter(Boolean)
+          json.rows.map(r => {
+            const row = r as Record<string, unknown>;
+            const school = String(row.kod_sekolah ?? row.nama_sekolah ?? "");
+            const cls = String(row.namakelas ?? "");
+            return school ? `${cls} · ${school}` : cls;
+          }).filter(Boolean)
         );
         setSelectedClasses(s => ({ ...s, [id]: classes }));
       }
@@ -482,9 +487,11 @@ function SettingsPage() {
   function groupByClass(rows: Record<string, unknown>[]) {
     const groups: Record<string, { students: Record<string, unknown>[]; meta: Record<string, unknown> }> = {};
     for (const row of rows) {
+      const school = String(row.kod_sekolah ?? row.nama_sekolah ?? "");
       const cls = String(row.namakelas ?? "Uncategorised");
-      if (!groups[cls]) groups[cls] = { students: [], meta: { kodtingkatan: row.kodtingkatan, alirankelas: row.alirankelas, bidangkelas: row.bidangkelas } };
-      groups[cls].students.push(row);
+      const key = school ? `${cls} · ${school}` : cls;
+      if (!groups[key]) groups[key] = { students: [], meta: { kodtingkatan: row.kodtingkatan, alirankelas: row.alirankelas, bidangkelas: row.bidangkelas, nama_sekolah: row.nama_sekolah, kod_sekolah: row.kod_sekolah } };
+      groups[key].students.push(row);
     }
     return groups;
   }
