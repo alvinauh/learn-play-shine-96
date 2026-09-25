@@ -249,6 +249,7 @@ export function BlockBlastGame(props: Props) {
   // For standalone: question buffer
   const queueRef = useRef<GameChallenge[]>([]);
   const prefetchingRef = useRef(false);
+  const refillPromiseRef = useRef<Promise<void> | null>(null);
   const boardRef = useRef(board);
   boardRef.current = board;
   const scoreRef = useRef(score);
@@ -268,42 +269,57 @@ export function BlockBlastGame(props: Props) {
   }, [streak]);
 
   // ── Standalone: question fetching ─────────────────────────────────────────
-  const refill = useCallback(async () => {
-    if (!isStandalone(props)) return;
-    if (prefetchingRef.current) return;
+  // Fire all needed fetches in parallel so the buffer fills in one LLM round-trip
+  // instead of N sequential ones (old serial while-loop took 10-20s for 4 questions).
+  const refill = useCallback((): Promise<void> => {
+    if (!isStandalone(props)) return Promise.resolve();
+    if (prefetchingRef.current) return refillPromiseRef.current ?? Promise.resolve();
+    const needed = BUFFER_TARGET - queueRef.current.length;
+    if (needed <= 0) return Promise.resolve();
     prefetchingRef.current = true;
     const { studentId, topic, subject, apiLang, questionType, formLevel } = props;
-    try {
-      while (queueRef.current.length < BUFFER_TARGET) {
-        const s = await startSession(
-          studentId, topic, "KSSM", apiLang, subject,
-          undefined, true, questionType, formLevel
-        );
-        if (!s.session_id || !s.question?.trim()) continue;
-        const correctRaw = await fetchSessionChallenge(s.session_id);
-        const ch = buildChallengeFrom(s.question, s.options, correctRaw, "mcq", {
-          sessionId: s.session_id,
-          explanation: s.illustrative_notes || undefined,
-          topic: s.topic ?? topic,
-          subject: s.subject ?? subject,
-        });
-        if (ch) queueRef.current.push(ch);
-      }
-    } catch { /* leave queue as-is */ } finally {
+    const p = Promise.all(
+      Array.from({ length: needed }, async () => {
+        try {
+          const s = await startSession(studentId, topic, "KSSM", apiLang, subject, undefined, true, questionType, formLevel);
+          if (!s.session_id || !s.question?.trim()) return null;
+          const correctRaw = await fetchSessionChallenge(s.session_id);
+          return buildChallengeFrom(s.question, s.options, correctRaw, "mcq", {
+            sessionId: s.session_id,
+            explanation: s.illustrative_notes || undefined,
+            topic: s.topic ?? topic,
+            subject: s.subject ?? subject,
+            objectLesson: s.object_lesson || undefined,
+          });
+        } catch { return null; }
+      })
+    ).then(results => {
+      results.forEach(ch => { if (ch) queueRef.current.push(ch); });
+    }).finally(() => {
       prefetchingRef.current = false;
-    }
+      refillPromiseRef.current = null;
+    });
+    refillPromiseRef.current = p;
+    return p;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const advanceQuestion = useCallback(() => {
+  const advanceQuestion = useCallback(async () => {
     if (!isStandalone(props)) return;
     if (queueRef.current.length < BUFFER_TARGET) void refill();
     const next = queueRef.current.shift();
     if (!next) {
-      // Buffer empty — show loading state so the game doesn't freeze on the last verdict
       setSelected(null);
       setVerdict(null);
       setPhase("loading");
-      setTimeout(advanceQuestion, 600);
+      // Await the in-flight refill instead of polling every 600ms.
+      await (refillPromiseRef.current ?? refill());
+      const retry = queueRef.current.shift();
+      if (retry) {
+        setCurrentChallenge(retry);
+        setSelected(null);
+        setVerdict(null);
+        setPhase("question");
+      }
       return;
     }
     setCurrentChallenge(next);
@@ -578,6 +594,12 @@ export function BlockBlastGame(props: Props) {
 
       {/* ── QUESTION — top on mobile, left col row 2 on desktop ───────────── */}
       <div className="shrink-0 overflow-y-auto bg-[#14142e] px-4 pt-3 pb-2 md:col-start-1 md:row-start-2 md:border-r md:border-white/10">
+        {currentChallenge?.objectLesson && (
+          <div className="mb-2 rounded-lg bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-200/80 ring-1 ring-amber-400/20">
+            <span className="mr-1 font-semibold text-amber-300/80">🌏 Situasi:</span>
+            {currentChallenge.objectLesson}
+          </div>
+        )}
         {currentChallenge ? (
           <p className="text-sm md:text-base xl:text-lg font-semibold leading-snug line-clamp-4 md:line-clamp-none">
             {currentChallenge.question}

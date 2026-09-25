@@ -73,7 +73,7 @@ export function LoadingGame({
  *  - round:   bump this into the game's React key to force a fresh round
  *  - onGameEnd: pass to the game; drives replay-or-release
  */
-export function useWaitGame(pending: boolean, thresholdMs = 6000) {
+export function useWaitGame(pending: boolean, thresholdMs = 2000) {
   const [showGame, setShowGame] = useState(false);
   const [holding, setHolding] = useState(false);
   const [round, setRound] = useState(0);

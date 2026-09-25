@@ -103,7 +103,8 @@ export function QuestionSlide({
     void (async () => {
       const correctRaw = await fetchSessionChallenge(session.session_id!);
       if (cancelled) return;
-      const ch = buildChallengeFrom(session.question, session.options, correctRaw, "mcq");
+      const ch = buildChallengeFrom(session.question, session.options, correctRaw, "mcq",
+        session.object_lesson ? { objectLesson: session.object_lesson } : undefined);
       if (ch) setReadyChallenge(ch);
     })();
     return () => { cancelled = true; };
@@ -126,7 +127,8 @@ export function QuestionSlide({
     void (async () => {
       try {
         const correctRaw = await fetchSessionChallenge(session.session_id!);
-        const ch = buildChallengeFrom(session.question, session.options, correctRaw, "mcq");
+        const ch = buildChallengeFrom(session.question, session.options, correctRaw, "mcq",
+          session.object_lesson ? { objectLesson: session.object_lesson } : undefined);
         if (ch) {
           setGameChallenge(ch);
         } else {
@@ -208,6 +210,7 @@ export function QuestionSlide({
           session.options,
           res.correct_answer,
           session.question_type ?? "mcq",
+          session.object_lesson ? { objectLesson: session.object_lesson } : undefined,
         ),
       });
     } catch {
@@ -283,6 +286,14 @@ export function QuestionSlide({
           )}
           style={{ touchAction: "pan-y" }}
         >
+          {session.object_lesson && (
+            <div className="mb-2.5 rounded-xl bg-amber-500/15 px-3 py-2 ring-1 ring-amber-400/25">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300/80">
+                🌏 Situasi
+              </div>
+              <p className="text-sm leading-relaxed text-amber-100/90">{session.object_lesson}</p>
+            </div>
+          )}
           {session.stimulus && (
             <div className="mb-2.5 rounded-xl border-l-2 border-primary/60 bg-primary/5 px-3 py-2 text-sm leading-relaxed text-foreground/90">
               {session.stimulus}
